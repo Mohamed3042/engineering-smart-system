@@ -35,6 +35,7 @@ from ess.knowledge.text import (
     FREE_MAIL_DOMAINS,
     extract_signature,
     find_verbatim,
+    quote_in_text,
     registrable_domain,
     sentence_spans,
     squash,
@@ -48,7 +49,7 @@ EVIDENCE_STANDARDS: dict[str, dict[str, Any]] = {
         "summary": "Identity confirmed by one source (official site, registry, or our own e-mails); any section "
                    "may be 'not found'.",
         "identity_sources": 1,
-        "identity_source_kinds": ["official", "registry", "directory", "own_email"],
+        "identity_source_kinds": ["official", "registry", "own_email"],
         "claims_need_verbatim_quote": True,
         "verify_quotes_against_page": False,  # a search snippet may be quoted as shown
         "key_fact_target_sources": 1,
@@ -66,7 +67,7 @@ EVIDENCE_STANDARDS: dict[str, dict[str, Any]] = {
                    "(what they do, size, current projects) aim for two sources, one official source is "
                    "acceptable.",
         "identity_sources": 1,
-        "identity_source_kinds": ["official", "registry", "directory", "own_email"],
+        "identity_source_kinds": ["official", "registry", "own_email"],
         "claims_need_verbatim_quote": True,
         "verify_quotes_against_page": True,
         "key_fact_target_sources": 2,
@@ -83,7 +84,7 @@ EVIDENCE_STANDARDS: dict[str, dict[str, Any]] = {
         "summary": "Standard + news searched for the last 12 months + at least two independent sources for "
                    "current projects.",
         "identity_sources": 1,
-        "identity_source_kinds": ["official", "registry", "directory", "own_email"],
+        "identity_source_kinds": ["official", "registry", "own_email"],
         "claims_need_verbatim_quote": True,
         "verify_quotes_against_page": True,
         "key_fact_target_sources": 2,
@@ -104,7 +105,7 @@ SECTION_LABELS = {"overview": "overview", "business_lines": "business lines", "p
                   "relationship_with_us": "relationship with us", "opportunities": "opportunities"}
 KEY_SECTIONS = ("overview", "business_lines", "projects_current")
 SOURCE_KIND_CONFIDENCE = {"official": 0.7, "registry": 0.7, "own_email": 0.75, "news": 0.6, "directory": 0.5,
-                          "other": 0.4}
+                          "internal": 0.5, "other": 0.4}
 OFFICIAL_KINDS = frozenset({"official", "registry", "own_email"})
 
 REGISTRY_HOSTS = frozenset({
@@ -797,7 +798,9 @@ def research_customer(customer: Any, provider: Any = None, engine: Any = None, s
     # own e-mails: relationship, people, the projects they asked us about
     if own_sources:
         dated = sorted((s for s in own_sources if _date(s.date)), key=lambda s: _date(s.date))
-        first_line = lambda s: next((ln.strip() for ln in s.text.splitlines() if len(ln.strip()) >= 8), s.text[:120])
+        def first_line(src: _Source) -> str:
+            return next((ln.strip() for ln in src.text.splitlines() if len(ln.strip()) >= 8), src.text[:120])
+
         if dated:
             a, b = dated[0], dated[-1]
             text = (f"{len(own_sources)} e-mail(s) with us between {_date(a.date).date().isoformat()} and "
@@ -834,12 +837,27 @@ def research_customer(customer: Any, provider: Any = None, engine: Any = None, s
             for cand in (ev, basis):
                 if isinstance(cand, Mapping) and cand.get("quote"):
                     src = _Source(url=str(cand.get("ref") or cand.get("source") or "internal:tags"),
-                                  title="Customer tags", kind="own_email", text=str(cand["quote"]),
+                                  title="Customer tags", kind="internal", text=str(cand["quote"]),
                                   verification="own_email", published=None, retrieved_at=stamp, site="own")
                     claim.add(src.ref(str(cand["quote"])))
         claims.append(claim)
 
     claims = _merge(claims)
+
+    # ---- final guard: every quote must be found (normalised) in the text it cites -------------
+    texts: dict[str, list[str]] = {}
+    for src in sources + own_sources:
+        texts.setdefault(src.url, []).append(src.text)
+    for c in claims:
+        kept = []
+        for ref in c.sources:
+            cited = texts.get(ref["url"])
+            if cited is None or any(quote_in_text(ref["quote"], t) for t in cited):
+                kept.append(ref)  # (internal sources carry their own quote as text)
+            else:
+                gaps.append({"section": c.section, "kind": "unverified_quote_dropped",
+                             "message": f"Quote not found in {ref['url']}: {ref['quote'][:120]}"})
+        c.sources = kept
 
     # ---- evaluate -------------------------------------------------------------------------------
     sections: dict[str, dict[str, Any]] = {s: {"status": "not_found", "claims": []} for s in SECTIONS}

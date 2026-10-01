@@ -557,8 +557,6 @@ def page_from_html(markup: str, url: str = "", *, status_code: int | None = None
     body = soup.body or soup
     if root is None or len(root.get_text(" ", strip=True)) < 200:
         root = body
-    if root is not body and soup.find("header") is not None:
-        pass
     for header in root.find_all("header"):
         if header.find("nav") is not None or len(header.get_text(" ", strip=True)) < 120:
             header.decompose()

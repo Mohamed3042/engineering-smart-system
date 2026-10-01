@@ -23,6 +23,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from ess.knowledge.base import WORK_TYPES, TermIndex, is_catch_all_category, normalize_text
 from ess.knowledge.text import (
+    EMAIL_RE,
     FREE_MAIL_DOMAINS,
     LEGAL_SUFFIX_RE,
     email_domain,
@@ -253,6 +254,16 @@ def _addr(value: Any) -> str:
 # --------------------------------------------------------------------------------------------
 
 
+def _foreign_signature(text: str, domain: str) -> bool:
+    """A signature whose e-mail addresses are all on another company's domain (e.g. our own reply
+    linked to this customer) says nothing about this customer."""
+    if not domain or domain in FREE_MAIL_DOMAINS:
+        return False
+    own = registrable_domain(domain)
+    addrs = EMAIL_RE.findall(text or "")
+    return bool(addrs) and all(registrable_domain(email_domain(a)) != own for a in addrs)
+
+
 def _name_lines(signature_texts: Iterable[str]) -> list[str]:
     """Company-name-like lines of signatures (legal suffix or a short line with a name cue)."""
     out = []
@@ -285,6 +296,8 @@ def classify_customer(domain: str | None = None, company_name: str | None = None
     dom = (domain or "").lower().strip().lstrip("@")
     if dom.startswith("www."):
         dom = dom[4:]
+    signature_texts = [s for s in signature_texts or [] if s and not _foreign_signature(
+        s[slice(*extract_signature(s))] if extract_signature(s) else s[-1500:], dom)]
     if dom and _GOV_TLD_RE.search(dom):
         add("government", 4.0, f"government domain {dom}")
     name = company_name or ""
@@ -391,7 +404,8 @@ def _customer_info(customer: Any) -> dict[str, Any]:
     if not domain and "." in ref and "@" not in ref and " " not in ref:
         domain = ref.lower()
     contacts = _get(customer, "contacts", default=[]) or []
-    return {"name": str(_get(customer, "name", default="") or ""), "domain": domain, "ref": ref,
+    ids = {str(x) for x in (_get(customer, "ref"), _get(customer, "id")) if x}
+    return {"name": str(_get(customer, "name", default="") or ""), "domain": domain, "ref": ref, "ids": ids,
             "kind": str(_get(customer, "kind", default="") or ""),
             "kind_confidence": _get(customer, "kind_confidence"),
             "contacts": [c if isinstance(c, Mapping) else {"name": getattr(c, "name", None),
@@ -401,8 +415,8 @@ def _customer_info(customer: Any) -> dict[str, Any]:
 
 def _belongs(email: Any, info: dict[str, Any]) -> bool:
     ref = _get(email, "customer_ref", "customer_id")
-    if ref is not None and info["ref"]:
-        return str(ref) == info["ref"]
+    if ref is not None and info["ids"]:
+        return str(ref) in info["ids"]
     return True
 
 
@@ -435,7 +449,20 @@ def _ev(quote: str, source: str, ref: Any = None, date: Any = None) -> dict[str,
     return {"quote": q[:240], "source": source, "ref": ref, "date": date.isoformat() if isinstance(date, datetime) else date}
 
 
+_SERVICE_INDEX_CACHE: dict[tuple, tuple[TermIndex, dict[str, str]]] = {}
+
+
 def _service_index(our_services: Sequence[Mapping[str, Any]] | None) -> tuple[TermIndex, dict[str, str]]:
+    sig = tuple(repr(sorted(s.items())) if isinstance(s, Mapping) else repr(s) for s in our_services or [])
+    hit = _SERVICE_INDEX_CACHE.get(sig)
+    if hit is None:
+        if len(_SERVICE_INDEX_CACHE) > 64:
+            _SERVICE_INDEX_CACHE.clear()
+        hit = _SERVICE_INDEX_CACHE[sig] = _build_service_index(our_services)
+    return hit
+
+
+def _build_service_index(our_services: Sequence[Mapping[str, Any]] | None) -> tuple[TermIndex, dict[str, str]]:
     labels: dict[str, str] = {}
     phrases: dict[str, list[str]] = {}
     for s in our_services or []:
@@ -526,12 +553,12 @@ def tag_customer(customer: Any, emails: Sequence[Any] | None, projects: Sequence
     result = classify_customer(info["domain"], info["name"], signatures, behaviour={
         "tender_rfqs": len(beh["tender"]), "vendor_offers": len(beh["vendor"]), "invoices": len(beh["invoice"]),
         "subcontract_language": len(beh["subcontract"])})
-    if info["kind"] and info["kind"] != "other" and (kind_conf is None or kind_conf >= 0.6):
-        kind = info["kind"]
-        conf = float(kind_conf) if kind_conf is not None else 0.9
-        reason = "kind set on the customer record"
-    else:
-        kind, conf, reason = result["kind"], result["confidence"], result["reason"]
+    kind, conf, reason = result["kind"], result["confidence"], result["reason"]
+    if info["kind"] and info["kind"] != "other":
+        if kind_conf is not None and float(kind_conf) >= 0.6:
+            kind, conf, reason = info["kind"], float(kind_conf), "kind set on the customer record"
+        elif kind_conf is None and info["kind"] != result["kind"]:
+            kind, conf, reason = info["kind"], 0.8, "kind set on the customer record"
     if kind and kind != "other":
         tags.append(_tag(KIND_LABELS.get(kind, kind.replace("_", " ").title()), "role", kind, conf,
                          [{"quote": reason, "source": "rules"}]))
@@ -555,11 +582,15 @@ def tag_customer(customer: Any, emails: Sequence[Any] | None, projects: Sequence
         texts.append((f"{subject}\n{main[:1500]}", f"email:{_get(e, 'id')}", _get(e, "id"), when))
     texts.append((info["name"], "customer:name", None, None))
     for text, src, ref, when in texts:
-        for key, surface in _hits(_SECTOR_INDEX, text):
-            if len(sector_ev[key]) < 4:
-                line = next((ln for ln in text.splitlines() if surface in ln), surface)
-                sector_ev[key].append(_ev(line, src.split(":", 1)[0], ref, when))
-            sector_src[key].add(src)
+        for m in _SECTOR_INDEX.find(text):
+            ls = text.rfind("\n", 0, m.start) + 1
+            le = text.find("\n", m.end)
+            line = text[ls:le if le >= 0 else len(text)]
+            for key in dict.fromkeys(e.concept for e in m.entries):
+                ev = _ev(line, src.split(":", 1)[0], ref, when)
+                if len(sector_ev[key]) < 4 and all(x["quote"] != ev["quote"] for x in sector_ev[key]):
+                    sector_ev[key].append(ev)
+                sector_src[key].add(src)
     if kind == "government":
         sector_src["government_building"].add("role")
         sector_ev["government_building"].append({"quote": reason, "source": "rules"})
@@ -705,10 +736,10 @@ def tag_customers(customers: Sequence[Any], emails: Sequence[Any], projects: Seq
     for c in customers or []:
         info = _customer_info(c)
         key = info["ref"] or info["domain"] or info["name"]
-        mails = list(by_ref.get(info["ref"], [])) if info["ref"] else []
+        mails = [e for i in sorted(info["ids"]) for e in by_ref.get(i, [])]
         if info["domain"]:
             mails += [e for e in by_dom.get(registrable_domain(info["domain"]), []) if e not in mails]
-        projs = p_by_ref.get(info["ref"], [])
+        projs = [p for i in sorted(info["ids"]) for p in p_by_ref.get(i, [])]
         stripped_mails = [{**(e if isinstance(e, Mapping) else {k: getattr(e, k, None) for k in (
             "id", "subject", "body_text", "from_email", "date", "direction", "category", "thread_id")}),
                            "customer_ref": None} for e in mails]

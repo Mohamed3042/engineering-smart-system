@@ -229,7 +229,8 @@ def run_discovery(ws_id: str, options: dict) -> dict:
             if row is not None and row.status in ("owner_confirmed", "rejected"):
                 continue
             row = row or KnowledgeItem(workspace_id=ws_id, kind=d["kind"], key=d["key"], label=d.get("label") or d["key"])
-            for k in ("label", "description", "synonyms", "region", "language", "claim_basis", "evidence", "score", "confidence"):
+            for k in ("label", "label_ar", "description", "synonyms", "region", "language", "claim_basis", "evidence",
+                      "value", "score", "confidence"):
                 if d.get(k) is not None:
                     setattr(row, k, d[k])
             row.source, row.updated_at = "mined", utcnow()

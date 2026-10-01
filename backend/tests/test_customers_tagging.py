@@ -58,6 +58,29 @@ def test_signature_titles_and_behaviour_decide_unclear_names():
     assert kind == "other" and conf <= 0.3
 
 
+def test_our_own_signature_does_not_describe_the_customer():
+    ours = "Thanks.\n\nBest regards,\nJames Whitaker\nSales Engineer\nNorthwind Access Ltd\njames@northwind.example"
+    kind, _conf, _reason = infer_customer_kind("zeta.example", "Zeta Group", [ours])
+    assert kind == "other"  # "Sales Engineer" is our title, on our domain
+    theirs = "Regards,\nAhmed\nSales Manager\nZeta Group\nahmed@zeta.example"
+    assert infer_customer_kind("zeta.example", "Zeta Group", [ours, theirs])[0] == "supplier"
+
+
+def test_orm_like_objects_match_by_customer_id():
+    from types import SimpleNamespace as NS
+
+    customer = NS(id="cus_1", ref="acme.example", name="Acme Contracting Co.", domain="acme.example", kind="other",
+                  kind_confidence=0.0, contacts=[])
+    emails = [NS(id="m1", customer_id="cus_1", from_email="buyer@acme.example", subject="RFQ for Gulf Mall BMU",
+                 body_text="Kindly quote a BMU for Gulf Mall.", date=datetime(2026, 9, 1, tzinfo=timezone.utc),
+                 direction="inbound", category="bmu", thread_id="t1"),
+              NS(id="m2", customer_id="cus_2", from_email="x@other.example", subject="RFQ hospital", body_text="",
+                 date=None, direction="inbound", category=None, thread_id="t2")]
+    tags = tag_customer(customer, emails, [], OUR_SERVICES, now=NOW)
+    assert "bmu" in by_kind(tags, "need") and "mall" in by_kind(tags, "sector")
+    assert "hospital" not in by_kind(tags, "sector")
+
+
 def test_generic_gcc_company_form_is_a_weak_signal():
     strong = classify_customer("a.example", "Gulf Horizon Construction Co.")
     weak = classify_customer("b.example", "Al Safwa General Trading & Contracting Co.")
@@ -135,6 +158,20 @@ def test_tag_customer_with_api_shapes_and_arabic():
     assert "hospital" in by_kind(tags, "sector")
     assert "bmu" in by_kind(tags, "need")
     assert "new" in by_kind(tags, "relationship")
+
+
+def test_kind_from_record_without_confidence_and_unique_evidence():
+    emails = [{"from_email": "a@acme.example", "subject": "RFQ for Gulf Mall gondola", "date": "2026-09-01",
+               "body_text": "Kindly quote gondola rental at Gulf Mall.\nRegards,\nAhmed"}]
+    same = tag_customer({"name": "Acme Contracting Co.", "domain": "acme.example", "kind": "main_contractor"},
+                        emails, [], OUR_SERVICES, now=NOW)
+    role = by_kind(same, "role")["main_contractor"]
+    assert role["confidence"] < 0.9 and "Contracting" in role["evidence"][0]["quote"]  # recomputed, not assumed
+    other = tag_customer({"name": "Acme Engineering Consultants", "domain": "acme.example",
+                          "kind": "main_contractor"}, emails, [], OUR_SERVICES, now=NOW)
+    assert by_kind(other, "role")["main_contractor"]["confidence"] == 0.8  # the record wins over a guess
+    quotes = [e["quote"] for e in by_kind(same, "sector")["mall"]["evidence"]]
+    assert len(quotes) == len(set(quotes)) == 2
 
 
 def test_dormant_and_kind_from_record():
