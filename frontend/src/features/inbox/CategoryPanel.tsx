@@ -155,7 +155,7 @@ export function CategoryPanel({ detail }: { detail: EmailDetail }) {
                 "Set by a person"
               ) : (
                 <span className="flex flex-wrap items-center gap-2">
-                  <Confidence value={email.category_confidence} />
+                  <Confidence value={email.category_confidence} what="the category" />
                   {uncertain ? <LowConfidenceChip /> : null}
                 </span>
               ),

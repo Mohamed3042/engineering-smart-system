@@ -120,7 +120,7 @@ export function FindingCard({
         <div className="space-y-3 border-t border-line pt-4 md:border-l md:border-t-0 md:pl-6 md:pt-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <StatusChip info={knowledgeStatusInfo(item.status)} />
-            <Confidence value={item.confidence} />
+            <Confidence value={item.confidence} what="this finding" />
           </div>
           <div className="space-y-1.5 text-sm">
             <p className="text-ink-3">

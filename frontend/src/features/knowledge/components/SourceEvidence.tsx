@@ -6,7 +6,7 @@ import { FileText, Globe, Mail, Quote, UserRound } from "lucide-react";
 import type { Evidence } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { Chip, EvidenceQuote, Tooltip } from "@/ui";
-import { evidenceGroups, evidenceLink, evidenceWeight, formatWeight, sortEvidence, sourceInfo } from "../model";
+import { evidenceGroups, evidenceLink, evidenceWeight, formatWeight, sortEvidence, sourceInfo, sourceStrength } from "../model";
 
 function SourceIcon({ type, className }: { type?: string; className?: string }) {
   const cls = cn("size-3.5 shrink-0", className);
@@ -17,7 +17,7 @@ function SourceIcon({ type, className }: { type?: string; className?: string }) 
   return <Quote className={cls} aria-hidden />;
 }
 
-/** "Own quotation · weight 1.0" or "Web page · context only". */
+/** "Own quotation · strongest source" or "Web page · context only". */
 export function SourceTypeChip({ evidence }: { evidence: Evidence }) {
   const info = sourceInfo(evidence.source_type);
   const weight = evidenceWeight(evidence);
@@ -26,12 +26,14 @@ export function SourceTypeChip({ evidence }: { evidence: Evidence }) {
       content={
         info.contextOnly
           ? "Web pages give context only. They never count as proof of what you do."
-          : `This kind of source counts ${formatWeight(weight)} (own quotations count 1.0).`
+          : weight > 0
+            ? `Own quotations are the strongest proof of what you do (1.0). This kind of source counts ${formatWeight(weight)}.`
+            : "This kind of source has no rating yet. Check the sentence yourself."
       }
     >
       <span className="inline-flex">
         <Chip size="sm" tone={info.contextOnly ? "muted" : "neutral"} icon={<SourceIcon type={evidence.source_type} />}>
-          {info.label} · {info.contextOnly ? "context only" : `weight ${formatWeight(weight)}`}
+          {info.label} · {sourceStrength(weight, info.contextOnly)}
         </Chip>
       </span>
     </Tooltip>
