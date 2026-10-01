@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Request, UploadFile
@@ -231,11 +232,31 @@ def test_connection(conn_id: str, session: Session = Depends(get_session), ws: W
 def mcp_info(request: Request, ws: Workspace = Depends(ws_dep)) -> dict:
     import os
 
+    from ..config import get_settings
+
     base = str(request.base_url).rstrip("/")
+    url = f"{base}/mcp/"
+    token = bool(os.environ.get("ESS_MCP_TOKEN"))
+    auth = " --header \"Authorization: Bearer $ESS_MCP_TOKEN\"" if token else ""
+    backend_dir = str(Path(__file__).resolve().parents[2])
+    stdio_env = {"ESS_DATA_DIR": str(get_settings().data_dir)}
     return {
-        "url": f"{base}/mcp/",
+        "url": url,
         "stdio_command": "python -m ess.mcp_server",
-        "token_required": bool(os.environ.get("ESS_MCP_TOKEN")),
+        "token_required": token,
+        # ready-to-copy client setups (the person still approves the client's own permission prompts)
+        "clients": [
+            {"name": "Claude Code", "kind": "command",
+             "value": f"claude mcp add --transport http engineering-smart-system {url}{auth}"},
+            {"name": "Claude Desktop / other MCP clients (HTTP)", "kind": "json",
+             "value": {"mcpServers": {"engineering-smart-system": {
+                 "type": "http", "url": url,
+                 **({"headers": {"Authorization": "Bearer <ESS_MCP_TOKEN>"}} if token else {})}}}},
+            {"name": "Local stdio (same computer)", "kind": "json",
+             "value": {"mcpServers": {"engineering-smart-system": {
+                 "command": str(Path(backend_dir) / ".venv" / "bin" / "python"),
+                 "args": ["-m", "ess.mcp_server"], "cwd": backend_dir, "env": stdio_env}}}},
+        ],
         "rules": ["Declare your model with declare_engine before submitting work.",
                   "Submissions are validated: verbatim evidence, no prices, schema checks.",
                   "Nothing is sent to customers from MCP; sending needs a person in the app."],

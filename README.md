@@ -36,6 +36,9 @@ Then follow [docs/connections.md](docs/connections.md) to connect Gmail (Google 
 and an AI engine (OpenAI / Anthropic / Google / Azure / OpenAI-compatible key, or an MCP client such as
 Claude Desktop/Code via `http://127.0.0.1:8765/mcp/`).
 
+Frontend development: `cd frontend && npm install && npm run dev` (http://127.0.0.1:5173, proxies the
+API to the backend on :8765). Design system: [DESIGN.md](DESIGN.md); product brief: [PRODUCT.md](PRODUCT.md).
+
 Useful commands (from `backend/` with the venv active):
 
 ```bash
@@ -73,3 +76,4 @@ Operate principles. Collaboration notes: [for the concept author](docs/collab/no
 ## Project layout
 
 See [docs/architecture.md](docs/architecture.md). Backend: Python 3.11, FastAPI, SQLite, Playwright.
+Frontend: React, TypeScript, Vite, Tailwind, Radix, TanStack Query.
