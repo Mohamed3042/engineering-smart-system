@@ -167,19 +167,46 @@ def run_discovery(ws_id: str, options: dict) -> dict:
     from ..knowledge.miner import build_identity, mine_corpus
     from ..pipeline.connect import engine_for
 
+    from ..knowledge.corpus import from_mail_messages
+
     _progress(ws_id, "mail", "running", overall="running", started_at=utcnow().isoformat())
     docs: list = []
     with session_scope() as s:
         ws = s.get(Workspace, ws_id)
-        own = set(ws.own_domains or [])
         emails = s.exec(select(Email).where(Email.workspace_id == ws_id, Email.body_text != "")).all()
-        for e in emails:
-            outbound = e.direction == "outbound" or (e.from_email.split("@")[-1] in own)
-            docs.append(CorpusDoc(source_type="sent_email" if outbound else "inbound_email", source_id=e.id,
-                                  label=e.subject[:120], text=e.body_text[:20000],
-                                  date=e.date.isoformat() if e.date else None))
+        mail = [{"id": e.id, "direction": e.direction, "from_email": e.from_email, "subject": e.subject,
+                 "body_text": e.body_text, "labels": e.labels, "date": e.date.isoformat() if e.date else None}
+                for e in emails]
+        docs.extend(from_mail_messages(mail, ws.own_domains or [], account=ws.primary_email))
         engine = engine_for(s, ws, "discover_business")
+        company, domain = ws.company_name or ws.name, (ws.own_domains or [""])[0]
+        search = None
+        if options.get("web"):
+            from .customers import _search_provider
+
+            search = _search_provider(s, ws)
     _progress(ws_id, "mail", "done", f"{len(docs)} messages")
+    if search is not None:
+        # web pages are context only: low weight, never the sole basis of a finding
+        from ..customers.search import fetch_page_text
+
+        _progress(ws_id, "web", "running")
+        n0 = len(docs)
+        seen = set()
+        for query in (company, f"{company} {domain}".strip(), domain):
+            try:
+                hits = search.search(query, max_results=5)
+            except Exception:
+                continue
+            for hit in hits:
+                if hit.url in seen:
+                    continue
+                seen.add(hit.url)
+                page = fetch_page_text(hit.url)
+                text = getattr(page, "text", "") or hit.snippet
+                if text:
+                    docs.append(CorpusDoc(source_type="web", source_id=hit.url, label=hit.title[:120], text=text[:20000]))
+        _progress(ws_id, "web", "done", f"{len(docs) - n0} pages")
     folders = [f for f in (options.get("folders") or []) if f]
     if folders:
         _progress(ws_id, "documents", "running")
@@ -187,7 +214,7 @@ def run_discovery(ws_id: str, options: dict) -> dict:
         for folder in folders:
             path = Path(folder).expanduser()
             if path.exists():
-                docs.extend(build_corpus_from_folder(path, source_type=options.get("folder_type", "company_doc"),
+                docs.extend(build_corpus_from_folder(path, source_type=options.get("folder_type", "auto"),
                                                      limit=int(options.get("limit", 3000))))
         _progress(ws_id, "documents", "done", f"{len(docs) - n0} documents")
     _progress(ws_id, "mining", "running")
@@ -208,9 +235,11 @@ def run_discovery(ws_id: str, options: dict) -> dict:
             row.source, row.updated_at = "mined", utcnow()
             s.add(row)
             saved += 1
-        identity_summary = build_identity(items)
-        _progress(ws_id, "identity", "done", overall="done", finished_at=utcnow().isoformat(),
-                  identity_confidence=(identity_summary or {}).get("confidence"))
+    identity_summary = build_identity(items)
+    # progress is written after the findings are committed (one writer at a time in SQLite)
+    _progress(ws_id, "identity", "done", overall="done", finished_at=utcnow().isoformat(),
+              identity_confidence=(identity_summary or {}).get("confidence"))
+    with session_scope() as s:
         log_activity(s, ws_id, "learning", "Business learning finished", detail=f"{saved} findings saved", severity="success")
     return {"saved": saved}
 

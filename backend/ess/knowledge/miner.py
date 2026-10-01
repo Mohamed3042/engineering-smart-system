@@ -64,6 +64,8 @@ from ess.knowledge.text import (
     CLOSING_RE,
     EMAIL_RE,
     LEGAL_SUFFIX_RE,
+    PHONE_INTL_RE,
+    PHONE_LABELED_RE,
     WEBSITE_RE,
     SentenceIndex,
     email_domain,
@@ -272,11 +274,10 @@ class _Ctx:
         self.region_labels = region_labels(region_terms)
         self.index = index
         self._roles: dict[TermEntry, tuple[str | None, str | None, str]] = {}
-        self._neg: dict[str, TermIndex] = {}
-        for c in categories:
-            words = [w for lst in (c.get("negative_keywords") or {}).values() for w in lst or []]
-            if words:
-                self._neg[c["key"]] = TermIndex.from_phrases({c["key"]: words})
+        self._term_keys: dict[TermEntry, str] = {}
+        negatives = {c["key"]: [w for lst in (c.get("negative_keywords") or {}).values() for w in lst or []]
+                     for c in categories}
+        self.neg_index = TermIndex.from_phrases({k: v for k, v in negatives.items() if v}, origin="negative")
         self.concept_terms: dict[str, list[str]] = defaultdict(list)
         for c in region_terms.get("concepts") or []:
             for t in c.get("terms") or []:
@@ -305,10 +306,17 @@ class _Ctx:
         self._roles[e] = res
         return res
 
-    def negated(self, sentence: str) -> set[str]:
-        if not self._neg:
-            return set()
-        return {k for k, idx in self._neg.items() if idx.find(sentence)}
+    def term_key(self, e: TermEntry, group: str) -> str:
+        key = self._term_keys.get(e)
+        if key is None:
+            key = self._term_keys[e] = f"{group}:{slugify(e.key if e.key.isascii() else e.term)}"
+        return key
+
+    def negative_hits(self, d: "_Doc") -> list[tuple[int, set[str]]]:
+        """(offset, categories) of negative keywords in a document - matched once per document."""
+        if not len(self.neg_index):
+            return []
+        return [(m.start, {e.concept for e in m.entries}) for m in self.neg_index.find_tokens(d.tokens, d.text, d.gaps)]
 
     def family_label(self, key: str, fallback: str = "") -> tuple[str, str, str]:
         cat = self.cat_by_key.get(key)
@@ -452,14 +460,17 @@ def _mine_concepts(docs: list[_Doc], ctx: _Ctx, reg: _Registry) -> None:
             continue
         fams: set[str] = set()
         wts: set[str] = set()
-        neg_cache: dict[tuple[int, int], set[str]] = {}
+        neg_hits = ctx.negative_hits(d)
+        excl_cache: dict[tuple[int, int], bool] = {}
         for m in ctx.index.find_tokens(d.tokens, d.text, d.gaps):
             span = d.sents.span_at(m.start)
-            sentence = d.text[span[0]:span[1]]
-            excluded = d.side == "company" and bool(_EXCLUSION_RE.search(sentence))
-            if span not in neg_cache:
-                neg_cache[span] = ctx.negated(sentence)
-            negated = neg_cache[span]
+            if span not in excl_cache:
+                excl_cache[span] = d.side == "company" and bool(_EXCLUSION_RE.search(d.text, span[0], span[1]))
+            excluded = excl_cache[span]
+            negated: set[str] = set()
+            for pos, cats in neg_hits:
+                if span[0] <= pos < span[1]:
+                    negated |= cats
             has_rt = any(e.origin == "region_terms" for e in m.entries)
             done: set[tuple[str, str]] = set()
             for e in m.entries:
@@ -472,7 +483,7 @@ def _mine_concepts(docs: list[_Doc], ctx: _Ctx, reg: _Registry) -> None:
                 elif wt:
                     roles.append(("work_type", wt))
                 if e.origin in ("region_terms", "work_type"):
-                    roles.append(("term", f"{group}:{slugify(e.key if e.key.isascii() else e.term)}"))
+                    roles.append(("term", ctx.term_key(e, group)))
                 for kind, key in roles:
                     acc = reg.get(kind, key)
                     if acc.fresh:
@@ -1454,6 +1465,14 @@ def _mine_identity(docs: list[_Doc], reg: _Registry) -> None:
                 if len(slot["hits"]) < 12:
                     slot["hits"].append((d, ls + s, ls + e))
             if _ADDRESSEE_RE.match(line):
+                continue
+            contact = [m.start() for rx in (PHONE_LABELED_RE, PHONE_INTL_RE, EMAIL_RE, WEBSITE_RE)
+                       for m in [rx.search(line)] if m]
+            head = line[:min(contact)] if contact else line
+            head = head.rstrip(" -|,;:(\u2013\u2014")
+            if head and ADDRESS_RE.search(head) and not LEGAL_SUFFIX_RE.search(head) and \
+                    2 <= len(head.split()) <= 25 and len(head) >= 10:
+                add("address", squash(head), d, ls, ls + len(head))
                 continue
             for s, e in _segments(d.text, ls, le):
                 part = d.text[s:e].strip(" ,;:")

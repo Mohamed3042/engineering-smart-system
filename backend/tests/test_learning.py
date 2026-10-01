@@ -96,3 +96,25 @@ def test_draft_edits_and_review_notes_are_remembered(client):
     text = " ".join(memory)
     assert "Third-party load test certificate" in text
     assert "roof load per wheel" in text
+
+
+def test_business_learning_runs_on_mail_and_folder(client, tmp_path):
+    from ess.api.knowledge import run_discovery
+    from ess.db import session_scope
+    from ess.models import AppState, KnowledgeItem
+    from ess.workspace import get_active_workspace
+
+    folder = tmp_path / "company"
+    folder.mkdir()
+    (folder / "AA-26-0101 quotation BMU.txt").write_text(
+        "Ref: AA/26/0101\nQuotation for supply and installation of a Building Maintenance Unit (BMU) "
+        "with telescopic jib and cradle, designed to EN 1808. Annual maintenance contract offered separately.")
+    with session_scope() as s:
+        ws_id = get_active_workspace(s).id
+    result = run_discovery(ws_id, {"folders": [str(folder)]})
+    assert result["saved"] > 0
+    with session_scope() as s:
+        kinds = {k.kind for k in s.query(KnowledgeItem).filter(KnowledgeItem.workspace_id == ws_id).all()}
+        progress = s.get(AppState, f"learning:{ws_id}").value
+    assert "service_family" in kinds or "term" in kinds
+    assert progress["status"] == "done" and progress["steps"]["documents"]["status"] == "done"

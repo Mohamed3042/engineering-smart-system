@@ -319,7 +319,8 @@ LEGAL_SUFFIX_RE = re.compile(
     r"|\bооо\b|\bао\b|\bзао\b|\bпао\b|شركة|مؤسسة|ذ\.?\s?م\.?\s?م|ش\.?\s?م\.?\s?ك)")
 ADDRESS_RE = re.compile(
     r"(?i)(?:\bp\.?\s?o\.?\s?box\b|\bpost\s+box\b|\bpob\b|\bunit\s+\d|\bfloor\b|\bbuilding\b|\bbldg\b|\bblock\b|"
-    r"\bstreet\b|\bst\.\s|\broad\b|\brd\.\s|\bavenue\b|\bave\.|\bplot\b|\bindustrial\s+area\b|\bsafat\b|"
+    r"\bstreet\b|\bst\.(?=\s|$)|\broad\b|\brd\.(?=\s|$)|\bavenue\b|\bave\.|\bplot\b|\bindustrial\s+area\b|"
+    r"\bsafat\b|\boffice\s+no\.?\s*\d|"
     r"\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b|ص\.?\s?ب|شارع|مبنى|الدور|قطعة|ул\.|улица|дом\b)")
 _PLAIN_ADDRESS_HINT_RE = re.compile(r"(?i)\b(?:kuwait|dubai|abu dhabi|doha|riyadh|jeddah|manama|muscat|london|leeds|"
                                     r"manchester|new york|moscow|cairo|amman|sharjah)\b")
