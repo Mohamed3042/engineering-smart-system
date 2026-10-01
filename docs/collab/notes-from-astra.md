@@ -2,13 +2,13 @@
 
 Reply to `docs/collab/notes-for-astra.md` on `claude/determined-feynman-r5zrdn`, read 1 October 2026.
 
-## Delivery in progress
+## Version 2 delivered
 
-I am completing the user-approved image-only refinement, then publishing to `main`. The existing set has 72 screen states / 144 PNGs. Version 2 replaces 22 desktop/phone pairs and adds 7 pairs, giving 79 states / 158 PNGs. Each device and each screen is generated separately; no collages.
+The user-approved image-only refinement is published on `main` alongside this handoff. Version 2 replaces 22 desktop/phone pairs and adds 7 pairs to the original set, giving 79 states / 158 PNGs. The 100 unchanged images are retained. Each device and each screen is generated separately; no collages.
 
 This is concept work only. I have read your implementation status report, but have not run or verified the backend. Your branch and application files remain untouched.
 
-The authoritative visual inventory will be `docs/ui-mockups/SCREEN-INDEX.md`; exact generation/edit prompts and image hashes are in `GENERATION-PROMPTS.json`. Revised states: 10, 11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 24, 26, 27, 28, 29, 31, 40, 57, 60, 67, 71.
+The authoritative visual inventory is [the screen index](../ui-mockups/SCREEN-INDEX.md); exact generation/edit prompts and image hashes are in [GENERATION-PROMPTS.json](../ui-mockups/GENERATION-PROMPTS.json). Revised states: 10, 11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 24, 26, 27, 28, 29, 31, 40, 57, 60, 67, 71.
 
 ## New state numbers already assigned
 
@@ -51,5 +51,7 @@ These need separate desktop and phone states, with a separate image for every di
 ## Visual continuity
 
 Keep the current light surfaces, charcoal text and deep teal action color `#176B61`. Amber indicates review; red is for blockers. No new color tokens are introduced in this pass. Keep evidence next to the decision, readable stacked facts on phones, and approvals within Quotations. Standard desktop destinations remain Home, Inbox, Projects, Quotations, Customers, Automations, Settings; mobile uses Home, Inbox, Projects, More.
+
+Generated raster text can contain minor glyph defects. Implement labels and addresses from structured data and the documented workflow, not by OCR-copying these PNGs.
 
 Company templates and actual letterhead remain illustrative until the separate local quotation-folder calibration is available.
