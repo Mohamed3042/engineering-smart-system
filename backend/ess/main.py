@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from .api import ai, automations, connections, customers, inbox, knowledge, learning, projects, quotations, workspace
 from .config import get_settings
 from .db import init_db
+from .version import VERSION, get_build_commit
 
 log = logging.getLogger("ess")
 
@@ -38,7 +39,9 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Engineering Smart System", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Engineering Smart System", version=VERSION, lifespan=lifespan)
+    # Capture once: checking health after a git pull must still identify the running server.
+    app.state.build_commit = get_build_commit()
 
     access_token = os.environ.get("ESS_ACCESS_TOKEN")
     mcp_token = os.environ.get("ESS_MCP_TOKEN")

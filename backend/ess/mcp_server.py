@@ -32,6 +32,7 @@ from .models import (
 from .pipeline.importer import _verify_tree, quote_found, strip_prices
 from .pipeline.state import refresh_project_state
 from .workspace import get_active_workspace, log_activity
+from .version import VERSION
 
 INSTRUCTIONS = """You are the analysis engine of an engineering company's email-to-quotation system.
 Rules you must follow (submissions that break them are rejected):
@@ -47,7 +48,7 @@ CRITICAL = {"submit_project_facts": "extract_request", "submit_drawing_findings"
 
 
 def _server():
-    server = MCPServer(name="Engineering Smart System", instructions=INSTRUCTIONS, version="0.1.0")
+    server = MCPServer(name="Engineering Smart System", instructions=INSTRUCTIONS, version=VERSION)
 
     def check_engine(s, ws, tool: str) -> dict:
         state = s.get(AppState, f"mcp:engine:{ws.id}")

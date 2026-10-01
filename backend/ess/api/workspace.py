@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session, col, or_, select
 
@@ -26,6 +26,7 @@ from ..models import (
 from ..pipeline.importer import export_snapshot, import_snapshot
 from ..pipeline.state import STAGE_LABELS, attention_bucket
 from ..workspace import create_workspace, current_user, get_active_workspace, set_active_workspace
+from ..version import VERSION
 from .deps import apply_patch, get_or_404, require_role, user_dep, ws_dep
 
 router = APIRouter(prefix="/api", tags=["workspace"])
@@ -44,8 +45,9 @@ class WorkspaceIn(BaseModel):
 
 
 @router.get("/health")
-def health() -> dict:
-    return {"ok": True, "time": utcnow().isoformat()}
+def health(request: Request) -> dict:
+    return {"ok": True, "time": utcnow().isoformat(), "version": VERSION,
+            "build_commit": getattr(request.app.state, "build_commit", "unknown")}
 
 
 @router.get("/session")

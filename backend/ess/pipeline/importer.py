@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import hashlib
 import re
-import shutil
 import unicodedata
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -121,6 +120,10 @@ def _slug(text: str) -> str:
 def import_snapshot(session: Session, ws: Workspace, snap: dict[str, Any], *, files_root: Optional[Path] = None) -> dict:
     if snap.get("format") != FORMAT:
         raise ValueError(f"Unsupported snapshot format: {snap.get('format')!r}")
+    for e in snap.get("emails") or []:
+        existing = session.get(Email, e["id"]) if e.get("id") else None
+        if existing is not None and existing.workspace_id != ws.id:
+            raise ValueError("A snapshot message already belongs to another workspace")
     counts = {"emails": 0, "customers": 0, "contacts": 0, "projects": 0, "enquiries": 0, "links": 0,
               "files": 0, "knowledge": 0, "activity": 0}
     stats = {"checked": 0, "verified": 0}
@@ -223,6 +226,10 @@ def import_snapshot(session: Session, ws: Workspace, snap: dict[str, Any], *, fi
             next_code += 1
         family = p.get("service_family") or (p.get("work_type") if p.get("work_type") in SERVICE_FAMILIES else None)
         work_type = p.get("work_type") if p.get("work_type") not in SERVICE_FAMILIES else None
+        session.add(proj)
+        session.flush()
+        # Resolve enquiries before files so a newly imported message can carry its enquiry identity.
+        _import_enquiries(session, ws, proj, p, customer_id, email_rows, counts)
         file_sources = _import_files(session, ws, proj, p, files_root, counts)
         all_sources = {**sources, **file_sources}
         all_sources["__all__"] = sources["__all__"] + "\n\n" + "\n\n".join(file_sources.values())
@@ -272,7 +279,6 @@ def import_snapshot(session: Session, ws: Workspace, snap: dict[str, Any], *, fi
             if e.get("project_ref") == ref and e.get("id") in email_rows:
                 email_rows[e["id"]].project_id = proj.id
 
-        _import_enquiries(session, ws, proj, p, customer_id, email_rows, counts)
         _import_links(session, ws, proj, p, counts)
 
     for proj, refs in pending_related:
@@ -329,6 +335,7 @@ def _merge_workspace(ws: Workspace, data: dict[str, Any]) -> None:
 
 def _apply_email_meta(row: Email, e: dict[str, Any], *, overwrite_category: bool) -> None:
     row.thread_id = e.get("thread_id") or row.thread_id
+    row.account = e.get("account") or row.account
     row.direction = e.get("direction") or row.direction
     row.from_name = e.get("from_name") or row.from_name
     row.from_email = (e.get("from_email") or row.from_email or "").lower()
@@ -361,40 +368,96 @@ def _apply_email_meta(row: Email, e: dict[str, Any], *, overwrite_category: bool
         row.state = e.get("state") or row.state
 
 
+def _file_provenance(session: Session, ws: Workspace, proj: Project, data: dict) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    email_id = data.get("email_id") or None
+    attachment_id = data.get("attachment_id") or None
+    email = session.get(Email, email_id) if email_id else None
+    if email_id and (email is None or email.workspace_id != ws.id):
+        raise ValueError("A file's source message must belong to this workspace")
+    if attachment_id and email is None:
+        raise ValueError("An attachment identity requires its source message")
+    enquiry = None
+    if data.get("enquiry_ref"):
+        enquiry = session.exec(select(Enquiry).where(Enquiry.workspace_id == ws.id,
+                               Enquiry.project_id == proj.id, Enquiry.ref == data["enquiry_ref"])).first()
+        if enquiry is None:
+            raise ValueError("A file's source enquiry must belong to this project")
+    if data.get("enquiry_id"):
+        by_id = session.get(Enquiry, data["enquiry_id"])
+        if by_id is None or by_id.workspace_id != ws.id or by_id.project_id != proj.id:
+            raise ValueError("A file's source enquiry must belong to this project")
+        if enquiry is not None and enquiry.id != by_id.id:
+            raise ValueError("A file's source enquiry references disagree")
+        enquiry = by_id
+    if enquiry is not None and email is not None and email.project_id == proj.id and email.enquiry_id:
+        if email.enquiry_id != enquiry.id:
+            raise ValueError("A file's source message and enquiry disagree")
+    if enquiry is None and email is not None and email.enquiry_id:
+        candidate = session.get(Enquiry, email.enquiry_id)
+        if candidate is not None and candidate.workspace_id == ws.id and candidate.project_id == proj.id:
+            enquiry = candidate
+    return email_id, attachment_id, enquiry.id if enquiry is not None else None
+
+
+def _matching_file(session: Session, ws: Workspace, proj: Project, name: str, email_id: Optional[str],
+                   attachment_id: Optional[str], source_url: Optional[str] = None) -> Optional[ProjectFile]:
+    files = session.exec(select(ProjectFile).where(ProjectFile.workspace_id == ws.id,
+                            ProjectFile.project_id == proj.id, ProjectFile.email_id == email_id)).all()
+    if attachment_id:
+        match = next((f for f in files if f.attachment_id == attachment_id), None)
+        if match is not None:
+            return match
+    # Adopt legacy metadata only within its source message. An unrelated upload with the same
+    # name is not the attachment; two provider attachment IDs are always separate documents.
+    matches = [f for f in files if f.name == name and (email_id is not None or f.source_url == source_url)]
+    legacy = [f for f in matches if not f.attachment_id]
+    if attachment_id or legacy:
+        matches = legacy
+    return matches[0] if len(matches) == 1 else None
+
+
 def _import_files(session: Session, ws: Workspace, proj: Project, p: dict, files_root: Optional[Path],
                   counts: dict) -> dict[str, str]:
     """Copy scanned files into data/files/<project>/ and register them; return {file_ref: text}."""
+    from .files import abs_path, store_bytes
+
     settings = get_settings()
     texts: dict[str, str] = {}
-    for f in p.get("files") or []:
+    downloaded = [(f, _file_provenance(session, ws, proj, f)) for f in p.get("files") or []]
+    attachments = [(a, _file_provenance(session, ws, proj, a)) for a in p.get("attachments") or []]
+    for f, provenance in downloaded:
         name = f.get("name") or Path(f.get("path") or "file").name
+        email_id, attachment_id, enquiry_id = provenance
+        existing = _matching_file(session, ws, proj, name, email_id, attachment_id, f.get("source_url"))
         src = None
         if f.get("path"):
             cand = Path(f["path"])
             if not cand.is_absolute() and files_root is not None:
                 cand = files_root / cand
-            src = cand if cand.exists() else None
+            src = cand if cand.is_file() else None
         rel = None
         sha = f.get("sha256")
         size = f.get("size") or 0
         if src is not None:
-            dest_dir = settings.files_dir / proj.id
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            dest = dest_dir / name
-            if not dest.exists():
-                shutil.copy2(src, dest)
-            data = dest.read_bytes()
-            sha = hashlib.sha256(data).hexdigest()
+            data = src.read_bytes()
+            saved = abs_path(existing.path) if existing is not None else None
+            if saved is not None and saved.is_file() and saved.read_bytes() == data:
+                rel, sha = existing.path, hashlib.sha256(data).hexdigest()
+            else:
+                rel, sha = store_bytes(proj.id, name, data)
             size = len(data)
-            rel = str(dest.relative_to(settings.data_dir))
-        existing = session.exec(select(ProjectFile).where(ProjectFile.project_id == proj.id, ProjectFile.name == name)).first()
         row = existing or ProjectFile(workspace_id=ws.id, project_id=proj.id, name=name)
+        row.name = name
         row.doc_kind = f.get("doc_kind") or row.doc_kind
         row.source = f.get("source") or "scan"
         row.source_url = f.get("source_url") or row.source_url
+        row.email_id = email_id or row.email_id
+        row.attachment_id = attachment_id or row.attachment_id
+        row.enquiry_id = enquiry_id or row.enquiry_id
         row.path = rel or row.path
-        row.sha256 = sha or row.sha256
-        row.size = size or row.size
+        if rel or not row.path:
+            row.sha256 = sha or row.sha256
+            row.size = size if rel else size or row.size
         row.mime = f.get("mime") or row.mime
         row.status = "ready" if rel else ("not_downloaded" if not row.path else row.status)
         row.summary = f.get("summary") or row.summary
@@ -407,14 +470,20 @@ def _import_files(session: Session, ws: Workspace, proj: Project, p: dict, files
             for key in {name, f.get("path") or "", row.id, f.get("source_id") or ""}:
                 if key:
                     texts[key] = text
-    for a in p.get("attachments") or []:
+    for a, provenance in attachments:
         name = a.get("filename") or "attachment"
-        existing = session.exec(select(ProjectFile).where(ProjectFile.project_id == proj.id, ProjectFile.name == name)).first()
+        email_id, attachment_id, enquiry_id = provenance
+        existing = _matching_file(session, ws, proj, name, email_id, attachment_id)
         if existing:
+            existing.attachment_id = attachment_id or existing.attachment_id
+            existing.enquiry_id = enquiry_id or existing.enquiry_id
+            session.add(existing)
             continue
         session.add(ProjectFile(workspace_id=ws.id, project_id=proj.id, name=name, doc_kind=a.get("doc_kind") or "other",
-                                source="email_attachment", email_id=a.get("email_id"), attachment_id=a.get("attachment_id"),
+                                source="email_attachment", email_id=email_id, attachment_id=attachment_id,
+                                enquiry_id=enquiry_id,
                                 mime=a.get("mime") or "", size=a.get("size") or 0, status="not_downloaded"))
+        session.flush()
         counts["files"] += 1
     return texts
 
@@ -530,6 +599,8 @@ def export_snapshot(session: Session, ws: Workspace) -> dict[str, Any]:
             "unresolved_questions": p.unresolved_questions,
             "links": [{"url": l.url, "kind": l.kind, "email_id": l.email_id, "status": l.status, "note": l.note} for l in links],
             "files": [{"name": f.name, "path": f.path, "source": f.source, "source_url": f.source_url, "sha256": f.sha256,
+                       "email_id": f.email_id, "attachment_id": f.attachment_id,
+                       "enquiry_ref": next((e.ref for e in enqs if e.id == f.enquiry_id), None),
                        "size": f.size, "mime": f.mime, "doc_kind": f.doc_kind, "summary": f.summary} for f in files],
             "timeline": p.timeline, "recommended_template": p.recommended_template,
             "related_project_refs": [proj_ref[r] for r in p.related_project_ids if r in proj_ref],
@@ -542,7 +613,7 @@ def export_snapshot(session: Session, ws: Workspace) -> dict[str, Any]:
                       "region": ws.region, "country": ws.country, "languages": ws.languages,
                       "currency": ws.currency, "timezone": ws.timezone},
         "emails": [{
-            "id": e.id, "thread_id": e.thread_id, "direction": e.direction, "from_name": e.from_name,
+            "id": e.id, "thread_id": e.thread_id, "account": e.account, "direction": e.direction, "from_name": e.from_name,
             "from_email": e.from_email, "to": e.to, "cc": e.cc, "subject": e.subject,
             "date": e.date.isoformat() if e.date else None, "snippet": e.snippet, "body_text": e.body_text,
             "labels": e.labels, "attachments": e.attachments, "links": e.links,
