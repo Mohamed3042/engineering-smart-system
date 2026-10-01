@@ -1,0 +1,11 @@
+# Local workspace data: mail, files, letterheads, signatures, secrets. Never commit.
+/data/
+backend/.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+frontend/node_modules/
+frontend/dist/
+*.log
+.DS_Store
+*.egg-info/

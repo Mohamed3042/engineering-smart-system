@@ -1,0 +1,657 @@
+{
+  "version": 1,
+  "standards": [
+    {
+      "code": "EN 1808",
+      "title": "Safety requirements for suspended access equipment — Design calculations, stability criteria, construction — Examinations and tests",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "bmu",
+        "cradle",
+        "wce"
+      ],
+      "notes": "Covers both permanent (BMU) and temporary suspended access equipment; current edition EN 1808:2015. The standard most often specified by GCC consultants for cradles and BMUs."
+    },
+    {
+      "code": "EN 795",
+      "title": "Personal fall protection equipment — Anchor devices",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "wce"
+      ],
+      "notes": "EN 795:2012, anchor types A–E; multi-user anchors are covered by CEN/TS 16415."
+    },
+    {
+      "code": "CEN/TS 16415",
+      "title": "Personal fall protection equipment — Anchor devices — Recommendations for anchor devices for use by more than one person simultaneously",
+      "region": [
+        "UK_EU"
+      ],
+      "applies_to": [
+        "wce"
+      ],
+      "notes": "Companion to EN 795 for shared anchors and lifelines."
+    },
+    {
+      "code": "BS 6037-1",
+      "title": "Code of practice for the planning, design, installation and use of permanently installed access equipment — Part 1: Suspended access equipment",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "bmu",
+        "wce",
+        "cradle"
+      ],
+      "notes": "BS 6037-1:2017; the UK design/installation code for BMUs, monorails and davits."
+    },
+    {
+      "code": "BS 6037-2",
+      "title": "Code of practice for the planning, design, installation and use of permanently installed access equipment — Part 2: Travelling ladders and gantries",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "wce"
+      ],
+      "notes": "BS 6037-2:2004+A1:2015; relevant for skylight/atrium gantries."
+    },
+    {
+      "code": "BS 8213-1",
+      "title": "Windows, doors and rooflights — Part 1: Design for safety in use and during cleaning of windows — Code of practice",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "wce",
+        "other_work"
+      ],
+      "notes": "Building-design code that drives the need for cleaning access."
+    },
+    {
+      "code": "BS 7883",
+      "title": "Personal fall protection equipment — Anchor systems — Selection, installation, use and maintenance — Code of practice",
+      "region": [
+        "UK_EU"
+      ],
+      "applies_to": [
+        "wce"
+      ],
+      "notes": "BS 7883:2019; installation and periodic inspection of anchor systems."
+    },
+    {
+      "code": "BS 5974",
+      "title": "Planning, design, setting up and use of temporary suspended access equipment — Code of practice",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "cradle"
+      ],
+      "notes": "BS 5974:2017; the UK code for rented suspended platforms (TSAE)."
+    },
+    {
+      "code": "EN 12159",
+      "title": "Builders hoists for persons and materials with vertically guided cages",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "hoist"
+      ],
+      "notes": "Product standard for passenger/goods construction hoists."
+    },
+    {
+      "code": "EN 12158-1",
+      "title": "Builders hoists for goods — Part 1: Hoists with accessible platforms",
+      "region": [
+        "UK_EU"
+      ],
+      "applies_to": [
+        "hoist"
+      ],
+      "notes": "Goods-only builders hoists."
+    },
+    {
+      "code": "BS 7212",
+      "title": "Code of practice for the safe use of construction hoists",
+      "region": [
+        "UK_EU"
+      ],
+      "applies_to": [
+        "hoist"
+      ],
+      "notes": "UK operational code; verify current edition."
+    },
+    {
+      "code": "EN 1495",
+      "title": "Lifting platforms — Mast climbing work platforms",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "hoist",
+        "access_rental"
+      ],
+      "notes": "EN 1495:1997+A2:2009 for MCWPs."
+    },
+    {
+      "code": "EN 280",
+      "title": "Mobile elevating work platforms — Design calculations — Stability criteria — Construction — Safety — Examinations and tests",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "access_rental"
+      ],
+      "notes": "Now published as EN 280-1 (with EN 280-2 for load-lifting attachments); verify edition. International equivalent: ISO 16368."
+    },
+    {
+      "code": "ISO 16368",
+      "title": "Mobile elevating work platforms — Design, calculations, safety requirements and test methods",
+      "region": [
+        "global"
+      ],
+      "applies_to": [
+        "access_rental"
+      ],
+      "notes": "International MEWP design standard."
+    },
+    {
+      "code": "ISO 18893",
+      "title": "Mobile elevating work platforms — Safety principles, inspection, maintenance and operation",
+      "region": [
+        "global"
+      ],
+      "applies_to": [
+        "access_rental"
+      ],
+      "notes": "Use, inspection and maintenance of MEWPs."
+    },
+    {
+      "code": "EN 14439",
+      "title": "Cranes — Tower cranes",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "crane"
+      ],
+      "notes": "Product standard for tower cranes."
+    },
+    {
+      "code": "EN 13000",
+      "title": "Cranes — Mobile cranes",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "crane"
+      ],
+      "notes": "Product standard for mobile cranes."
+    },
+    {
+      "code": "BS 7121",
+      "title": "Code of practice for safe use of cranes (multi-part)",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "crane"
+      ],
+      "notes": "Lift planning, appointed person, inspection and thorough examination of cranes."
+    },
+    {
+      "code": "LOLER 1998",
+      "title": "Lifting Operations and Lifting Equipment Regulations 1998 (UK)",
+      "region": [
+        "UK_EU"
+      ],
+      "applies_to": [
+        "bmu",
+        "cradle",
+        "hoist",
+        "crane",
+        "access_rental"
+      ],
+      "notes": "UK regulation: thorough examination at least every 6 months for equipment lifting people (12 months otherwise); widely mirrored in GCC specifications."
+    },
+    {
+      "code": "ISO 4309",
+      "title": "Cranes — Wire ropes — Care and maintenance, inspection and discard",
+      "region": [
+        "global"
+      ],
+      "applies_to": [
+        "crane",
+        "cradle",
+        "bmu"
+      ],
+      "notes": "Wire-rope discard criteria used in maintenance and inspection of hoisting ropes."
+    },
+    {
+      "code": "EN 12811-1",
+      "title": "Temporary works equipment — Part 1: Scaffolds — Performance requirements and general design",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "General scaffold design standard."
+    },
+    {
+      "code": "EN 12810-1",
+      "title": "Façade scaffolds made of prefabricated components — Part 1: Products specifications",
+      "region": [
+        "UK_EU"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "System/frame façade scaffolds."
+    },
+    {
+      "code": "EN 74-1",
+      "title": "Couplers, spigot pins and baseplates for use in falsework and scaffolds — Part 1: Couplers for tubes — Requirements and test procedures",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "Tube & coupler fittings."
+    },
+    {
+      "code": "EN 39",
+      "title": "Loose steel tubes for tube and coupler scaffolds — Technical delivery conditions",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "48.3 mm scaffold tube."
+    },
+    {
+      "code": "EN 1004-1",
+      "title": "Mobile access and working towers made of prefabricated elements — Part 1: Materials, dimensions, design loads, safety and performance requirements",
+      "region": [
+        "UK_EU"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "Aluminium mobile towers."
+    },
+    {
+      "code": "NASC TG20",
+      "title": "TG20 Operational guide to good practice for tube and fitting scaffolding",
+      "region": [
+        "UK_EU"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "UK industry guidance (current edition TG20:21); verify edition."
+    },
+    {
+      "code": "ANSI/IWCA I-14.1",
+      "title": "Window Cleaning Safety Standard",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "wce",
+        "bmu",
+        "cradle"
+      ],
+      "notes": "Covers suspended equipment, rope descent systems and anchorages for window cleaning; verify current edition."
+    },
+    {
+      "code": "OSHA 29 CFR 1910.66",
+      "title": "Powered platforms for building maintenance",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "bmu"
+      ],
+      "notes": "Permanent building-maintenance installations; Appendix C covers personal fall arrest."
+    },
+    {
+      "code": "OSHA 29 CFR 1910.27",
+      "title": "Scaffolds and rope descent systems",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "wce",
+        "cradle"
+      ],
+      "notes": "Requires building owners to certify anchorages used for rope descent systems."
+    },
+    {
+      "code": "OSHA 29 CFR 1926.451",
+      "title": "Scaffolds — General requirements (construction)",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "scaffolding",
+        "cradle"
+      ],
+      "notes": "Includes suspension scaffolds; 1926.452 adds type-specific rules (two-point adjustable suspension scaffolds = swing stages)."
+    },
+    {
+      "code": "OSHA 29 CFR 1926.453",
+      "title": "Aerial lifts",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "access_rental"
+      ],
+      "notes": "Boom and vehicle-mounted aerial devices in construction."
+    },
+    {
+      "code": "OSHA 29 CFR 1926.552",
+      "title": "Material hoists, personnel hoists, and elevators",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "hoist"
+      ],
+      "notes": "Construction hoists in the US."
+    },
+    {
+      "code": "OSHA 29 CFR 1926 Subpart CC",
+      "title": "Cranes and derricks in construction (1926.1400 ff.)",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "crane"
+      ],
+      "notes": "Operator certification, assembly/disassembly, inspections."
+    },
+    {
+      "code": "ASME A120.1",
+      "title": "Safety Requirements for Powered Platforms and Traveling Ladders and Gantries for Building Maintenance",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "bmu",
+        "wce"
+      ],
+      "notes": "US design standard for BMUs, travelling ladders and gantries."
+    },
+    {
+      "code": "ANSI/ASSP Z359",
+      "title": "Fall Protection and Fall Restraint Code (Z359 family, e.g. Z359.1, Z359.6, Z359.18)",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "wce"
+      ],
+      "notes": "Anchorage connectors, active fall-protection system design."
+    },
+    {
+      "code": "ANSI/SAIA A92",
+      "title": "Mobile elevating work platforms (A92.20 design, A92.22 safe use, A92.24 training)",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "access_rental"
+      ],
+      "notes": "US MEWP standards suite."
+    },
+    {
+      "code": "ANSI A10.4",
+      "title": "Safety Requirements for Personnel Hoists and Employee Elevators on Construction and Demolition Sites",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "hoist"
+      ],
+      "notes": "US personnel hoists."
+    },
+    {
+      "code": "ASME B30.3",
+      "title": "Tower Cranes",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "crane"
+      ],
+      "notes": "US tower-crane safety standard."
+    },
+    {
+      "code": "ASME B30.5",
+      "title": "Mobile and Locomotive Cranes",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "crane"
+      ],
+      "notes": "US mobile-crane safety standard."
+    },
+    {
+      "code": "IRATA ICOP",
+      "title": "IRATA International Code of Practice for industrial rope access",
+      "region": [
+        "global",
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "wce"
+      ],
+      "notes": "Technician certification and working method for rope access."
+    },
+    {
+      "code": "SPRAT",
+      "title": "Safe Practices for Rope Access Work",
+      "region": [
+        "US"
+      ],
+      "applies_to": [
+        "wce"
+      ],
+      "notes": "US rope-access practice document."
+    },
+    {
+      "code": "EN 1090-2",
+      "title": "Execution of steel structures and aluminium structures — Part 2: Technical requirements for steel structures",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "space_frame",
+        "other_work",
+        "bmu"
+      ],
+      "notes": "Fabrication/execution class requirements for steel works and space frames."
+    },
+    {
+      "code": "EN 1993 (Eurocode 3)",
+      "title": "Design of steel structures",
+      "region": [
+        "UK_EU",
+        "GCC"
+      ],
+      "applies_to": [
+        "space_frame",
+        "other_work",
+        "bmu"
+      ],
+      "notes": "Structural design of steel members, connections and supports."
+    },
+    {
+      "code": "AISC 360",
+      "title": "Specification for Structural Steel Buildings",
+      "region": [
+        "US",
+        "GCC"
+      ],
+      "applies_to": [
+        "space_frame",
+        "other_work"
+      ],
+      "notes": "US structural steel design specification."
+    },
+    {
+      "code": "ФНП ПС (Приказ Ростехнадзора № 461)",
+      "title": "Правила безопасности опасных производственных объектов, на которых используются подъемные сооружения",
+      "region": [
+        "RU_CIS"
+      ],
+      "applies_to": [
+        "crane",
+        "hoist",
+        "access_rental",
+        "cradle",
+        "bmu"
+      ],
+      "notes": "Federal rules for lifting structures (cranes, hoists, aerial platforms, cradles): registration, technical examination, staff qualification. Order of 26.11.2020 — verify current edition."
+    },
+    {
+      "code": "ТР ТС 010/2011",
+      "title": "О безопасности машин и оборудования",
+      "region": [
+        "RU_CIS"
+      ],
+      "applies_to": [
+        "crane",
+        "hoist",
+        "access_rental",
+        "cradle",
+        "bmu"
+      ],
+      "notes": "EAEU technical regulation; imported machinery needs an EAEU declaration or certificate of conformity."
+    },
+    {
+      "code": "Приказ Минтруда № 782н",
+      "title": "Правила по охране труда при работе на высоте",
+      "region": [
+        "RU_CIS"
+      ],
+      "applies_to": [
+        "wce",
+        "cradle",
+        "scaffolding",
+        "access_rental"
+      ],
+      "notes": "Work-at-height rules (2020) covering anchors, scaffolds, cradles and rope access; verify current edition."
+    },
+    {
+      "code": "СП 49.13330.2010",
+      "title": "Безопасность труда в строительстве. Часть 1. Общие требования",
+      "region": [
+        "RU_CIS"
+      ],
+      "applies_to": [
+        "scaffolding",
+        "hoist",
+        "crane"
+      ],
+      "notes": "Updated edition of SNiP 12-03-2001; verify current status."
+    },
+    {
+      "code": "ГОСТ 24258-88",
+      "title": "Средства подмащивания. Общие технические условия",
+      "region": [
+        "RU_CIS"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "Scaffolding/staging equipment general specification — verify."
+    },
+    {
+      "code": "ГОСТ 27321-87",
+      "title": "Леса стоечные приставные для строительно-монтажных работ. Технические условия",
+      "region": [
+        "RU_CIS"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "Frame/standing scaffolds — verify."
+    },
+    {
+      "code": "ГОСТ 27372-87",
+      "title": "Люльки для строительно-монтажных работ. Технические условия",
+      "region": [
+        "RU_CIS"
+      ],
+      "applies_to": [
+        "cradle"
+      ],
+      "notes": "Construction cradles — verify."
+    },
+    {
+      "code": "IS 3696 (Part 1)",
+      "title": "Safety code of scaffolds and ladders — Part 1: Scaffolds",
+      "region": [
+        "SOUTH_ASIA"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "Indian Standard — verify edition."
+    },
+    {
+      "code": "IS 4014 (Part 1 & 2)",
+      "title": "Code of practice for steel tubular scaffolding",
+      "region": [
+        "SOUTH_ASIA"
+      ],
+      "applies_to": [
+        "scaffolding"
+      ],
+      "notes": "Indian Standard (definitions/materials and safety regulations) — verify."
+    },
+    {
+      "code": "BOCW Central Rules 1998",
+      "title": "Building and Other Construction Workers (Regulation of Employment and Conditions of Service) Central Rules",
+      "region": [
+        "SOUTH_ASIA"
+      ],
+      "applies_to": [
+        "hoist",
+        "crane",
+        "scaffolding",
+        "cradle"
+      ],
+      "notes": "India: testing and periodic examination of lifting appliances and scaffold safety on construction sites — verify."
+    }
+  ]
+}

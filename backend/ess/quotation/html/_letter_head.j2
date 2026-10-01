@@ -1,0 +1,27 @@
+<div class="refdate">
+{%- if meta.reference or meta.enquiry_ref %}
+<div class="refs">
+{%- if meta.reference %}<div>{{ labels.letter_ref }} <span class="bidi ref">{{ meta.reference }}</span></div>{% endif %}
+{%- if meta.enquiry_ref %}<div>{{ labels.letter_your_ref }} <span class="bidi">{{ meta.enquiry_ref }}</span></div>{% endif %}
+</div>
+{%- endif %}
+<div class="date">{{ labels.letter_date }} <span class="bidi">{{ meta.date }}</span></div>
+</div>
+<div class="to">
+<div><span class="lbl">{{ labels.to }}</span><span class="sep">:</span><span class="val bold">{{ meta.company }}</span></div>
+<div><span class="lbl">{{ labels.attn }}</span><span class="sep">:</span><span class="val">{{ meta.attention }}</span></div>
+{%- if meta.address %}
+<div><span class="lbl"></span><span class="sep"></span><span class="val pre">{{ meta.address }}</span></div>
+{%- endif %}
+</div>
+<div class="subject">{{ labels.subject }}<span>{{ subject }}</span></div>
+{%- if meta.project_name %}
+<div class="project">{{ labels.letter_project }}<span>{{ meta.project_name }}</span></div>
+{%- endif %}
+{%- if meta.tender_no %}
+<div class="tender">{{ labels.letter_tender }}<span>{{ meta.tender_no }}</span></div>
+{%- endif %}
+<div class="salute">{{ salutation }}</div>
+{%- for paragraph in intro %}
+<p class="para pre">{{ paragraph }}</p>
+{%- endfor %}

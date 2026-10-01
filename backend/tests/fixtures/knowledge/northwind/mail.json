@@ -1,0 +1,59 @@
+{
+  "own_domains": ["northwind-access.example"],
+  "messages": [
+    {
+      "id": "s1", "thread_id": "t1", "direction": "outbound",
+      "from_email": "james.whitaker@northwind-access.example", "to": ["faisal@gulfhorizon.example"],
+      "subject": "Quotation NW/26/0101 - BMU for Al Noor Tower", "date": "2026-08-14T10:05:00Z",
+      "body_text": "Dear Mr. Faisal,\n\nPlease find attached our quotation NW/26/0101 for the BMU at Al Noor Tower. The cradle is designed to BS EN 1808 and the whole installation follows BS 6037-1.\n\nBest regards,\nJames Whitaker\nSales Engineer\nNorthwind Access Ltd\nUnit 4, Riverside Park, Leeds LS10 1AB, United Kingdom\nTel: +44 113 496 0123 | Mob: +44 7700 900123\njames.whitaker@northwind-access.example\n\nOn Mon, 10 Aug 2026 at 09:12, Faisal Al-Rashid <faisal@gulfhorizon.example> wrote:\n> Kindly quote for the gondola system and BMU for Al Noor Tower as per the attached BOQ.\n> Regards, Faisal"
+    },
+    {
+      "id": "s2", "thread_id": "t2", "labels": ["SENT"],
+      "from_email": "James Whitaker <james.whitaker@northwind-access.example>", "to": ["procurement@desertrose-fm.example"],
+      "subject": "Re: Cherry picker hire extension - Marina Heights", "date": "2026-09-01T08:00:00Z",
+      "body_text": "Dear Ms. Nadia,\n\nWe can extend the hire of the two cherry pickers at Marina Heights for another month at the same rate.\n\nBest regards,\nJames Whitaker\nNorthwind Access Ltd\nTel: +44 113 496 0123 | Mob: +44 7700 900123\njames.whitaker@northwind-access.example\n\n-----Original Message-----\nFrom: Nadia Karim <procurement@desertrose-fm.example>\nSent: Monday, August 31, 2026 4:10 PM\nTo: James Whitaker\nSubject: Cherry picker hire extension\n\nPlease extend the man lift rental by one month."
+    },
+    {
+      "id": "s3", "thread_id": "t3", "direction": "outbound",
+      "from_email": "service@northwind-access.example", "to": ["tender@alsafwa-kw.example"],
+      "subject": "PPM visit report - Salmiya Mall", "date": "2026-09-20T13:30:00Z",
+      "body_text": "Dear Ahmed,\n\nOur engineer completed the PPM visit and the LOLER thorough examination of the two cradles today. No defects were found.\n\nBest regards,\nService Team\nNorthwind Access Ltd\nTel: +44 113 496 0123\nservice@northwind-access.example"
+    },
+    {
+      "id": "s4", "thread_id": "t4", "direction": "outbound",
+      "from_email": "james.whitaker@northwind-access.example", "to": ["partner@liftco.example"],
+      "subject": "Fwd: RFQ elevators", "date": "2026-09-05T07:00:00Z",
+      "body_text": "---------- Forwarded message ---------\nFrom: Purchasing <purchasing@kuwaitbuild.example>\nDate: Thu, 4 Sep 2026 at 11:00\nSubject: RFQ elevators\nTo: <james.whitaker@northwind-access.example>\n\nPlease quote for 4 passenger elevators and a goods hoist."
+    },
+    {
+      "id": "i1", "thread_id": "t5",
+      "from_email": "tender@alsafwa-kw.example", "to": ["sales@northwind-access.example"],
+      "subject": "RFQ - gondola rental for Salmiya Mall facade works", "date": "2026-08-25T06:20:00Z",
+      "body_text": "Dear Sir,\n\nKindly quote for 2 nos. gondola on monthly rental basis for the facade works at Salmiya Mall. The BOQ is attached.\n\nBest regards,\nAhmed Saleh\nEstimation Engineer\nAl Safwa General Trading & Contracting Co.\nKuwait"
+    },
+    {
+      "id": "i2", "thread_id": "t6",
+      "from_email": "procurement@desertrose-fm.example", "to": ["sales@northwind-access.example"],
+      "subject": "AMC for BMU - Marina Heights", "date": "2026-08-27T09:00:00Z",
+      "body_text": "Dear Sir,\nWe require an annual maintenance contract (AMC) for the two BMU at Marina Heights, including third-party inspection.\nRegards,\nNadia Karim\nProcurement Officer\nDesert Rose Facilities Management LLC"
+    },
+    {
+      "id": "i3", "thread_id": "t7",
+      "from_email": "projects@mpw.example.gov.kw", "to": ["sales@northwind-access.example"],
+      "subject": "طلب عرض سعر - مستشفى الجهراء", "date": "2026-09-02T05:45:00Z",
+      "body_text": "السادة / نورثويند أكسس المحترمين\n\nنرجو تزويدنا بعرض سعر لتوريد وتركيب وحدة صيانة المباني وجندولا لمشروع مستشفى الجهراء.\nجدول الكميات مرفق.\n\nمع التحية،\nإدارة المشاريع"
+    },
+    {
+      "id": "i4", "thread_id": "t8",
+      "from_email": "ops@pearlbuild.example", "to": ["sales@northwind-access.example"],
+      "subject": "Man lift rental - 3 months", "date": "2026-09-10T11:00:00Z",
+      "body_text": "Hello,\nWe need man lift rental, 2 nos. 20 m boom lift for 3 months in Doha.\nThanks,\nRavi\nPearl Build Contracting"
+    },
+    {
+      "id": "i5", "thread_id": "t1",
+      "from_email": "faisal@gulfhorizon.example", "to": ["james.whitaker@northwind-access.example"],
+      "subject": "Re: Quotation NW/26/0101 - BMU for Al Noor Tower", "date": "2026-08-18T10:30:00Z",
+      "body_text": "Thank you, noted. We will revert after the client meeting.\n\nOn Tue, 18 Aug 2026 at 10:00, James Whitaker <james.whitaker@northwind-access.example> wrote:\n> Please find attached our quotation NW/26/0101 for the BMU at Al Noor Tower.\n> We can also hire cherry pickers and a MEWP for the podium."
+    }
+  ]
+}

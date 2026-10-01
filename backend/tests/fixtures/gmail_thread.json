@@ -1,0 +1,257 @@
+{
+ "id": "18f1a2b3c4d5e6f7",
+ "historyId": "991234",
+ "messages": [
+  {
+   "id": "18f1a2b3c4d5e6f7",
+   "threadId": "18f1a2b3c4d5e6f7",
+   "labelIds": [
+    "INBOX",
+    "IMPORTANT",
+    "CATEGORY_PERSONAL"
+   ],
+   "snippet": "Dear Sir, Please quote for the supply and installation of a roof-mounted BMU for Harbour Tower &amp; Plot 12.",
+   "internalDate": "1787732426000",
+   "sizeEstimate": 254000,
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/mixed",
+    "filename": "",
+    "headers": [
+     {
+      "name": "Delivered-To",
+      "value": "sales@medmack.com"
+     },
+     {
+      "name": "From",
+      "value": "\"A. Engineer\" <A.Engineer@contractor.example>"
+     },
+     {
+      "name": "To",
+      "value": "Medmack Sales <sales@medmack.com>"
+     },
+     {
+      "name": "Cc",
+      "value": "tenders@contractor.example, \"Ali K.\" <ali.k@contractor.example>"
+     },
+     {
+      "name": "Subject",
+      "value": "RFQ: BMU for Harbour Tower – طلب تسعير"
+     },
+     {
+      "name": "Date",
+      "value": "Wed, 26 Aug 2026 11:20:26 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<CAF1234abcd@mail.contractor.example>"
+     },
+     {
+      "name": "Content-Type",
+      "value": "multipart/mixed; boundary=\"000000000000aaaa\""
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "multipart/related",
+      "filename": "",
+      "headers": [],
+      "body": {
+       "size": 0
+      },
+      "parts": [
+       {
+        "partId": "0.0",
+        "mimeType": "multipart/alternative",
+        "filename": "",
+        "headers": [],
+        "body": {
+         "size": 0
+        },
+        "parts": [
+         {
+          "partId": "0.0.0",
+          "mimeType": "text/plain",
+          "filename": "",
+          "headers": [
+           {
+            "name": "Content-Type",
+            "value": "text/plain; charset=\"UTF-8\""
+           }
+          ],
+          "body": {
+           "size": 292,
+           "data": "RGVhciBTaXIsDQoNClBsZWFzZSBxdW90ZSBmb3IgdGhlIHN1cHBseSBhbmQgaW5zdGFsbGF0aW9uIG9mIGEgcm9vZi1tb3VudGVkIEJNVSBmb3IgQWwtRHVycmFoIFRvd2VyLCBRaWJsYS4NClRlbmRlciBkcmF3aW5nczogaHR0cHM6Ly93ZS50bC90LUFiQ2RFZjEyMzQNCkJPUSBhdHRhY2hlZC4gQ2xvc2luZyBkYXRlOiAxMCBTZXB0ZW1iZXIgMjAyNi4NCg0KQmVzdCByZWdhcmRzLA0KTS4gSWJyYWhpbQ0KRXN0aW1hdGlvbiBFbmdpbmVlciB8IFVuaXRlZCBFbmdpbmVlcmluZyBDby4NCnd3dy51ZS1jby5jb20NCg"
+          }
+         },
+         {
+          "partId": "0.0.1",
+          "mimeType": "text/html",
+          "filename": "",
+          "headers": [
+           {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"UTF-8\""
+           }
+          ],
+          "body": {
+           "size": 285,
+           "data": "PGRpdiBkaXI9Imx0ciI-RGVhciBTaXIsPGJyPjxicj5QbGVhc2UgcXVvdGUgZm9yIHRoZSBzdXBwbHkgYW5kIGluc3RhbGxhdGlvbiBvZiBhIHJvb2YtbW91bnRlZCA8Yj5CTVU8L2I-IGZvciBBbC1EdXJyYWggVG93ZXIsIFFpYmxhLjxicj5UZW5kZXIgZHJhd2luZ3M6IDxhIGhyZWY9Imh0dHBzOi8vd2UudGwvdC1BYkNkRWYxMjM0Ij5odHRwczovL3dlLnRsL3QtQWJDZEVmMTIzNDwvYT48YnI-Qk9RIGF0dGFjaGVkLjxicj48aW1nIHNyYz0iY2lkOmltYWdlMDAxLnBuZ0AwMURCMTIzNCI-PC9kaXY-"
+          }
+         }
+        ]
+       },
+       {
+        "partId": "0.1",
+        "mimeType": "image/png",
+        "filename": "image001.png",
+        "headers": [
+         {
+          "name": "Content-Type",
+          "value": "image/png; name=\"image001.png\""
+         },
+         {
+          "name": "Content-Disposition",
+          "value": "inline; filename=\"image001.png\""
+         },
+         {
+          "name": "Content-ID",
+          "value": "<image001.png@01DB1234>"
+         }
+        ],
+        "body": {
+         "attachmentId": "ANGjdJ_logo",
+         "size": 4210
+        }
+       }
+      ]
+     },
+     {
+      "partId": "1",
+      "mimeType": "application/pdf",
+      "filename": "Tender BOQ.pdf",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "application/pdf; name=\"Tender BOQ.pdf\""
+       },
+       {
+        "name": "Content-Disposition",
+        "value": "attachment; filename=\"Tender BOQ.pdf\""
+       }
+      ],
+      "body": {
+       "attachmentId": "ANGjdJ_boq_pdf",
+       "size": 245760
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "18f1a2b3c4d5e700",
+   "threadId": "18f1a2b3c4d5e6f7",
+   "labelIds": [
+    "SENT"
+   ],
+   "snippet": "Dear Mr. Engineer, Well received, we will revert with our offer.",
+   "internalDate": "1787734930000",
+   "payload": {
+    "partId": "",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+     {
+      "name": "From",
+      "value": "Medmack Sales <sales@medmack.com>"
+     },
+     {
+      "name": "To",
+      "value": "\"A. Engineer\" <a.engineer@contractor.example>"
+     },
+     {
+      "name": "Subject",
+      "value": "Re: RFQ: BMU for Harbour Tower – طلب تسعير"
+     },
+     {
+      "name": "Date",
+      "value": "Wed, 26 Aug 2026 12:02:10 +0300"
+     },
+     {
+      "name": "Message-ID",
+      "value": "<CAMk5678@mail.gmail.com>"
+     },
+     {
+      "name": "In-Reply-To",
+      "value": "<CAF1234abcd@mail.contractor.example>"
+     },
+     {
+      "name": "References",
+      "value": "<CAF1234abcd@mail.contractor.example>"
+     },
+     {
+      "name": "Content-Type",
+      "value": "text/plain; charset=\"UTF-8\""
+     }
+    ],
+    "body": {
+     "size": 201,
+     "data": "RGVhciBNci4gSWJyYWhpbSwNCg0KV2VsbCByZWNlaXZlZCwgd2Ugd2lsbCByZXZlcnQgd2l0aCBvdXIgb2ZmZXIuDQoNClJlZ2FyZHMsDQpTYWxlcw0KDQpPbiBXZWQsIEF1ZyAyNiwgMjAyNiBhdCAxMToyMCBBTSBNLiBJYnJhaGltIDxtLmlicmFoaW1AdWUtY28uY29tPiB3cm90ZToNCj4gRGVhciBTaXIsDQo-IFBsZWFzZSBxdW90ZSBmb3IgQk1VLg0K"
+    }
+   }
+  },
+  {
+   "id": "18f1a2b3c4d5e7ff",
+   "threadId": "18f1a2b3c4d5e6f7",
+   "labelIds": [
+    "INBOX",
+    "UNREAD"
+   ],
+   "snippet": "تم تمديد الموعد النهائي",
+   "internalDate": "1789969087000",
+   "payload": {
+    "partId": "",
+    "mimeType": "text/html",
+    "filename": "",
+    "headers": [
+     {
+      "name": "From",
+      "value": "=?UTF-8?B?2YXYrdmF2K8g2KXYqNix2KfZh9mK2YU=?= <a.engineer@contractor.example>"
+     },
+     {
+      "name": "To",
+      "value": "sales@medmack.com"
+     },
+     {
+      "name": "Subject",
+      "value": "Re: RFQ: BMU for Harbour Tower – Closing date extended"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 21 Sep 2026 08:38:07 +0300"
+     },
+     {
+      "name": "Content-Type",
+      "value": "text/html; charset=\"windows-1256\""
+     },
+     {
+      "name": "List-Unsubscribe",
+      "value": "<mailto:unsubscribe@contractor.example?subject=unsubscribe>, <https://contractor.example/u/123>"
+     },
+     {
+      "name": "List-Unsubscribe-Post",
+      "value": "List-Unsubscribe=One-Click"
+     }
+    ],
+    "body": {
+     "size": 123,
+     "data": "PGh0bWw-PGJvZHk-PHA-yuMgyuPP7c8gx-Hj5trPIMfh5OXHxu0gxeHsIDE4IMPfyubI0SAyMDI2PC9wPjxwPkNsb3NpbmcgZGF0ZSBleHRlbmRlZCB0byAxOCBPY3RvYmVyIDIwMjYuPC9wPjwvYm9keT48L2h0bWw-"
+    }
+   }
+  }
+ ]
+}

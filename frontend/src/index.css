@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Light surfaces, charcoal text, deep teal for actions,
+ * amber for anything waiting on a person's review, red only for blockers.
+ * See DESIGN.md before adding a token.
+ */
+@theme {
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.3125rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 2.625rem;
+
+  /* neutrals */
+  --color-canvas: #f6f7f6;
+  --color-surface: #ffffff;
+  --color-sunken: #f3f5f4;
+  --color-hover: #eef1f0;
+  --color-line: #e2e6e4;
+  --color-line-strong: #cdd3d0;
+  --color-ink: #1c2321;
+  --color-ink-2: #4a5552;
+  --color-ink-3: #5f6b67;
+
+  /* action: deep teal */
+  --color-brand: #176b61;
+  --color-brand-hover: #125a51;
+  --color-brand-press: #0e4a43;
+  --color-brand-soft: #e7f2ef;
+  --color-brand-line: #b9d9d2;
+  --color-brand-ink: #0f5a51;
+
+  /* waiting on a person: amber */
+  --color-review: #7a4a00;
+  --color-review-soft: #fcefd9;
+  --color-review-line: #f0d3a0;
+  --color-review-mark: #d98f0f;
+
+  /* blockers: red */
+  --color-block: #b3261e;
+  --color-block-soft: #fce9e7;
+  --color-block-line: #f3c3be;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --shadow-panel: 0 1px 2px rgb(28 35 33 / 0.04), 0 1px 1px rgb(28 35 33 / 0.03);
+  --shadow-pop: 0 12px 32px -8px rgb(28 35 33 / 0.18), 0 2px 6px rgb(28 35 33 / 0.08);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans text-base antialiased;
+    font-feature-settings: "kern", "liga";
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-brand-soft);
+    color: var(--color-ink);
+  }
+  [dir="rtl"] {
+    font-family: "IBM Plex Sans Arabic", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes ess-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ess-pop-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ess-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes ess-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+@keyframes ess-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@utility animate-fade-in {
+  animation: ess-fade-in 160ms var(--ease-out);
+}
+@utility animate-pop-in {
+  animation: ess-pop-in 180ms var(--ease-out);
+}
+@utility animate-sheet-in {
+  animation: ess-sheet-in 240ms var(--ease-out);
+}
+@utility animate-drawer-in {
+  animation: ess-drawer-in 220ms var(--ease-out);
+}
+@utility skeleton {
+  background: linear-gradient(90deg, var(--color-sunken) 0, var(--color-hover) 40%, var(--color-sunken) 80%);
+  background-size: 800px 100%;
+  animation: ess-shimmer 1.4s linear infinite;
+  border-radius: var(--radius-sm);
+}
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}

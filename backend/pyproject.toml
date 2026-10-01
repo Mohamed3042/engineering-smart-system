@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "engineering-smart-system"
+version = "0.1.0"
+description = "Local-first email-to-quotation automation with a human engineer gate"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115", "uvicorn[standard]>=0.30", "sqlmodel>=0.0.22", "pydantic>=2.7",
+  "jinja2>=3.1", "python-multipart>=0.0.9", "httpx>=0.27", "playwright>=1.45",
+  "pypdf>=4.2", "pypdfium2>=4.30", "python-docx>=1.1", "openpyxl>=3.1", "pillow>=10.3",
+  "beautifulsoup4>=4.12", "lxml>=5.2", "google-api-python-client>=2.130",
+  "google-auth-oauthlib>=1.2", "google-auth>=2.30", "mcp>=1.9", "openai>=1.40",
+  "anthropic>=0.40", "google-genai>=1.0", "cryptography>=42", "rapidfuzz>=3.9",
+  "python-dateutil>=2.9", "pyyaml>=6.0", "jsonschema>=4.22", "extract-msg>=0.48",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "respx>=0.21"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.setuptools.packages.find]
+include = ["ess*"]
+
+[tool.setuptools.package-data]
+ess = ["**/*.json", "**/*.yaml", "**/*.j2", "**/*.html", "**/*.css", "**/*.js", "**/*.ttf", "**/*.otf", "**/*.woff2", "**/*.svg", "**/*.txt", "**/*.md"]

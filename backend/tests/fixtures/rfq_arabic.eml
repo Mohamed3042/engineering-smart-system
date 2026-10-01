@@ -1,0 +1,57 @@
+Content-Type: multipart/mixed; boundary="==ess-boundary-1=="
+MIME-Version: 1.0
+From: =?utf-8?b?2YXYrdmF2K8g2KXYqNix2KfZh9mK2YU=?= <a.engineer@contractor.example>
+To: Medmack Sales <sales@medmack.com>
+Cc: tenders@contractor.example
+Subject: =?utf-8?b?UkZRIOKAkyDYt9mE2Kgg2KrYs9i52YrYsSDZiNit2K/YqSDYtdmK2KfZhtipINin?=
+ =?utf-8?b?2YTZhdio2KfZhtmKIEJNVQ==?=
+Date: Wed, 26 Aug 2026 11:20:26 +0300
+Message-ID: <rfq-0118@mail.contractor.example>
+References: <root-0001@mail.contractor.example> <rfq-0117@mail.contractor.example>
+In-Reply-To: <rfq-0117@mail.contractor.example>
+List-Unsubscribe: <https://contractor.example/unsubscribe?id=9>
+
+--==ess-boundary-1==
+Content-Type: multipart/alternative; boundary="==ess-boundary-2=="
+MIME-Version: 1.0
+
+--==ess-boundary-2==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+2KfZhNiz2KfYr9ipINmF2YrYr9mF2KfZg9iMCtmK2LHYrNmJINiq2LPYudmK2LEg2YjYrdiv2Kkg
+2LXZitin2YbYqSDYp9mE2YXYqNin2YbZiiDZhNmE2KjYsdisLgoKUGxlYXNlIHF1b3RlIEJNVSBm
+b3IgQWwtRHVycmFoIFRvd2VyLgpEcmF3aW5nczogaHR0cHM6Ly9kcml2ZS5nb29nbGUuY29tL2Ry
+aXZlL2ZvbGRlcnMvMUFiQ2RFZkdoSWpLbE1uT3BRP3VzcD1zaGFyaW5nCg==
+
+--==ess-boundary-2==
+Content-Type: text/html; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+
+PHA+2KfZhNiz2KfYr9ipINmF2YrYr9mF2KfZg9iMPC9wPjxwPlBsZWFzZSBxdW90ZSA8Yj5CTVU8
+L2I+LjwvcD4=
+
+--==ess-boundary-2==--
+
+--==ess-boundary-1==
+Content-Type: application/pdf
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename*=utf-8''BOQ%20-%20%D8%AC%D8%AF%D9%88%D9%84%20%D8%A7%D9%84%D9%83%D9%85%D9%8A%D8%A7%D8%AA.pdf
+
+JVBERi0xLjQKJSBmYWtlIEJPUSBmb3IgdGVzdHMKJSVFT0YK
+
+--==ess-boundary-1==
+Content-Type: message/rfc822
+MIME-Version: 1.0
+
+From: consultant@example.com
+To: a.engineer@contractor.example
+Subject: Addendum 1
+
+Revised scope attached.
+
+--==ess-boundary-1==--
