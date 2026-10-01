@@ -1,7 +1,15 @@
 import type { RouteObject } from "react-router";
-import { Placeholder } from "@/app/Placeholder";
+import { PageLoading } from "@/ui";
 
 export const inboxRoutes: RouteObject[] = [
-  { path: "inbox", element: <Placeholder title="Inbox" /> },
-  { path: "inbox/:emailId", element: <Placeholder title="Email" /> },
+  {
+    path: "inbox",
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./InboxPage")).InboxPage }),
+  },
+  {
+    path: "inbox/:emailId",
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./EmailPage")).EmailPage }),
+  },
 ];

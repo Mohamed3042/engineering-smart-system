@@ -1,4 +1,10 @@
 import type { RouteObject } from "react-router";
-import { Placeholder } from "@/app/Placeholder";
+import { PageLoading } from "@/ui";
 
-export const homeRoutes: RouteObject[] = [{ index: true, element: <Placeholder title="Control center" /> }];
+export const homeRoutes: RouteObject[] = [
+  {
+    index: true,
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./HomePage")).HomePage }),
+  },
+];
