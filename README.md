@@ -32,6 +32,9 @@ company's services, names and regional vocabulary.
 ./run.sh            # creates backend/.venv, installs Chromium, starts http://127.0.0.1:8765
 ```
 
+On Windows run it from Git Bash; the environment's Python is then `backend/.venv/Scripts/python`
+instead of `backend/.venv/bin/python` in the commands below.
+
 Then follow [docs/connections.md](docs/connections.md) to connect Gmail (Google sign-in, IMAP or MCP)
 and an AI engine (OpenAI / Anthropic / Google / Azure / OpenAI-compatible key, or an MCP client such as
 Claude Desktop/Code via `http://127.0.0.1:8765/mcp/`).
@@ -72,6 +75,10 @@ approval, customer-response tracking, Arabic inspection requests, BOQ evidence a
 They are generated visual concepts with fictional sample content; the visual direction applies Impeccable
 Operate principles. Collaboration notes: [for the concept author](docs/collab/notes-for-astra.md) ·
 [from the concept author](docs/collab/notes-from-astra.md).
+
+**Rendered screens of the working application** — every page on desktop and phone and every dialog,
+on an invented sample workspace: [docs/rendered/INDEX.md](docs/rendered/INDEX.md)
+(re-create with `scripts/screenshots.py`).
 
 ## Project layout
 

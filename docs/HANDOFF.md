@@ -1,62 +1,69 @@
-# Handoff — 1 October 2026
+# Handoff — 1 October 2026 (evening)
 
 Branch `claude/determined-feynman-r5zrdn`, draft PR Mohamed3042/engineering-smart-system#1.
 Read `PRODUCT.md`, `DESIGN.md`, `docs/architecture.md`, `docs/collab/notes-from-astra.md` first.
 
-## Done and tested
+## State
 
 - **Backend** (Python/FastAPI/SQLite): mail scan + classification, projects/enquiries, change
   detection (deadline needs human confirmation; technical revision reopens review), file download
-  and extraction, analysis, engineer review, quotation builder (templates, papers, signatories,
-  signature import, stamp, catalogue, photos), approval/send gates, customers (tags, opportunities,
-  research, monitoring), automations, learning from corrections, template rules, AI model policy +
-  18-case exam, MCP server. `cd backend && .venv/bin/python -m pytest -q` → 579 passed.
-- Latest backend additions in this session:
-  - `ess/pipeline/terms.py`: quotation terms follow the customer's request (validity, contract
-    period, spare parts) with the verbatim sentence in `data.term_changes`; MCP `propose_quotation`
-    accepts `terms` (quote must be found in the project's mail; no prices).
-  - `GET /api/ai/status` → `mcp.declared`, `mcp.tasks` (eligibility per task), `mcp.exam`.
-  - `GET /api/mcp/info` → `clients` (copy-ready setups for Claude Code, HTTP JSON, stdio JSON).
-  - `GET /api/customers` paged in SQL (`page`, `page_size`, `status`, `profile_status`,
-    `monitoring`, `tag`, `sort`), ~50 ms per page at 10,000 companies.
-- **Frontend foundation** (`frontend/src/app`, `ui`, `api`, `lib`): tokens, component kit, shell
-  (sidebar ≥1024 px; phone header + tabs Home/Inbox/Projects/More), router, setup wizard frame,
-  settings frame, global search (⌘K), notifications, workspace switcher, access-token gate,
-  URL contract `lib/routes.ts`. Impeccable skill vendored in `.claude/skills/impeccable`.
-- **Real Medmack data** (private, only in `data/` of the original container, never committed):
-  812 mails, 34 customers, 17 projects, 32 enquiries, 88 knowledge items; 18 draft quotations
-  AA/26/0001–0018 (no prices, DRAFT, unsigned) — already sent to the owner as a zip.
+  and extraction, analysis, engineer review, quotation builder (templates with the company's own
+  wording, papers, signatories, signature import, stamp, catalogue, photos), approval/send gates,
+  customers, automations, learning from corrections, template rules, AI model policy + 18-case
+  exam, MCP server. `cd backend && .venv/Scripts/python -m pytest -q` (Windows) or
+  `.venv/bin/python -m pytest -q` → 584 passed.
+- **Frontend**: every screen is built (no placeholders left): home, inbox, projects (overview,
+  enquiries, inputs, analysis, review, documents, change review, file viewer), quotations (library,
+  editor, requested-term decisions, preview, approvals, setup), customers, automations, settings,
+  setup wizard. `cd frontend && npm run build` is green (strict TypeScript, zero errors).
+- **Rendered screens**: `docs/rendered/INDEX.md` — desktop and phone images of every page and a
+  separate image of every dialog, on an invented sample workspace. Re-create them with
+  `backend/.venv/Scripts/python scripts/screenshots.py` (Windows) or `backend/.venv/bin/python …`.
+- **Real Medmack data** stays private (only in `data/` on the machine that scanned it, never
+  committed).
 
-## Not finished — frontend screens (work in progress, committed as WIP)
+## Rules that are now code
 
-Six parallel builders were stopped mid-way. Their partial code is in `frontend/src/features/*`.
-**The frontend does not typecheck yet** (`cd frontend && npx tsc -p tsconfig.app.json`), so
-`npm run build` fails; `run.sh` now continues and starts the API anyway.
+- A term the customer asks for is a pending request until a person accepts it, keeps the template
+  wording with a reason, or asks for clarification (`POST /quotations/{id}/term-changes/{key}/decide`);
+  undecided requests block approval; the decision records who, when and the revision.
+- `GET /quotations/{id}` and the approval queue return `approval_blockers` — the same list the
+  approve gate checks (`review_required`, `impact_review`, `prices_missing`, `quantities_missing`,
+  `terms_pending`). The interface shows them; it does not repeat the rules.
+- A quantity the tender does not state stays empty and blocks approval; prices start empty.
+- Text files are read and written as UTF-8 on every platform (Windows' cp1252 broke Arabic and
+  ZIP extraction).
 
-| Feature folder | State when stopped | Remaining |
-|---|---|---|
-| `home` | dashboard data + project list | Home page (mockups 11, 55, 56), footer, setup banner |
-| `inbox` | api, labels, list pieces; routes point to pages not written yet | visibility drawer, email detail (12–14, 47, 51–54) |
-| `projects` | api, lib, shared parts | all pages (15–22, 49, 50, 60, 63, 64, 68, 73–78) + enquiries tab + `/files/:id` |
-| `quotations` | api, lib, library | editor sections (incl. `term_changes`), preview, approvals/send, setup tabs, rules (23–29, 67, 79) |
-| `customers` | directory, add-company, research dialog, api | switch directory to server paging; profile, projects, research, updates, opportunities (30–35, 59, 61) |
-| `automations` | stub only | list, workflow editor, run log (36–38) |
-| `connections` | api, issues, vocab, components | setup steps 01–06, `/settings/connections`, `/settings/ai` (+ MCP view), `/settings/ai-rules` (39, 42, 48, 72) |
-| `knowledge` + `settings` | started shared review list | setup 07–10, knowledge tabs (40, 57, 58, 71), `/settings/learning`, team, workspace, account (41, 43, 62, 65, 70) |
+## Known gaps (found while building the screens)
 
-Rules for whoever continues: use `@/ui` components and `lib/labels.ts` wording; link only via
-`lib/routes.ts`; desktop + phone (390 px) for every screen; loading / empty / error states;
-AI never writes prices; approvals and sending are explicit human gates; never put real customer
-data in code or tests (the repository is public). If a folder is too far gone, restore its stub
-`routes.tsx` (each exports the same route names) to get a green build, then rebuild it.
+- The `new_email` trigger never fires: "New enquiry intake" runs only on a schedule or "Run now".
+- `GET /dashboard` has no pending-download list (Home derives it from blockers with `link_id`).
+- `GET /emails` has no intent or work-type filter; `GET /emails/{id}` has no link/attachment status
+  (the email page reads it from the project).
+- Links have no "resolved" status (Mark resolved = reject); failed attachments are never retried.
+- No job progress endpoints (download, extraction, analysis, exam): screens poll.
+- `GET /ai/policy` does not return the hard floor; `connections/policy.ts` mirrors it for the form
+  only (the backend still enforces it).
+- No endpoint lists mailbox labels/folders: the scan scope takes typed search queries.
+- The Google OAuth callback always returns to `/settings/connections?gmail=`.
+- Template `enabled` is not enforced when a draft picks its template; no endpoint sets the default
+  paper; photos placed on a page still print in the annex.
+- Not built: workflow editing / new automation, reply and forward, link an email to a project.
 
 ## Open items outside the UI
 
 - Download the tender files of the two open tenders (closing 11 and 18 Oct 2026) on a normal
   machine (the sandbox blocks Drive/WeTransfer/SharePoint). Names stay in the private workspace.
 - Connect Gmail (OAuth or IMAP) and an AI engine (API key or MCP) on the owner's machine:
-  `./run.sh`, then follow `docs/connections.md`.
+  `./run.sh` (Git Bash on Windows works), then follow `docs/connections.md`.
 - Calibrate templates against the company's local quotation folder.
-- Update the PR description when the UI lands.
+- Update the PR description.
 - GitHub may still keep old SHAs of a squashed early commit that held real names; only GitHub
   support can purge them.
+
+## Rules for whoever continues
+
+Use `@/ui` components and `lib/labels.ts` wording; link only via `lib/routes.ts`; desktop + phone
+(390 px) for every screen; loading / empty / error states; AI never writes prices; approvals and
+sending are explicit human gates; never put real customer data in code, tests or screenshots (the
+repository is public). Use `OmitKnown` (not `Omit`) on API entity types.

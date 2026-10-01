@@ -119,6 +119,7 @@ def sample_snapshot() -> dict:
                               "contacts": [{"name": "Priya Nair", "email": "priya.nair@westgate.example",
                                             "title": "Estimation Engineer"}]})
     marina = next(p for p in snap["projects"] if p["ref"] == "P-DEMO-MARINA")
+    marina["changes"][0]["pending_confirmation"] = True  # the new closing date waits for a person
     marina["enquiries"].append({"ref": "E-DEMO-MARINA-WG", "customer_ref": "westgate.example",
                                 "contact": {"name": "Priya Nair", "email": "priya.nair@westgate.example"},
                                 "email_ids": ["demo-w1"], "thread_ids": ["demo-t8"],
@@ -127,6 +128,24 @@ def sample_snapshot() -> dict:
     harbor["enquiries"][0]["email_ids"].append("demo-h2")
     snap["knowledge"] = KNOWLEDGE
     return snap
+
+
+def sample_assets(private: Path) -> None:
+    """An invented signature (a scribble) and a round stamp marked SAMPLE: approved PDFs show them, drafts never do."""
+    from PIL import Image, ImageDraw
+
+    (private / "signatures").mkdir(parents=True, exist_ok=True)
+    (private / "letterhead").mkdir(parents=True, exist_ok=True)
+    sig = Image.new("RGBA", (600, 200), (0, 0, 0, 0))
+    pts = [(30 + i * 9, 120 - 55 * ((i * 7919) % 13) / 13 + (25 if i % 4 == 0 else 0)) for i in range(60)]
+    ImageDraw.Draw(sig).line(pts, fill=(24, 48, 140, 255), width=6, joint="curve")
+    sig.save(private / "signatures" / "JE.png")
+    stamp = Image.new("RGBA", (420, 420), (0, 0, 0, 0))
+    d = ImageDraw.Draw(stamp)
+    d.ellipse((10, 10, 410, 410), outline=(30, 60, 160, 200), width=12)
+    d.ellipse((60, 60, 360, 360), outline=(30, 60, 160, 200), width=5)
+    d.text((210, 210), "SAMPLE", fill=(30, 60, 160, 220), anchor="mm", font_size=72)
+    stamp.save(private / "letterhead" / "stamp.png")
 
 
 def seed() -> None:
@@ -139,6 +158,7 @@ def seed() -> None:
     from ess.workspace import create_workspace
 
     config.get_settings.cache_clear()
+    sample_assets(config.get_settings().private_dir)
     db.init_db()
     with db.session_scope() as s:
         ws = create_workspace(s, dict(DEMO_WORKSPACE), owner_name="Jordan Ellis")
@@ -154,7 +174,12 @@ def seed() -> None:
 
 
 def start_app():
-    env = {**os.environ, "ESS_DATA_DIR": str(DATA), "ESS_PORT": str(PORT), "ESS_SCHEDULER": "0", "PYTHONUTF8": "1"}
+    home = DATA / "home"  # the folder picker starts in the home folder: show invented folders, never this computer's
+    for folder in ("Company documents/Old quotations", "Company documents/Catalogues", "Company documents/Certificates",
+                   "Desktop", "Downloads"):
+        (home / folder).mkdir(parents=True, exist_ok=True)
+    env = {**os.environ, "ESS_DATA_DIR": str(DATA), "ESS_PORT": str(PORT), "ESS_SCHEDULER": "0", "PYTHONUTF8": "1",
+           "HOME": str(home), "USERPROFILE": str(home)}
     log = open(DATA / "server.log", "w", encoding="utf-8")
     proc = subprocess.Popen([sys.executable, "-m", "ess.main"], cwd=BACKEND, env=env, stdout=log, stderr=subprocess.STDOUT)
     import httpx
@@ -215,6 +240,9 @@ def prepare(c) -> dict:
 
     approve_review(ctx["harbor"])
     approve_review(ctx["crescent"])
+    review = ok(c.get(f"/api/projects/{ctx['marina']}/review"))  # every item checked, approval still open
+    ok(c.put(f"/api/projects/{ctx['marina']}/review",
+             json={"checklist": [{**i, "status": "checked"} for i in review["checklist"]], "note": ""}))
     review = ok(c.get(f"/api/projects/{ctx['eastquay']}/review"))  # half-way: some items checked, one flagged
     items = review["checklist"]
     for i, item in enumerate(items):
@@ -228,14 +256,19 @@ def prepare(c) -> dict:
     ctx["q_harbor"] = qh["id"]
     if any(t["key"] == "validity" for t in qh["data"].get("term_changes") or []):
         ok(c.post(f"/api/quotations/{qh['id']}/term-changes/validity/decide", json={"decision": "accept"}))
-    qc = ok(c.post("/api/quotations", json={"project_id": ctx["crescent"]}))
-    ctx["q_crescent"] = qc["id"]
-    for change in qc["data"].get("term_changes") or []:
-        ok(c.post(f"/api/quotations/{qc['id']}/term-changes/{change['key']}/decide",
-                  json={"decision": "retain", "reason": "Company policy for tenders."}))
-    items = [{**i, "qty": i.get("qty") or 1, "unit_price": 1850.0 + 250 * n} for n, i in enumerate(qc["data"]["items"])]
-    ok(c.put(f"/api/quotations/{qc['id']}", json={"data": {"items": items}}))
-    ok(c.post(f"/api/quotations/{qc['id']}/approve", json={"note": "Sample approval for the visual review."}))
+    def priced(project_id: str) -> dict:  # a person entered quantities and (invented) prices, terms decided
+        q = ok(c.post("/api/quotations", json={"project_id": project_id}))
+        for change in q["data"].get("term_changes") or []:
+            ok(c.post(f"/api/quotations/{q['id']}/term-changes/{change['key']}/decide",
+                      json={"decision": "retain", "reason": "Company policy for tenders."}))
+        items = [{**i, "qty": i.get("qty") or 1, "unit_price": 1850.0 + 250 * n} for n, i in enumerate(q["data"]["items"])]
+        ok(c.put(f"/api/quotations/{q['id']}", json={"data": {"items": items}}))
+        return q
+
+    ctx["q_crescent"] = priced(ctx["crescent"])["id"]  # approved
+    ok(c.post(f"/api/quotations/{ctx['q_crescent']}/approve", json={"note": "Sample approval for the visual review."}))
+    ctx["q_ready"] = priced(ctx["crescent"])["id"]  # waits for approval with nothing missing
+    ok(c.post(f"/api/quotations/{ctx['q_ready']}/submit"))
     enquiries = [e for e in ok(c.get("/api/enquiries")) if e["project_id"] == ctx["marina"]]
     first = min(enquiries, key=lambda e: e.get("received_at") or "")
     qm = ok(c.post("/api/quotations", json={"project_id": ctx["marina"], "enquiry_id": first["id"]}))
@@ -248,10 +281,11 @@ def prepare(c) -> dict:
     customers = ok(c.get("/api/customers"))
     rows = customers["items"] if isinstance(customers, dict) else customers
     ctx["customer"] = next(x["id"] for x in rows if x["name"] == "Harbor Facilities")
-    autos = ok(c.get("/api/automations"))
-    ctx["automation"] = autos[0]["id"]
-    ctx["run"] = ok(c.post(f"/api/automations/{autos[0]['id']}/run", json={}))["run_id"]
-    time.sleep(2)  # let the run reach its first gate or finish
+    autos = {a["key"]: a for a in ok(c.get("/api/automations"))}
+    ctx["automation"] = autos["enquiry_intake"]["id"]
+    hygiene = autos["inbox_hygiene"]["id"]  # stops at its approval gate (unsubscribing needs a person)
+    ctx["run"] = ok(c.post(f"/api/automations/{hygiene}/run", json={}))["run_id"]
+    _until(lambda: ok(c.get(f"/api/runs/{ctx['run']}"))["run"]["status"] != "running", "the inbox hygiene run to pause", 60)
     return ctx
 
 
@@ -263,6 +297,11 @@ STATES: list[dict] = [
     {"no": "12", "title": "Classified inbox", "path": "/inbox"},
     {"no": "13", "title": "Email detail", "path": "/inbox/demo-m2"},
     {"no": "13b", "title": "Arabic request (RTL)", "path": "/inbox/demo-a1"},
+    {"no": "14", "title": "Show and hide categories", "path": "/inbox", "open": [("click", "^Show and hide")]},
+    {"no": "52", "title": "Promotions inbox", "path": "/inbox", "steps": [("click", "^Promotions")]},
+    {"no": "53", "title": "Unsubscribe confirmation", "path": "/inbox",
+     "open": [("click", "^Promotions"), ("click", "^Unsubscribe")]},
+    {"no": "54", "title": "Change category dialog", "path": "/inbox/demo-v1", "open": [("click", "^Change category")]},
     {"no": "15", "title": "Projects", "path": "/projects"},
     {"no": "17", "title": "Project overview", "path": "/projects/{marina}"},
     {"no": "17b", "title": "Contractor enquiries", "path": "/projects/{marina}/enquiries"},
@@ -275,30 +314,86 @@ STATES: list[dict] = [
     {"no": "74", "title": "Deadline amendment", "path": "/projects/{marina}/changes/0"},
     {"no": "73", "title": "Technical revision", "path": "/projects/{eastquay}/changes/0"},
     {"no": "17c", "title": "Project documents", "path": "/projects/{harbor}/documents"},
+    {"no": "68", "title": "Project archive", "path": "/projects/archive"},
+    {"no": "19", "title": "Download approval dialog", "path": "/projects/{marina}/inputs",
+     "open": [("click", "^Approve download")]},
+    {"no": "64", "title": "Add project link dialog", "path": "/projects/{crescent}/inputs", "open": [("click", "^Add link")]},
+    {"no": "20b", "title": "Mark file reviewed dialog", "path": "/files/{file_pdf}", "open": [("click", "^Mark reviewed")]},
+    {"no": "22b", "title": "Approve technical scope dialog", "path": "/projects/{marina}/review",
+     "open": [("click", "^Approve (technical )?scope|^Approve review")]},
+    {"no": "63", "title": "Request changes dialog", "path": "/projects/{marina}/review", "open": [("click", "^Request changes")]},
+    {"no": "74b", "title": "Confirm new closing date dialog", "path": "/projects/{marina}/changes/0",
+     "open": [("click", "^Confirm new closing date")]},
+    {"no": "60", "title": "Create quotation: choose the contractor", "path": "/projects/{marina}/documents",
+     "open": [("click", "^Create quotation")]},
+    {"no": "17d", "title": "Use this template for projects like this", "path": "/projects/{harbor}/documents",
+     "open": [("click", "^Use this template")]},
     {"no": "23", "title": "Quotations", "path": "/quotations"},
     {"no": "26", "title": "Quotation editor with requested terms", "path": "/quotations/{q_harbor}"},
     {"no": "27", "title": "Draft preview", "path": "/quotations/{q_harbor}/preview"},
     {"no": "27b", "title": "Approved preview", "path": "/quotations/{q_crescent}/preview"},
+    {"no": "26b", "title": "Decide a requested term", "path": "/quotations/{q_harbor}", "open": [("click", "^Decide")]},
+    {"no": "26c", "title": "Stamp placement", "path": "/quotations/{q_harbor}", "open": [("click", "^Edit stamp placement")]},
+    {"no": "26d", "title": "Save as template rule", "path": "/quotations/{q_harbor}", "open": [("click", "^Save as template rule")]},
+    {"no": "26e", "title": "Lines from the catalogue", "path": "/quotations/{q_harbor}", "open": [("click", "^From catalogue")]},
+    {"no": "26f", "title": "Add a reference photo", "path": "/quotations/{q_harbor}", "open": [("click", "^Add photo")]},
+    {"no": "79", "title": "Maintenance quotation waiting for approval", "path": "/quotations/{q_ready}"},
+    {"no": "28b", "title": "Approve quotation dialog", "path": "/quotations/{q_ready}", "open": [("click", "^Approve ")]},
+    {"no": "63b", "title": "Request changes on a quotation", "path": "/quotations/{q_ready}", "open": [("click", "^Request changes")]},
+    {"no": "29", "title": "Send quotation dialog", "path": "/quotations/{q_crescent}", "open": [("click", "^Send quotation")]},
+    {"no": "23b", "title": "New quotation dialog", "path": "/quotations", "open": [("click", "^New quotation")]},
     {"no": "28", "title": "Approvals", "path": "/quotations/approvals"},
-    {"no": "25", "title": "Quotation setup", "path": "/quotations/setup"},
+    {"no": "25", "title": "Quotation setup: templates", "path": "/quotations/setup/templates"},
+    {"no": "25b", "title": "Template wording editor", "path": "/quotations/setup/templates/annual_maintenance"},
+    {"no": "24", "title": "Template rules", "path": "/quotations/setup/rules"},
+    {"no": "24b", "title": "Add template rule", "path": "/quotations/setup/rules", "open": [("click", "^Add rule")]},
+    {"no": "82", "title": "Company papers", "path": "/quotations/setup/papers"},
+    {"no": "83", "title": "Signatories", "path": "/quotations/setup/signatories"},
+    {"no": "83b", "title": "Add signatory", "path": "/quotations/setup/signatories", "open": [("click", "^Add signatory")]},
+    {"no": "84", "title": "Stamp and letterhead", "path": "/quotations/setup/letterhead"},
+    {"no": "85", "title": "Catalogue", "path": "/quotations/setup/catalog"},
     {"no": "30", "title": "Customers", "path": "/customers"},
+    {"no": "61", "title": "Add company dialog", "path": "/customers", "open": [("click", "^Add company")]},
     {"no": "31", "title": "Customer profile", "path": "/customers/{customer}"},
+    {"no": "59", "title": "Customer projects", "path": "/customers/{customer}/projects"},
+    {"no": "33", "title": "Customer research", "path": "/customers/{customer}/research"},
+    {"no": "32", "title": "Research setup dialog", "path": "/customers/{customer}/research", "open": [("click", "^Run research")]},
+    {"no": "34", "title": "Customer updates", "path": "/customers/{customer}/updates"},
+    {"no": "35", "title": "Suggested services", "path": "/customers/{customer}/opportunities"},
+    {"no": "81", "title": "Lessons for this customer", "path": "/customers/{customer}/lessons"},
     {"no": "36", "title": "Automations", "path": "/automations"},
     {"no": "37", "title": "Automation", "path": "/automations/{automation}"},
-    {"no": "38", "title": "Automation run", "path": "/automations/runs/{run}"},
+    {"no": "38", "title": "Automation run waiting at a gate", "path": "/automations/runs/{run}"},
+    {"no": "38b", "title": "Continue a paused run", "path": "/automations/runs/{run}", "open": [("click", "^Continue")]},
     {"no": "39", "title": "Mailbox and services", "path": "/settings/connections"},
+    {"no": "06b", "title": "Add mailbox dialog", "path": "/settings/connections", "open": [("click", "^Add mailbox|^Connect mailbox")]},
+    {"no": "39b", "title": "Add search service", "path": "/settings/connections", "open": [("click", "^Add search service")]},
     {"no": "04", "title": "AI engine and MCP", "path": "/settings/ai"},
+    {"no": "04b", "title": "Use MCP as the AI engine", "path": "/settings/ai", "steps": [("click", "^Connect using MCP")],
+     "open": [("click", "^Use MCP as the AI engine")]},
     {"no": "42", "title": "AI quality rules", "path": "/settings/ai-rules"},
-    {"no": "40", "title": "Business knowledge", "path": "/settings/knowledge"},
+    {"no": "40", "title": "Business knowledge: services", "path": "/settings/knowledge/service-families"},
+    {"no": "57", "title": "Business knowledge: work types", "path": "/settings/knowledge/work-types"},
+    {"no": "71", "title": "Business knowledge: terms", "path": "/settings/knowledge/terms"},
+    {"no": "58", "title": "Business knowledge: standards", "path": "/settings/knowledge/standards"},
+    {"no": "86", "title": "Business knowledge: conventions", "path": "/settings/knowledge/conventions"},
+    {"no": "40b", "title": "Add a finding", "path": "/settings/knowledge/service-families", "open": [("click", "^Add ")]},
+    {"no": "40c", "title": "Learn from files and mail", "path": "/settings/knowledge/service-families",
+     "open": [("click", "^Learn from")]},
+    {"no": "71b", "title": "Regional vocabulary", "path": "/settings/knowledge/terms", "open": [("click", "^Regional vocabulary")]},
+    {"no": "58b", "title": "Standards library", "path": "/settings/knowledge/standards", "open": [("click", "^Standards library")]},
     {"no": "80", "title": "Learned corrections", "path": "/settings/learning"},
+    {"no": "80b", "title": "Delete a lesson", "path": "/settings/learning", "open": [("click", "^Delete")]},
     {"no": "43", "title": "Workspace settings", "path": "/settings/workspace"},
     {"no": "41", "title": "Team", "path": "/settings/team"},
+    {"no": "62", "title": "Add team member", "path": "/settings/team", "open": [("click", "^Add member")]},
     {"no": "70", "title": "Your account", "path": "/settings/account"},
     {"no": "01", "title": "Setup: workspace", "path": "/setup/workspace"},
     {"no": "02", "title": "Setup: AI engine", "path": "/setup/engine"},
     {"no": "05", "title": "Setup: model", "path": "/setup/model"},
     {"no": "06", "title": "Setup: mailbox", "path": "/setup/mail"},
     {"no": "07", "title": "Setup: company documents", "path": "/setup/documents"},
+    {"no": "65", "title": "Company folder picker", "path": "/setup/documents", "open": [("click", "^Choose folder")]},
     {"no": "08", "title": "Setup: scan scope", "path": "/setup/scope"},
     {"no": "09", "title": "Setup: learning", "path": "/setup/learning"},
     {"no": "10", "title": "Setup: business discovery", "path": "/setup/identity"},
@@ -318,18 +413,21 @@ def settle(page) -> None:
     page.wait_for_timeout(300)
 
 
-def run_steps(page, steps) -> None:
+def run_steps(page, steps, dialog: bool = True) -> None:
+    """Click controls by their accessible name (buttons, links, tabs, segmented options, menu items)."""
     for kind, arg in steps:
         if kind == "click":
-            target = page.get_by_role("button", name=re.compile(arg, re.I))
-            if not target.count():
-                target = page.get_by_role("link", name=re.compile(arg, re.I))
+            name = re.compile(arg, re.I)
+            for role in ("button", "link", "tab", "radio", "menuitem"):
+                target = page.get_by_role(role, name=name)
+                if target.count():
+                    break
             target.first.click()
         elif kind == "fill":
             label, value = arg
             page.get_by_label(re.compile(label, re.I)).first.fill(value)
         settle(page)
-    if steps:
+    if steps and dialog:
         page.get_by_role("dialog").first.wait_for(state="visible", timeout=5_000)
         page.wait_for_timeout(350)
 
@@ -353,8 +451,18 @@ def shoot(ctx: dict, only: set[str]) -> list[dict]:
                 try:
                     page.goto(BASE + path)
                     settle(page)
+                    run_steps(page, st.get("steps") or [], dialog=False)
                     run_steps(page, st.get("open") or [])
-                    page.screenshot(path=str(OUT / device / name), full_page=not st.get("open"))
+                    target = str(OUT / device / name)
+                    if st.get("open"):  # a dialog: the visible screen
+                        page.screenshot(path=target)
+                    else:  # a page: grow the window to the page, so fixed bars and the sidebar sit where they belong
+                        size = spec["ctx"]["viewport"]
+                        height = page.evaluate("Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)")
+                        page.set_viewport_size({"width": size["width"], "height": max(size["height"], min(height, 12_000))})
+                        page.wait_for_timeout(300)
+                        page.screenshot(path=target)
+                        page.set_viewport_size(size)
                     if device == "desktop":
                         done.append({**st, "route": path, "file": name})
                 except Exception as exc:  # keep going: one broken state must not hide the others
@@ -364,7 +472,29 @@ def shoot(ctx: dict, only: set[str]) -> list[dict]:
     return done
 
 
-def write_index(done: list[dict]) -> None:
+PDFS = [("27c", "Draft PDF", "q_harbor"), ("27d", "Approved PDF", "q_crescent")]
+
+
+def render_pdfs(c, ctx: dict) -> list[dict]:
+    """First and last page of a draft and of an approved quotation PDF, as the app renders them."""
+    import pypdfium2 as pdfium
+
+    shutil.rmtree(OUT / "pdf", ignore_errors=True)
+    (OUT / "pdf").mkdir(parents=True)
+    out = []
+    for no, title, key in PDFS:
+        r = c.get(f"/api/quotations/{ctx[key]}/pdf")
+        r.raise_for_status()
+        doc = pdfium.PdfDocument(r.content)
+        for index in sorted({0, len(doc) - 1}):
+            name = f"{no}-{slug(title)}-page-{index + 1}.png"
+            doc[index].render(scale=1.6).to_pil().save(OUT / "pdf" / name)
+            out.append({"no": no, "title": f"{title}, page {index + 1} of {len(doc)}", "file": name,
+                        "route": f"/api/quotations/:{key}/pdf"})
+    return out
+
+
+def write_index(done: list[dict], pdfs: list[dict]) -> None:
     lines = [
         "# Rendered screens",
         "",
@@ -382,6 +512,18 @@ def write_index(done: list[dict]) -> None:
         how = f" — {st['how']}" if st.get("how") else ""
         lines.append(f"| {st['no']} | {st['title']}{how} | `{st['route_display']}` | [desktop](desktop/{st['file']}) | "
                      f"[phone](phone/{phone}) |")
+    lines += [
+        "",
+        "## PDF output",
+        "",
+        "The preview page embeds the PDF; the screenshot browser (headless Chromium) cannot display a PDF inside a",
+        "page, so the pages below are rendered from the same PDF files. The sample signatory has an invented",
+        "signature and a stamp marked SAMPLE: the approved PDF carries them, the draft never does.",
+        "",
+        "| No. | PDF | Source | Image |",
+        "|---|---|---|---|",
+    ]
+    lines += [f"| {p['no']} | {p['title']} | `{p['route']}` | [page](pdf/{p['file']}) |" for p in pdfs]
     (OUT / "INDEX.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -411,8 +553,10 @@ def main() -> None:
         done = shoot(ctx, only)
         for st in done:  # routes in the index use placeholders, not the sample ids
             st["route_display"] = re.sub(r"\{(\w+)\}", lambda m: ":" + m.group(1), st["path"])
+        with httpx.Client(base_url=BASE, timeout=120) as c:
+            pdfs = render_pdfs(c, ctx)
         if not only:
-            write_index(done)
+            write_index(done, pdfs)
         print(f"{len(done)} states → {OUT}")
         if a.keep:
             print(f"App still running on {BASE} (pid {proc.pid}); stop it when done.")

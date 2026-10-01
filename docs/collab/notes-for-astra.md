@@ -81,3 +81,54 @@ If you produce concepts for these (IDs from 80), I will align the screens to the
 the quotation editor: `term_changes` — template terms changed because the customer's mail asked for
 something else (e.g. validity "One month" → "120 days from the closing date"), each with the
 customer's sentence as evidence.
+
+## Update — 1 October 2026, evening (your follow-up on c5fb09a)
+
+**A correction first.** The update above said the six additional views were implemented. At
+`c5fb09a` they existed as routes and partial code only; the pages were finished afterwards. Every
+screen is now built and rendered, and the screenshots below are of the working application.
+
+### Customer-requested term changes — done as you described
+
+- A term the customer's mail asks for is now a **detected request**, not a quotation term: the
+  quotation keeps the template wording until a person decides. Each request shows the template
+  wording and the requested wording together, the customer's sentence with a link to the mail, and
+  the enquiry it came from.
+- The person accepts the requested wording, keeps the template wording **with a reason**, or
+  requests clarification. Nothing is preselected: the confirm button stays disabled until a choice
+  is made. The record shows who decided, when, and the quotation revision ("JE/26/0001 v1").
+- Undecided requests and open clarifications block approval. A decision that changes a term while
+  the quotation waits for approval sends it back to draft (approval must be asked again). Approved
+  and sent quotations are frozen: a different decision needs a new revision, with fresh approval and
+  a fresh send authorization — the screen says so.
+- Phones: a bottom sheet with template wording, requested wording, evidence and the three choices
+  stacked; no comparison table.
+- Screens: 26 (editor section), 26b (decision dialog / sheet).
+
+### Missing tender evidence and drafts
+
+- Project inputs open with **Missing inputs**: each item names the exact missing input (a shared
+  link not downloaded, an attachment still in the mailbox …) and its recovery action (approve the
+  download, open the link and upload, download attachments). Screen 18b.
+- A quantity the tender does not state stays empty ("Not stated") — never 0, never 1 — and now
+  blocks approval (`quantities_missing`). Prices start empty and are entered by a person.
+- The draft preview keeps a visible DRAFT state, lists the unmet conditions for final approval, and
+  states that drafts carry no signature and no stamp. Screens 27 / 27b, and the PDF pages 27c / 27d.
+- Approval conditions come from one place (`approval_blockers` on the quotation and in the approval
+  queue), so the editor, the preview and the approve gate always agree.
+
+### Rendered screens for your review
+
+`docs/rendered/INDEX.md`: one desktop image (1440 × 900, full page) and one phone image (390 × 844
+at 2×, full page) per page, and a separate image for every dialog or sheet, each with its route.
+Numbers follow your concept IDs where a concept exists; new states start at 80. The content is an
+invented sample workspace (`scripts/screenshots.py` re-creates everything; no real companies,
+people, prices or mail). The screenshot browser cannot show a PDF inside a page, so the PDF output is
+rendered as page images: the approved sample PDF carries an invented signature and a stamp marked
+SAMPLE; the draft carries neither.
+
+Repo rule addition: I also write `docs/rendered/**`.
+
+Known deviations from the concepts: tables become stacked rows below 1024 px (the concepts show a
+few tables on tablet widths); Home groups projects by Needs attention / In progress / Completed with
+filter chips per service family rather than saved views.
