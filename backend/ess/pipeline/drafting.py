@@ -13,6 +13,7 @@ from ..models import (
     Approval,
     Contact,
     Customer,
+    Email,
     Enquiry,
     Project,
     Quotation,
@@ -59,6 +60,15 @@ def enquiry_dict(session: Session, enquiry: Optional[Enquiry]) -> dict:
             contact = {"name": c.name, "email": c.email, "title": c.title}
     return {"ref": enquiry.ref, "company": customer.name if customer else "", "contact": contact,
             "due_date": enquiry.due_date.isoformat() if enquiry.due_date else None}
+
+
+def enquiry_sources(session: Session, project: Project, enquiry: Optional[Enquiry] = None) -> dict[str, str]:
+    """Customer text a quotation answers: that contractor's mails, else every mail of the project."""
+    emails = session.exec(select(Email).where(Email.project_id == project.id)).all()
+    if enquiry is not None and (enquiry.email_ids or enquiry.thread_ids):
+        ids, threads = set(enquiry.email_ids or []), set(enquiry.thread_ids or [])
+        emails = [e for e in emails if e.id in ids or e.thread_id in threads]
+    return {e.id: f"{e.subject}\n{e.body_text or e.snippet}" for e in emails if e.direction != "outbound"}
 
 
 def _existing_refs(session: Session, ws: Workspace) -> list[str]:
@@ -127,6 +137,9 @@ def create_quotation(session: Session, ws: Workspace, project: Project, *, enqui
         data["items"] = [{"no": i + 1, "description": it.get("description", ""), "spec": it.get("spec", ""),
                           "qty": it.get("qty"), "unit": it.get("unit") or "", "unit_price": None, "total": None}
                          for i, it in enumerate(project.scope_items)]
+    from .terms import apply_requested_terms
+
+    apply_requested_terms(data, enquiry_sources(session, project, enquiry))  # e.g. "validity of the offer: 120 days"
     data = strip_prices(data)  # hard rule: drafts never carry prices
 
     q = Quotation(workspace_id=ws.id, project_id=project.id, enquiry_id=enquiry.id if enquiry else None,
