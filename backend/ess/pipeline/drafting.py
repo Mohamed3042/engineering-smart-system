@@ -207,6 +207,12 @@ def missing_prices(q: Quotation) -> list[int]:
             if i.get("unit_price") in (None, "") and not i.get("included")]
 
 
+def missing_quantities(q: Quotation) -> list[int]:
+    """Lines whose quantity nobody stated: never assumed to be 0 or 1."""
+    return [i.get("no") or n + 1 for n, i in enumerate(q.data.get("items") or [])
+            if i.get("qty") in (None, "") and not i.get("included")]
+
+
 def approval_blockers(session: Session, ws: Workspace, q: Quotation) -> list[dict]:
     """Every unmet condition for approving ``q``, in the order a person should clear them.
     The approve gate refuses with the first one; the editor and the preview list them all."""
@@ -228,6 +234,11 @@ def approval_blockers(session: Session, ws: Workspace, q: Quotation) -> list[dic
     if gaps:
         out.append({"code": "prices_missing",
                     "message": f"Enter prices for item(s) {', '.join(map(str, gaps))} before approval."})
+    unknown = missing_quantities(q)
+    if unknown:
+        out.append({"code": "quantities_missing",
+                    "message": f"Enter the quantity for item(s) {', '.join(map(str, unknown))}: "
+                               "a quantity the tender does not state is never assumed."})
     open_terms = open_term_requests(q.data or {})
     if open_terms:
         out.append({"code": "terms_pending",

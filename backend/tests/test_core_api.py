@@ -176,6 +176,17 @@ def test_requested_terms_wait_for_a_person_and_block_approval(client):
     assert r.status_code == 409 and r.json()["detail"]["code"] == "frozen"  # revise: fresh approval + send
 
 
+def test_unknown_quantity_stays_unknown_and_blocks_approval(client):
+    pytest.importorskip("ess.quotation.templates")
+    _demo(client)
+    pid = next(p["id"] for p in client.get("/api/projects").json()["items"] if p["name"] == "Crescent School")
+    q = client.post("/api/quotations", json={"project_id": pid}).json()
+    assert [i["qty"] for i in q["data"]["items"]] == [None]  # the tender states no quantity: not 0, not 1
+    client.put(f"/api/quotations/{q['id']}", json={"data": {"items": [{**i, "unit_price": 900} for i in q["data"]["items"]]}})
+    codes = [b["code"] for b in client.get(f"/api/quotations/{q['id']}").json()["approval_blockers"]]
+    assert "quantities_missing" in codes and "prices_missing" not in codes
+
+
 def test_mcp_requires_declared_eligible_engine(client):
     _demo(client)
     headers = {"accept": "application/json, text/event-stream", "content-type": "application/json"}
