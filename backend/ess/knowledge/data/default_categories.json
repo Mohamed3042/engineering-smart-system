@@ -1,0 +1,856 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "key": "bmu",
+      "label": "Building Maintenance Units",
+      "label_ar": "وحدات صيانة المباني",
+      "group": "work",
+      "icon": "building-2",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "BMU",
+          "building maintenance unit",
+          "building maintenance system",
+          "roof car",
+          "roof trolley",
+          "telescopic jib",
+          "luffing jib",
+          "cradle machine",
+          "powered platform",
+          "façade maintenance unit",
+          "facade maintenance unit",
+          "gondola system",
+          "roof crane"
+        ],
+        "ar": [
+          "وحدة صيانة المبنى",
+          "وحدات صيانة المباني",
+          "وحدة صيانة الواجهات",
+          "ونش تنظيف الواجهات",
+          "ماكينة تنظيف الواجهات",
+          "مكائن تنظيف الواجهات",
+          "عربة السطح",
+          "ونش سطح",
+          "ذراع تلسكوبي"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "battery management unit",
+          "battery monitoring unit",
+          "BMU firmware",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Permanent roof-mounted façade access machines (roof cars with jibs and cradles): new supply & installation, replacements, modernisation, and their maintenance/inspection enquiries."
+    },
+    {
+      "key": "wce",
+      "label": "Window Cleaning Equipment",
+      "label_ar": "معدات تنظيف الواجهات",
+      "group": "work",
+      "icon": "app-window",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "window cleaning system",
+          "window cleaning equipment",
+          "window washing equipment",
+          "facade cleaning system",
+          "façade cleaning system",
+          "façade access equipment",
+          "facade access equipment",
+          "monorail",
+          "davit",
+          "davit arm",
+          "anchor point",
+          "roof anchor",
+          "tieback anchor",
+          "lifeline",
+          "horizontal lifeline",
+          "fall arrest",
+          "rope access",
+          "rope descent system",
+          "travelling ladder",
+          "traveling ladder",
+          "gantry",
+          "11 24 23",
+          "Div-11",
+          "Division 11",
+          "bosun's chair",
+          "cleaning system"
+        ],
+        "ar": [
+          "نظام تنظيف النوافذ",
+          "نظام تنظيف الواجهات",
+          "معدات تنظيف الواجهات",
+          "معدات الوصول للواجهات",
+          "مونوريل",
+          "دافيت",
+          "ذراع دافيت",
+          "نقاط تثبيت",
+          "نقطة تثبيت",
+          "حبل الحياة",
+          "حبل النجاة",
+          "منع السقوط",
+          "الوصول بالحبال",
+          "القسم 11",
+          "نظام تنظيف"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "window cleaning spray",
+          "window cleaning service only",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Other permanent façade/window access systems — monorails, davits, anchors and lifelines, gantries and travelling ladders, rope-access anchorage — usually tendered as Division 11 24 23 packages."
+    },
+    {
+      "key": "cradle",
+      "label": "Suspended platforms / cradles",
+      "label_ar": "السقالات المعلقة (الجندولا)",
+      "group": "work",
+      "icon": "rows-3",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "suspended platform",
+          "suspended working platform",
+          "temporary gondola",
+          "gondola",
+          "cradle",
+          "swing stage",
+          "suspended scaffold",
+          "ZLP630",
+          "ZLP800",
+          "ZLP",
+          "traction hoist",
+          "safety lock",
+          "wire rope",
+          "counterweight",
+          "outrigger beam",
+          "parapet clamp",
+          "TSAE"
+        ],
+        "ar": [
+          "سقالة معلقة",
+          "سقالات معلقة",
+          "سقالة كهربائية",
+          "سقالات كهربائية",
+          "جندولا",
+          "منصة معلقة",
+          "منصة عمل معلقة",
+          "سيفتي لوك",
+          "موتور رفع",
+          "واير",
+          "ثقل موازن"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "baby cradle",
+          "cradle-to-grave",
+          "cradle to cradle",
+          "phone cradle",
+          "cable car",
+          "gondola lift ticket",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "مهد الطفل",
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Temporary motorised suspended platforms: sale, monthly rental, installation and shifting between drops, wire ropes and spare parts, repairs, inspection and load tests. Replacement cradles for an existing BMU belong to bmu."
+    },
+    {
+      "key": "hoist",
+      "label": "Construction hoists",
+      "label_ar": "الروافع الإنشائية",
+      "group": "work",
+      "icon": "arrow-up-from-line",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "construction hoist",
+          "builders' hoist",
+          "builders hoist",
+          "passenger hoist",
+          "material hoist",
+          "goods hoist",
+          "personnel hoist",
+          "rack and pinion",
+          "buck hoist",
+          "mast climbing work platform",
+          "MCWP",
+          "mast climber",
+          "transport platform",
+          "man and material hoist"
+        ],
+        "ar": [
+          "رافعة إنشائية",
+          "الروافع الإنشائية",
+          "مصعد إنشائي",
+          "مصعد موقع",
+          "ونش مواد",
+          "ونش ركاب",
+          "رافعة ركاب",
+          "منصة متسلقة"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "passenger elevator",
+          "escalator",
+          "elevator maintenance",
+          "chain hoist",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "مصعد ركاب للمبنى",
+          "سلم كهربائي",
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Rack-and-pinion construction hoists for people and/or materials and mast-climbing work platforms: rental, sale, erection/climbing, operators, maintenance and certification."
+    },
+    {
+      "key": "crane",
+      "label": "Cranes & lifting",
+      "label_ar": "الرافعات والأوناش",
+      "group": "work",
+      "icon": "construction",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "tower crane",
+          "mobile crane",
+          "crawler crane",
+          "luffing crane",
+          "hammerhead crane",
+          "flat top crane",
+          "self-erecting crane",
+          "all terrain crane",
+          "rough terrain crane",
+          "truck crane",
+          "crane rental",
+          "crane hire",
+          "lift plan",
+          "lifting plan",
+          "hydra crane"
+        ],
+        "ar": [
+          "رافعة برجية",
+          "ونش برجي",
+          "كرين برجي",
+          "تاور كرين",
+          "رافعة متحركة",
+          "رافعة مجنزرة",
+          "ونش متحرك",
+          "تأجير كرين"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "crane operator vacancy",
+          "overhead crane for workshop",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "ونش سحب",
+          "سطحة سحب",
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Tower and mobile crane rental, erection/dismantling, climbing, operators, lift plans and crane inspections."
+    },
+    {
+      "key": "access_rental",
+      "label": "Man lifts & access rental",
+      "label_ar": "روافع الأفراد وتأجير معدات الوصول",
+      "group": "work",
+      "icon": "forklift",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "scissor lift",
+          "boom lift",
+          "man lift",
+          "manlift",
+          "aerial work platform",
+          "aerial lift",
+          "AWP",
+          "MEWP",
+          "cherry picker",
+          "spider lift",
+          "articulating boom",
+          "telescopic boom",
+          "manlift operator",
+          "scissor lift operator"
+        ],
+        "ar": [
+          "رافعة مقصية",
+          "رافعة مقص",
+          "سيزر لفت",
+          "مان لفت",
+          "رافعة أفراد",
+          "رافعة ذراعية",
+          "بوم لفت",
+          "رافعة عنكبوتية",
+          "رافعة سلة"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "car rental",
+          "apartment for rent",
+          "office for rent",
+          "forklift training",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "تأجير سيارات",
+          "شقة للإيجار",
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Mobile elevating work platforms — scissor, boom and spider lifts — for rent or sale, with transport, operators, inspection certificates, tyres and repairs."
+    },
+    {
+      "key": "scaffolding",
+      "label": "Scaffolding",
+      "label_ar": "السقالات",
+      "group": "work",
+      "icon": "grid-3x3",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "scaffolding",
+          "scaffold",
+          "cuplock",
+          "cup-lock",
+          "ringlock",
+          "kwikstage",
+          "system scaffold",
+          "tube and coupler",
+          "tube and fitting",
+          "tube and clamp",
+          "frame scaffold",
+          "H-frame",
+          "mobile tower",
+          "aluminium tower",
+          "aluminum tower",
+          "standards and ledgers",
+          "scaffold ledger",
+          "cuplock ledger",
+          "base jack",
+          "U-head",
+          "scaffold erection",
+          "scaffold dismantling",
+          "scaffold inspection",
+          "scaffold tag"
+        ],
+        "ar": [
+          "سقالات",
+          "سقالة",
+          "كب لوك",
+          "كاب لوك",
+          "رينج لوك",
+          "سقالات حديد",
+          "سقالات معدنية",
+          "سقالات إطارية",
+          "سقالات شباك",
+          "قائم كابلوك",
+          "عارضة كابلوك",
+          "جاك قاعدة",
+          "تركيب وفك السقالات",
+          "برج سقالة"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "code scaffolding",
+          "scaffold a project",
+          "project scaffolding template",
+          "suspended scaffold",
+          "electric scaffold",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "سقالة معلقة",
+          "سقالة كهربائية",
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Steel and aluminium access scaffolding — cuplock, ringlock, tube & coupler, frame systems and mobile towers: sale, rental, erection, modification, dismantling and inspection."
+    },
+    {
+      "key": "space_frame",
+      "label": "Space frames & shades",
+      "label_ar": "الإنشاءات الفراغية والمظلات",
+      "group": "work",
+      "icon": "network",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "space frame",
+          "spaceframe",
+          "space truss",
+          "double layer grid",
+          "skylight",
+          "rooflight",
+          "glass roof",
+          "space frame dome",
+          "dome structure",
+          "canopy structure",
+          "car park shade",
+          "parking shade",
+          "parking canopy",
+          "carport",
+          "tensile structure",
+          "shade structure"
+        ],
+        "ar": [
+          "إنشاءات فراغية",
+          "الإنشاءات الفراغية",
+          "هيكل فراغي",
+          "سبيس فريم",
+          "منور زجاجي",
+          "مناور زجاجية",
+          "سقف زجاجي",
+          "سكاي لايت",
+          "قبة فراغية",
+          "مظلات سيارات",
+          "مظلات مواقف",
+          "مظلات شد إنشائي"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "frame rate",
+          "time frame",
+          "timeframe",
+          "picture frame",
+          "skylight software",
+          "sunshade for car windscreen",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "مظلة شمسية للسيارة",
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Space-frame roofs and domes, skylight substructures, canopies and car-park/tensile shade structures: design, fabrication, supply and installation."
+    },
+    {
+      "key": "other_work",
+      "label": "Other work requests",
+      "label_ar": "طلبات أعمال أخرى",
+      "group": "work",
+      "icon": "briefcase",
+      "visible": true,
+      "is_work_type": true,
+      "keywords": {
+        "en": [
+          "steel structure",
+          "structural steel",
+          "metal fabrication",
+          "steel fabrication",
+          "façade cleaning",
+          "facade cleaning",
+          "glass cleaning",
+          "cleaning contract",
+          "misting system",
+          "fog system",
+          "mist cooling",
+          "garbage chute",
+          "fence and gates",
+          "cladding works"
+        ],
+        "ar": [
+          "أعمال حديدية",
+          "هياكل حديدية",
+          "تنظيف الواجهات",
+          "غسيل الواجهات",
+          "نظافة الواجهات",
+          "عقد تنظيف",
+          "نظام رذاذ",
+          "أنظمة الرذاذ",
+          "شوت القمامة",
+          "أعمال الكسوة"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "newsletter",
+          "unsubscribe",
+          "webinar",
+          "cleaning system",
+          "cleaning equipment",
+          "cleaning machine",
+          "monorail",
+          "BMU",
+          "gondola",
+          "cradle",
+          "job application",
+          "CV attached",
+          "curriculum vitae",
+          "vacancy",
+          "we are hiring",
+          "proforma invoice",
+          "dear buyer",
+          "we are a manufacturer"
+        ],
+        "ar": [
+          "نشرة",
+          "إلغاء الاشتراك",
+          "نظام تنظيف",
+          "معدات تنظيف",
+          "ماكينة تنظيف",
+          "مونوريل",
+          "جندولا",
+          "سيرة ذاتية",
+          "طلب توظيف",
+          "وظيفة شاغرة",
+          "فاتورة مبدئية"
+        ]
+      },
+      "description": "Genuine customer enquiries, tenders and work requests that fit none of the specific work categories (e.g., steel works, cleaning contracts, misting, chutes) — including RFQs/tenders whose scope matches no specific keyword. The company can split these into new learned categories."
+    },
+    {
+      "key": "vendor_offer",
+      "label": "Supplier & OEM offers",
+      "label_ar": "عروض الموردين والمصنعين",
+      "group": "other",
+      "icon": "store",
+      "visible": true,
+      "is_work_type": false,
+      "keywords": {
+        "en": [
+          "proforma invoice",
+          "price list",
+          "FOB",
+          "CIF",
+          "CFR",
+          "EXW",
+          "ex-works price",
+          "MOQ",
+          "factory price",
+          "we are a manufacturer",
+          "we are manufacturer",
+          "dear buyer",
+          "distributor wanted",
+          "Alibaba",
+          "Made-in-China",
+          "shipping quote",
+          "freight quotation"
+        ],
+        "ar": [
+          "عرض المورد",
+          "قائمة أسعار",
+          "فاتورة مبدئية",
+          "سعر المصنع",
+          "نحن شركة مصنعة"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "tender",
+          "main contractor",
+          "BOQ"
+        ],
+        "ar": [
+          "مناقصة",
+          "جدول الكميات"
+        ]
+      },
+      "description": "Offers, proformas, catalogues and follow-ups from manufacturers, distributors, inspection bodies and freight forwarders addressed to the company as a buyer. Useful for costing, not customer work."
+    },
+    {
+      "key": "bills",
+      "label": "Bills & payments",
+      "label_ar": "الفواتير والمدفوعات",
+      "group": "bills",
+      "icon": "receipt",
+      "visible": true,
+      "is_work_type": false,
+      "keywords": {
+        "en": [
+          "invoice",
+          "tax invoice",
+          "payment reminder",
+          "statement of account",
+          "amount due",
+          "overdue",
+          "payment receipt",
+          "payment confirmation",
+          "remittance",
+          "bank transfer",
+          "debit note",
+          "credit note",
+          "utility bill",
+          "subscription renewal"
+        ],
+        "ar": [
+          "فاتورة",
+          "كشف حساب",
+          "مستحق",
+          "سداد",
+          "إيصال",
+          "تحويل بنكي",
+          "إشعار مدين",
+          "إشعار دائن"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "proforma invoice",
+          "quotation",
+          "price list"
+        ],
+        "ar": [
+          "فاتورة مبدئية",
+          "عرض سعر"
+        ]
+      },
+      "description": "Invoices, statements, payment requests and confirmations (incoming and outgoing)."
+    },
+    {
+      "key": "promotions",
+      "label": "Promotions & newsletters",
+      "label_ar": "العروض الترويجية والنشرات",
+      "group": "promotions",
+      "icon": "megaphone",
+      "visible": false,
+      "is_work_type": false,
+      "keywords": {
+        "en": [
+          "newsletter",
+          "unsubscribe",
+          "special offer",
+          "limited time",
+          "discount",
+          "sale ends",
+          "webinar",
+          "register now",
+          "exhibition invitation",
+          "promo code",
+          "view in browser"
+        ],
+        "ar": [
+          "نشرة",
+          "إلغاء الاشتراك",
+          "عرض خاص",
+          "خصم",
+          "تخفيضات",
+          "سجل الآن",
+          "دعوة معرض"
+        ]
+      },
+      "negative_keywords": {
+        "en": [
+          "invoice",
+          "request for quotation",
+          "tender"
+        ],
+        "ar": [
+          "فاتورة",
+          "طلب عرض سعر",
+          "مناقصة"
+        ]
+      },
+      "description": "Marketing mail, newsletters, event and trade-show promotions. Hidden by default."
+    },
+    {
+      "key": "internal",
+      "label": "Internal",
+      "label_ar": "داخلي",
+      "group": "other",
+      "icon": "users",
+      "visible": true,
+      "is_work_type": false,
+      "keywords": {
+        "en": [
+          "internal memo",
+          "memo to all staff",
+          "leave request",
+          "vacation request",
+          "salary",
+          "payroll",
+          "human resources",
+          "meeting minutes",
+          "timesheet"
+        ],
+        "ar": [
+          "تعميم",
+          "مذكرة داخلية",
+          "طلب إجازة",
+          "رواتب",
+          "الموارد البشرية",
+          "محضر اجتماع",
+          "دوام"
+        ]
+      },
+      "negative_keywords": {
+        "en": [],
+        "ar": []
+      },
+      "description": "Mail between colleagues on the company's own domains that is not a customer enquiry (forwards of customer RFQs keep the customer's category)."
+    },
+    {
+      "key": "notifications",
+      "label": "Notifications",
+      "label_ar": "الإشعارات",
+      "group": "other",
+      "icon": "bell",
+      "visible": false,
+      "is_work_type": false,
+      "keywords": {
+        "en": [
+          "no-reply",
+          "noreply",
+          "do not reply",
+          "verification code",
+          "one-time password",
+          "OTP",
+          "password reset",
+          "security alert",
+          "delivery status notification",
+          "your order has shipped",
+          "tracking number",
+          "calendar invitation"
+        ],
+        "ar": [
+          "رمز التحقق",
+          "كلمة المرور لمرة واحدة",
+          "لا ترد",
+          "تنبيه أمني",
+          "تم شحن طلبك",
+          "رقم التتبع",
+          "إشعار"
+        ]
+      },
+      "negative_keywords": {
+        "en": [],
+        "ar": []
+      },
+      "description": "Automated system messages: sign-in codes, delivery failures, shipping and calendar notices. Hidden by default."
+    },
+    {
+      "key": "other",
+      "label": "Other",
+      "label_ar": "أخرى",
+      "group": "other",
+      "icon": "inbox",
+      "visible": true,
+      "is_work_type": false,
+      "keywords": {
+        "en": [],
+        "ar": []
+      },
+      "negative_keywords": {
+        "en": [],
+        "ar": []
+      },
+      "description": "Anything that does not fit another category."
+    }
+  ]
+}

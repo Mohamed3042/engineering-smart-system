@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "standards": [
+    {"code": "EN 1808", "title": "Safety requirements for suspended access equipment", "region": ["UK_EU", "GCC"],
+     "applies_to": ["bmu", "cradle", "wce"], "notes": ""},
+    {"code": "BS 6037-1", "title": "Permanently installed suspended access equipment", "region": ["UK_EU", "GCC"],
+     "applies_to": ["bmu", "wce", "cradle"], "notes": ""},
+    {"code": "EN 280", "title": "Mobile elevating work platforms", "region": ["UK_EU", "GCC"],
+     "applies_to": ["access_rental"], "notes": ""},
+    {"code": "LOLER 1998", "title": "Lifting Operations and Lifting Equipment Regulations 1998", "region": ["UK_EU"],
+     "applies_to": ["bmu", "cradle", "access_rental"], "notes": ""},
+    {"code": "ANSI/IWCA I-14.1", "title": "Window Cleaning Safety Standard", "region": ["US"],
+     "applies_to": ["wce"], "notes": ""},
+    {"code": "OSHA 29 CFR 1910.66", "title": "Powered platforms for building maintenance", "region": ["US"],
+     "applies_to": ["bmu"], "notes": ""},
+    {"code": "ISO 9001", "title": "Quality management systems", "region": ["global"], "applies_to": [], "notes": ""},
+    {"title": "Entry without a code (dropped by validation)"}
+  ]
+}

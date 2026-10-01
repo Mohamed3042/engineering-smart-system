@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "service_adjacency": [
+    {"from": "bmu", "to": "wce", "reason": "Buildings with a BMU need davits or monorails for the areas it cannot reach."},
+    {"from": "bmu", "to": "annual_maintenance", "reason": "A handed-over BMU needs scheduled preventive maintenance."},
+    {"from": "cradle", "to": "access_rental", "reason": "Facade contractors renting cradles also need booms for podium work."},
+    {"from": "access_rental", "to": "inspection_certification", "reason": "Every machine needs a valid inspection certificate."},
+    {"from": "hoist", "to": "crane", "reason": "High-rise sites procure hoists and tower cranes together."},
+    {"from": "supply_installation", "to": "annual_maintenance", "reason": "Installed systems need a maintenance contract after warranty."},
+    {"to": "wce", "reason": "rule without 'from' (dropped by validation)"}
+  ],
+  "customer_kind_needs": {
+    "main_contractor": ["hoist", "cradle", "scaffolding", "access_rental"],
+    "consultant": ["bmu", "wce"],
+    "facility_management": ["annual_maintenance", "wce", "bmu"],
+    "government_authority": ["bmu", "wce", "annual_maintenance"],
+    "facade_contractor": ["cradle", "access_rental"],
+    "oil_gas_industrial": ["access_rental", "scaffolding", "inspection_certification"]
+  },
+  "project_type_needs": {
+    "tower": ["bmu", "wce", "hoist", "cradle"],
+    "hospital": ["bmu", "wce", "annual_maintenance"],
+    "mall": ["wce", "access_rental"],
+    "refinery": ["access_rental", "scaffolding", "inspection_certification"]
+  }
+}

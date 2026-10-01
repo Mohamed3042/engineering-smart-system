@@ -1,0 +1,20 @@
+{%- if layout == "letter" %}
+<div class="letter-closing" data-closing>
+<div class="yours">{{ closing.signoff }}</div>
+<div class="sigwrap">
+{%- if closing.signature.src %}<img class="sig" src="{{ closing.signature.src }}" alt="">{% endif %}
+<div class="signee"><b>{{ closing.signature.name }}</b>{% for line in closing.signature.lines %}<div>{{ line }}</div>{% endfor %}</div>
+</div>
+</div>
+{%- else %}
+<div class="closing" data-closing>
+{%- for line in closing.lines %}
+<p>{{ line }}</p>
+{%- endfor %}
+<p>{{ closing.signoff }}</p>
+<div class="signature">
+{%- if closing.signature.src %}<img class="sig" src="{{ closing.signature.src }}" alt="">{% endif %}
+<div class="identity"><b>{{ closing.signature.name }}</b>{% if closing.signature.title %}<br><span>{{ closing.signature.title }}</span>{% endif %}</div>
+</div>
+</div>
+{%- endif %}

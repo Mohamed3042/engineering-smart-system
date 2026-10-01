@@ -1,0 +1,25 @@
+<section class="page{% if rtl %} rtl{% endif %}{% if chrome.preprinted %} preprinted{% endif %}">
+{%- if not chrome.preprinted %}
+{%- if chrome.header %}
+<img class="band head" src="{{ chrome.header }}" alt="">
+{%- else %}
+<div class="band head default-head"><div class="dh-name">{{ chrome.company_name }}</div><div class="dh-rule"></div></div>
+{%- endif %}
+{%- if chrome.watermark %}
+<img class="wm" src="{{ chrome.watermark }}" alt="">
+{%- endif %}
+{%- if chrome.footer %}
+<img class="band foot" src="{{ chrome.footer }}" alt="">
+{%- else %}
+<div class="band foot default-foot"><div class="df-rule"></div><div class="df-note">{{ chrome.specimen }}</div>{% if chrome.specimen_ar %}<div class="df-note-ar">{{ chrome.specimen_ar }}</div>{% endif %}</div>
+{%- endif %}
+{%- endif %}
+{%- if chrome.stamp %}
+<img class="page-stamp" src="{{ chrome.stamp.src }}" alt="Company stamp" style="left:{{ chrome.stamp.x }}mm;top:{{ chrome.stamp.y }}mm;width:{{ chrome.stamp.width }}mm{% if chrome.stamp.hidden %};display:none{% endif %}">
+{%- endif %}
+{%- if chrome.draft %}
+<div class="draft-mark" aria-hidden="true"><span class="d1">DRAFT</span><span class="d2"> – pending engineer approval</span>{% if rtl %}<span class="d3">مسودة – بانتظار اعتماد المهندس</span>{% endif %}</div>
+{%- endif %}
+<div class="page-no"></div>
+<div class="content"></div>
+</section>

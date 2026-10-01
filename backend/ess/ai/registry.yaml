@@ -1,0 +1,161 @@
+# Curated model catalogue for Engineering Smart System (reviewed 2026-10-01).
+#
+# Tiers
+#   frontier  – may run every task, including the critical ones (extraction, drawings, quotations)
+#   standard  – may only classify mail
+#   light     – never used: small/fast models that are prone to lower the quality
+#   refused   – never used: deprecated/retired, wrong modality, no structured output, moving aliases
+#
+# Only IDs we are sure about are listed. Anything else that a provider lists is classified by the
+# rules in ess/ai/registry.py (classify_unknown): non-chat modalities -> refused, small models ->
+# light, otherwise standard + needs_evaluation. Every model – curated or not – must also pass the
+# qualification exam (ess/ai/qualification.py) before it can run, see ess/ai/policy.py.
+#
+# request: hints for the engine (sampling = accepts temperature; thinking = adaptive|omit;
+#          effort = accepts an effort level; reasoning = OpenAI reasoning model;
+#          headroom = extra output tokens reserved for thinking/reasoning; api = responses_only)
+version: 1
+reviewed: "2026-10-01"
+
+defaults:
+  anthropic:
+    capabilities: {structured_output: true, vision: true, tool_use: true, context_tokens: 1000000, pdf_input: true}
+    request: {sampling: false, thinking: omit, effort: true, headroom: 8000}
+  openai:
+    capabilities: {structured_output: true, vision: true, tool_use: true, context_tokens: 400000, pdf_input: true}
+    request: {sampling: false, reasoning: true, headroom: 8000}
+  google:
+    capabilities: {structured_output: true, vision: true, tool_use: true, context_tokens: 1048576, pdf_input: true}
+    request: {sampling: true, headroom: 8000}
+
+models:
+  # ------------------------------------------------------------------ Anthropic
+  - {provider: anthropic, id: claude-fable-5-1, display_name: Claude Fable 5.1, family: claude-fable, tier: frontier,
+     notes: "Most capable widely released Claude model. Thinking always on; no sampling parameters."}
+  - {provider: anthropic, id: claude-fable-5, display_name: Claude Fable 5, family: claude-fable, tier: frontier,
+     notes: "Previous Fable release, still served."}
+  - {provider: anthropic, id: claude-mythos-5-1, display_name: Claude Mythos 5.1, family: claude-mythos, tier: frontier,
+     notes: "Same model as Fable 5.1; Project Glasswing accounts only."}
+  - {provider: anthropic, id: claude-opus-5-5, display_name: Claude Opus 5.5, family: claude-opus, tier: frontier,
+     notes: "Current Opus and recommended default. Thinking cannot be disabled; effort set explicitly to high."}
+  - {provider: anthropic, id: claude-opus-5, display_name: Claude Opus 5, family: claude-opus, tier: frontier}
+  - {provider: anthropic, id: claude-opus-4-8, display_name: Claude Opus 4.8, family: claude-opus, tier: frontier,
+     request: {thinking: adaptive}}
+  - {provider: anthropic, id: claude-opus-4-7, display_name: Claude Opus 4.7, family: claude-opus, tier: frontier,
+     request: {thinking: adaptive}}
+  - {provider: anthropic, id: claude-opus-4-6, display_name: Claude Opus 4.6, family: claude-opus, tier: frontier,
+     request: {thinking: adaptive}}
+  - {provider: anthropic, id: claude-sonnet-5-5, display_name: Claude Sonnet 5.5, family: claude-sonnet, tier: frontier,
+     notes: "Current Sonnet; 1M context, structured outputs, vision."}
+  - {provider: anthropic, id: claude-sonnet-5, display_name: Claude Sonnet 5, family: claude-sonnet, tier: frontier}
+  - {provider: anthropic, id: claude-sonnet-4-6, display_name: Claude Sonnet 4.6, family: claude-sonnet, tier: standard,
+     request: {thinking: adaptive}, notes: "Previous-generation Sonnet: mail classification only."}
+  - {provider: anthropic, id: claude-opus-4-5, aliases: [claude-opus-4-5-20251101], display_name: Claude Opus 4.5,
+     family: claude-opus, tier: standard, capabilities: {context_tokens: 200000}, request: {headroom: 0},
+     notes: "Legacy model: mail classification only."}
+  - {provider: anthropic, id: claude-sonnet-4-5, aliases: [claude-sonnet-4-5-20250929], display_name: Claude Sonnet 4.5,
+     family: claude-sonnet, tier: standard, capabilities: {context_tokens: 200000}, request: {effort: false, headroom: 0},
+     notes: "Legacy model: mail classification only."}
+  - {provider: anthropic, id: claude-haiku-4-5, aliases: [claude-haiku-4-5-20251001], display_name: Claude Haiku 4.5,
+     family: claude-haiku, tier: standard, capabilities: {context_tokens: 200000}, request: {effort: false, headroom: 0},
+     notes: "Fast model: allowed to classify mail, never for extraction, drawings or quotations."}
+  - {provider: anthropic, id: claude-mythos-preview, display_name: Claude Mythos Preview, family: claude-mythos,
+     tier: refused, deprecated: true, notes: "Superseded invitation-only preview."}
+  - {provider: anthropic, id: claude-opus-4-1, aliases: [claude-opus-4-1-20250805], display_name: Claude Opus 4.1,
+     family: claude-opus, tier: refused, deprecated: true, capabilities: {context_tokens: 200000},
+     notes: "Deprecated, retirement date 2026-08-05 has passed."}
+  - {provider: anthropic, id: claude-opus-4-0, aliases: [claude-opus-4-20250514], display_name: Claude Opus 4,
+     family: claude-opus, tier: refused, deprecated: true, capabilities: {context_tokens: 200000}, notes: "Deprecated."}
+  - {provider: anthropic, id: claude-sonnet-4-0, aliases: [claude-sonnet-4-20250514], display_name: Claude Sonnet 4,
+     family: claude-sonnet, tier: refused, deprecated: true, capabilities: {context_tokens: 200000}, notes: "Deprecated."}
+  - {provider: anthropic, id: claude-3-haiku-20240307, display_name: Claude Haiku 3, family: claude-haiku, tier: refused,
+     deprecated: true, capabilities: {structured_output: false, context_tokens: 200000}, notes: "Deprecated small model."}
+  - {provider: anthropic, id: claude-3-7-sonnet-20250219, display_name: Claude Sonnet 3.7, family: claude-sonnet,
+     tier: refused, deprecated: true, capabilities: {structured_output: false, context_tokens: 200000}, notes: "Retired 2026-02-19."}
+  - {provider: anthropic, id: claude-3-5-haiku-20241022, display_name: Claude Haiku 3.5, family: claude-haiku,
+     tier: refused, deprecated: true, capabilities: {structured_output: false, context_tokens: 200000}, notes: "Retired."}
+  - {provider: anthropic, id: claude-3-5-sonnet-20241022, aliases: [claude-3-5-sonnet-20240620], display_name: Claude Sonnet 3.5,
+     family: claude-sonnet, tier: refused, deprecated: true, capabilities: {structured_output: false, context_tokens: 200000},
+     notes: "Retired."}
+  - {provider: anthropic, id: claude-3-opus-20240229, display_name: Claude Opus 3, family: claude-opus, tier: refused,
+     deprecated: true, capabilities: {structured_output: false, context_tokens: 200000}, notes: "Retired."}
+  - {provider: anthropic, id: claude-2.1, aliases: [claude-2.0, claude-instant-1.2], display_name: Claude 2, family: claude-2,
+     tier: refused, deprecated: true, capabilities: {structured_output: false, vision: false, context_tokens: 100000},
+     notes: "Retired."}
+
+  # ------------------------------------------------------------------ OpenAI
+  - {provider: openai, id: gpt-5, aliases: [gpt-5-2025-08-07], display_name: GPT-5, family: gpt-5, tier: frontier,
+     notes: "Reasoning model (temperature not accepted); Responses API with strict JSON schema."}
+  - {provider: openai, id: gpt-5.1, aliases: [gpt-5.1-2025-11-13], display_name: GPT-5.1, family: gpt-5, tier: frontier}
+  - {provider: openai, id: gpt-5.2, aliases: [gpt-5.2-2025-12-11], display_name: GPT-5.2, family: gpt-5, tier: frontier}
+  - {provider: openai, id: gpt-5-pro, aliases: [gpt-5-pro-2025-10-06], display_name: GPT-5 pro, family: gpt-5, tier: frontier,
+     request: {api: responses_only}, notes: "Very slow and expensive; Responses API only."}
+  - {provider: openai, id: gpt-5.2-pro, aliases: [gpt-5.2-pro-2025-12-11], display_name: GPT-5.2 pro, family: gpt-5,
+     tier: frontier, request: {api: responses_only}, notes: "Very slow and expensive; Responses API only."}
+  - {provider: openai, id: gpt-5-mini, aliases: [gpt-5-mini-2025-08-07], display_name: GPT-5 mini, family: gpt-5, tier: light}
+  - {provider: openai, id: gpt-5-nano, aliases: [gpt-5-nano-2025-08-07], display_name: GPT-5 nano, family: gpt-5, tier: light}
+  - {provider: openai, id: o3, aliases: [o3-2025-04-16], display_name: o3, family: o-series, tier: frontier,
+     capabilities: {context_tokens: 200000}}
+  - {provider: openai, id: o3-pro, aliases: [o3-pro-2025-06-10], display_name: o3-pro, family: o-series, tier: frontier,
+     capabilities: {context_tokens: 200000}, request: {api: responses_only}, notes: "Very slow; Responses API only."}
+  - {provider: openai, id: o4-mini, aliases: [o4-mini-2025-04-16], display_name: o4-mini, family: o-series, tier: light,
+     capabilities: {context_tokens: 200000}}
+  - {provider: openai, id: o3-mini, aliases: [o3-mini-2025-01-31], display_name: o3-mini, family: o-series, tier: light,
+     capabilities: {vision: false, context_tokens: 200000}}
+  - {provider: openai, id: o1, aliases: [o1-2024-12-17], display_name: o1, family: o-series, tier: standard,
+     capabilities: {context_tokens: 200000}, notes: "Superseded by o3: mail classification only."}
+  - {provider: openai, id: o1-pro, aliases: [o1-pro-2025-03-19], display_name: o1-pro, family: o-series, tier: standard,
+     capabilities: {context_tokens: 200000}, request: {api: responses_only}, notes: "Superseded; Responses API only."}
+  - {provider: openai, id: o1-mini, aliases: [o1-mini-2024-09-12], display_name: o1-mini, family: o-series, tier: refused,
+     deprecated: true, capabilities: {structured_output: false, vision: false, context_tokens: 128000},
+     notes: "Deprecated; no structured outputs, no system prompts."}
+  - {provider: openai, id: o1-preview, aliases: [o1-preview-2024-09-12], display_name: o1-preview, family: o-series,
+     tier: refused, deprecated: true, capabilities: {structured_output: false, vision: false, context_tokens: 128000},
+     notes: "Deprecated preview; no structured outputs, no system prompts."}
+  - {provider: openai, id: gpt-4.1, aliases: [gpt-4.1-2025-04-14], display_name: GPT-4.1, family: gpt-4.1, tier: standard,
+     capabilities: {context_tokens: 1047576}, request: {sampling: true, reasoning: false, headroom: 0},
+     notes: "Non-reasoning model from 2025: mail classification only."}
+  - {provider: openai, id: gpt-4.1-mini, aliases: [gpt-4.1-mini-2025-04-14], display_name: GPT-4.1 mini, family: gpt-4.1,
+     tier: light, capabilities: {context_tokens: 1047576}, request: {sampling: true, reasoning: false, headroom: 0}}
+  - {provider: openai, id: gpt-4.1-nano, aliases: [gpt-4.1-nano-2025-04-14], display_name: GPT-4.1 nano, family: gpt-4.1,
+     tier: light, capabilities: {context_tokens: 1047576}, request: {sampling: true, reasoning: false, headroom: 0}}
+  - {provider: openai, id: gpt-4o, aliases: [gpt-4o-2024-08-06, gpt-4o-2024-11-20], display_name: GPT-4o, family: gpt-4o,
+     tier: standard, capabilities: {context_tokens: 128000}, request: {sampling: true, reasoning: false, headroom: 0},
+     notes: "Older multimodal model: mail classification only."}
+  - {provider: openai, id: gpt-4o-2024-05-13, display_name: GPT-4o (May 2024), family: gpt-4o, tier: refused,
+     capabilities: {structured_output: false, context_tokens: 128000}, request: {sampling: true, reasoning: false, headroom: 0},
+     notes: "First GPT-4o snapshot: no strict JSON-schema output."}
+  - {provider: openai, id: gpt-4o-mini, aliases: [gpt-4o-mini-2024-07-18], display_name: GPT-4o mini, family: gpt-4o,
+     tier: light, capabilities: {context_tokens: 128000}, request: {sampling: true, reasoning: false, headroom: 0}}
+  - {provider: openai, id: gpt-4-turbo, aliases: [gpt-4-turbo-2024-04-09, gpt-4-turbo-preview, gpt-4-0125-preview,
+     gpt-4-1106-preview, gpt-4-vision-preview], display_name: GPT-4 Turbo, family: gpt-4, tier: refused, deprecated: true,
+     capabilities: {structured_output: false, context_tokens: 128000}, request: {sampling: true, reasoning: false, headroom: 0},
+     notes: "Legacy: no strict JSON-schema output."}
+  - {provider: openai, id: gpt-4, aliases: [gpt-4-0613, gpt-4-0314, gpt-4-32k, gpt-4-32k-0613, gpt-4-32k-0314],
+     display_name: GPT-4 (legacy), family: gpt-4, tier: refused, deprecated: true,
+     capabilities: {structured_output: false, vision: false, context_tokens: 8192},
+     request: {sampling: true, reasoning: false, headroom: 0}, notes: "Legacy: 8k/32k context, no structured output."}
+  - {provider: openai, id: gpt-3.5-turbo, aliases: [gpt-3.5-turbo-0125, gpt-3.5-turbo-1106, gpt-3.5-turbo-16k,
+     gpt-3.5-turbo-0613, gpt-3.5-turbo-0301, gpt-3.5-turbo-16k-0613, gpt-35-turbo], display_name: GPT-3.5 Turbo,
+     family: gpt-3.5, tier: refused, deprecated: true, capabilities: {structured_output: false, vision: false, context_tokens: 16385},
+     request: {sampling: true, reasoning: false, headroom: 0}, notes: "Obsolete; prone to invent facts."}
+  - {provider: openai, id: gpt-3.5-turbo-instruct, aliases: [davinci-002, babbage-002, text-davinci-003],
+     display_name: GPT-3.5 Instruct / completion models, family: gpt-3.5, tier: refused, deprecated: true,
+     capabilities: {structured_output: false, vision: false, context_tokens: 4096},
+     request: {sampling: true, reasoning: false, headroom: 0}, notes: "Completion-only legacy models."}
+
+  # ------------------------------------------------------------------ Google
+  - {provider: google, id: gemini-2.5-pro, display_name: Gemini 2.5 Pro, family: gemini-pro, tier: frontier,
+     notes: "Thinking model; JSON-schema output via response_json_schema."}
+  - {provider: google, id: gemini-3-pro-preview, display_name: Gemini 3 Pro (preview), family: gemini-pro, tier: frontier,
+     request: {sampling: false}, notes: "Preview model: Google may change it; the served-model check forces a re-qualification."}
+  - {provider: google, id: gemini-2.5-flash, display_name: Gemini 2.5 Flash, family: gemini-flash, tier: standard,
+     notes: "Fast model: mail classification only."}
+  - {provider: google, id: gemini-2.5-flash-lite, display_name: Gemini 2.5 Flash-Lite, family: gemini-flash, tier: light}
+  - {provider: google, id: gemini-2.0-flash, aliases: [gemini-2.0-flash-001], display_name: Gemini 2.0 Flash,
+     family: gemini-flash, tier: refused, deprecated: true, request: {headroom: 0}, notes: "Deprecated."}
+  - {provider: google, id: gemini-2.0-flash-lite, aliases: [gemini-2.0-flash-lite-001], display_name: Gemini 2.0 Flash-Lite,
+     family: gemini-flash, tier: light, deprecated: true, request: {headroom: 0}}
+  - {provider: google, id: gemini-1.5-pro, aliases: [gemini-1.5-pro-002, gemini-1.5-flash, gemini-1.5-flash-002,
+     gemini-1.5-flash-8b], display_name: Gemini 1.5, family: gemini-1.5, tier: refused, deprecated: true,
+     request: {headroom: 0}, notes: "Retired."}

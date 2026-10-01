@@ -1,0 +1,23 @@
+<div class="meta">
+<div class="left">
+<div class="line"><b>{{ labels.to }}</b><span class="pre">{{ meta.to_block }}</span></div>
+<div class="line"><b>{{ labels.attn }}</b><span>{{ meta.attention }}</span></div>
+<div class="line"><b>{{ labels.project }}</b><span>{{ meta.project_name }}</span></div>
+{%- if meta.tender_no %}
+<div class="line"><b>{{ labels.tender_no }}</b><span class="bidi">{{ meta.tender_no }}</span></div>
+{%- endif %}
+</div>
+<div class="right">
+<div class="line"><b>{{ labels.date }}</b><span class="bidi">{{ meta.date }}</span></div>
+<div class="line"><b>{{ labels.ref }}</b><span class="bidi ref">{{ meta.reference }}</span></div>
+<div class="line"><b>{{ labels.from }}</b><span>{{ meta.from_name }}</span></div>
+{%- if meta.enquiry_ref %}
+<div class="line"><b>{{ labels.your_ref }}</b><span class="bidi">{{ meta.enquiry_ref }}</span></div>
+{%- endif %}
+</div>
+</div>
+<div class="subject"><span>{{ labels.subject }}</span><span>{{ subject }}</span></div>
+<div class="salute">{{ salutation }}</div>
+{%- for paragraph in intro %}
+<p class="intro pre">{{ paragraph }}</p>
+{%- endfor %}

@@ -1,0 +1,361 @@
+{
+  "version": 1,
+  "service_adjacency": [
+    {
+      "from": "bmu",
+      "to": "annual_maintenance",
+      "reason": "A handed-over BMU needs scheduled preventive maintenance after the defects-liability period; the installer is the natural AMC holder."
+    },
+    {
+      "from": "bmu",
+      "to": "inspection_certification",
+      "reason": "BMUs and their cradles require periodic thorough examination, load tests and third-party certificates."
+    },
+    {
+      "from": "bmu",
+      "to": "wce",
+      "reason": "Façade-access tenders combine the BMU with monorails, davits and anchors for zones the BMU cannot reach."
+    },
+    {
+      "from": "bmu",
+      "to": "cradle",
+      "reason": "Old BMUs are modernised by replacing cradles, hoists and wire ropes rather than the whole machine."
+    },
+    {
+      "from": "wce",
+      "to": "bmu",
+      "reason": "A monorail/davit enquiry often sits in the same Division 11 package as a BMU."
+    },
+    {
+      "from": "wce",
+      "to": "inspection_certification",
+      "reason": "Anchors, lifelines and davits need periodic recertification (EN 795 / BS 7883 / IWCA I-14.1)."
+    },
+    {
+      "from": "wce",
+      "to": "annual_maintenance",
+      "reason": "Monorail hoists and trolleys need the same preventive maintenance cycle as BMUs."
+    },
+    {
+      "from": "cradle",
+      "to": "service_repair",
+      "reason": "Rental cradles generate installation, shifting between drops, wire-rope and spare-part work."
+    },
+    {
+      "from": "cradle",
+      "to": "inspection_certification",
+      "reason": "Sites ask for a load test / third-party inspection before a suspended platform is used."
+    },
+    {
+      "from": "cradle",
+      "to": "access_rental",
+      "reason": "Façade contractors renting cradles usually also need boom or spider lifts for low-level and podium work."
+    },
+    {
+      "from": "hoist",
+      "to": "crane",
+      "reason": "High-rise main contractors procure hoists and tower cranes for the same construction phase."
+    },
+    {
+      "from": "hoist",
+      "to": "annual_maintenance",
+      "reason": "Long-term hoist rentals and owned hoists need monthly maintenance and statutory inspections."
+    },
+    {
+      "from": "crane",
+      "to": "hoist",
+      "reason": "Tower-crane projects soon need a construction hoist for people and materials."
+    },
+    {
+      "from": "crane",
+      "to": "inspection_certification",
+      "reason": "Cranes require third-party load tests and periodic examination certificates."
+    },
+    {
+      "from": "crane",
+      "to": "operator_supply",
+      "reason": "Crane rentals are often bare or with operator; offer certified operators and riggers."
+    },
+    {
+      "from": "access_rental",
+      "to": "operator_supply",
+      "reason": "Industrial and oil & gas sites ask for certified operators (TPI-carded) with the machine."
+    },
+    {
+      "from": "access_rental",
+      "to": "inspection_certification",
+      "reason": "Clients require a valid third-party inspection certificate for every machine delivered."
+    },
+    {
+      "from": "access_rental",
+      "to": "service_repair",
+      "reason": "Fleet owners and long-term renters need tyres, batteries and repairs."
+    },
+    {
+      "from": "scaffolding",
+      "to": "erection_dismantling",
+      "reason": "Scaffold sale or rental is usually paired with erection, modification and dismantling labour."
+    },
+    {
+      "from": "scaffolding",
+      "to": "inspection_certification",
+      "reason": "Scaffolds need inspection and tagging before use and after changes."
+    },
+    {
+      "from": "scaffolding",
+      "to": "cradle",
+      "reason": "High façades switch from scaffolding to suspended platforms above a certain height."
+    },
+    {
+      "from": "space_frame",
+      "to": "wce",
+      "reason": "Glazed space-frame roofs and skylights need cleaning access (gantries, travelling ladders, anchors) — often missing from the steel package."
+    },
+    {
+      "from": "space_frame",
+      "to": "other_work",
+      "reason": "Space-frame bidders are often asked for related steel works, canopies and shades."
+    },
+    {
+      "from": "other_work",
+      "to": "annual_maintenance",
+      "reason": "Cleaning contractors operating a building's BMU/cradles need the machines maintained and inspected."
+    },
+    {
+      "from": "annual_maintenance",
+      "to": "service_repair",
+      "reason": "AMC visits surface defects that become repair and spare-part quotations, especially under labour-only contracts."
+    },
+    {
+      "from": "annual_maintenance",
+      "to": "inspection_certification",
+      "reason": "Annual third-party inspection is a natural add-on to an AMC."
+    },
+    {
+      "from": "service_repair",
+      "to": "annual_maintenance",
+      "reason": "A repaired machine without a maintenance contract is an AMC lead."
+    },
+    {
+      "from": "inspection_certification",
+      "to": "service_repair",
+      "reason": "Failed inspections create repair and replacement-part work."
+    },
+    {
+      "from": "supply_installation",
+      "to": "annual_maintenance",
+      "reason": "Every supplied-and-installed system can be followed by a maintenance contract after warranty."
+    },
+    {
+      "from": "supply_installation",
+      "to": "inspection_certification",
+      "reason": "Commissioning requires load tests and third-party certification before handover."
+    }
+  ],
+  "customer_kind_needs": {
+    "main_contractor": [
+      "hoist",
+      "crane",
+      "scaffolding",
+      "cradle",
+      "access_rental",
+      "bmu",
+      "wce",
+      "space_frame"
+    ],
+    "facility_management": [
+      "annual_maintenance",
+      "service_repair",
+      "inspection_certification",
+      "bmu",
+      "wce",
+      "other_work"
+    ],
+    "building_owner": [
+      "bmu",
+      "wce",
+      "annual_maintenance",
+      "inspection_certification",
+      "service_repair"
+    ],
+    "developer": [
+      "bmu",
+      "wce",
+      "space_frame",
+      "hoist",
+      "crane"
+    ],
+    "consultant": [
+      "bmu",
+      "wce",
+      "space_frame"
+    ],
+    "government_authority": [
+      "bmu",
+      "wce",
+      "annual_maintenance",
+      "inspection_certification",
+      "space_frame"
+    ],
+    "facade_contractor": [
+      "cradle",
+      "access_rental",
+      "scaffolding",
+      "hoist"
+    ],
+    "mep_contractor": [
+      "access_rental",
+      "scaffolding"
+    ],
+    "fit_out_contractor": [
+      "access_rental",
+      "scaffolding",
+      "cradle"
+    ],
+    "cleaning_contractor": [
+      "cradle",
+      "bmu",
+      "wce",
+      "annual_maintenance",
+      "access_rental"
+    ],
+    "oil_gas_industrial": [
+      "access_rental",
+      "operator_supply",
+      "inspection_certification",
+      "scaffolding",
+      "cradle",
+      "crane"
+    ],
+    "rental_company": [
+      "service_repair",
+      "inspection_certification",
+      "access_rental"
+    ],
+    "steel_fabricator": [
+      "space_frame",
+      "other_work",
+      "crane"
+    ]
+  },
+  "project_type_needs": {
+    "hospital": [
+      "bmu",
+      "wce",
+      "annual_maintenance",
+      "access_rental"
+    ],
+    "tower": [
+      "bmu",
+      "hoist",
+      "crane",
+      "wce",
+      "cradle"
+    ],
+    "office_tower": [
+      "bmu",
+      "wce",
+      "hoist",
+      "crane",
+      "cradle"
+    ],
+    "residential_tower": [
+      "bmu",
+      "wce",
+      "hoist",
+      "crane",
+      "cradle",
+      "other_work"
+    ],
+    "hotel": [
+      "bmu",
+      "wce",
+      "annual_maintenance"
+    ],
+    "mall": [
+      "bmu",
+      "wce",
+      "space_frame",
+      "access_rental"
+    ],
+    "airport": [
+      "bmu",
+      "wce",
+      "space_frame",
+      "access_rental",
+      "annual_maintenance"
+    ],
+    "stadium": [
+      "space_frame",
+      "wce",
+      "access_rental",
+      "crane"
+    ],
+    "school": [
+      "wce",
+      "space_frame",
+      "access_rental"
+    ],
+    "university": [
+      "bmu",
+      "wce",
+      "space_frame",
+      "access_rental"
+    ],
+    "government_building": [
+      "bmu",
+      "wce",
+      "space_frame",
+      "annual_maintenance"
+    ],
+    "place_of_worship": [
+      "space_frame",
+      "wce",
+      "access_rental"
+    ],
+    "petrol_station": [
+      "space_frame",
+      "other_work"
+    ],
+    "car_park": [
+      "space_frame",
+      "other_work"
+    ],
+    "industrial_plant": [
+      "access_rental",
+      "scaffolding",
+      "crane",
+      "operator_supply",
+      "inspection_certification"
+    ],
+    "refinery": [
+      "access_rental",
+      "scaffolding",
+      "crane",
+      "operator_supply",
+      "inspection_certification",
+      "cradle"
+    ],
+    "power_plant": [
+      "crane",
+      "hoist",
+      "scaffolding",
+      "access_rental",
+      "cradle"
+    ],
+    "warehouse": [
+      "access_rental",
+      "space_frame",
+      "other_work"
+    ],
+    "villa": [
+      "scaffolding",
+      "access_rental"
+    ],
+    "infrastructure": [
+      "scaffolding",
+      "crane",
+      "access_rental"
+    ]
+  }
+}

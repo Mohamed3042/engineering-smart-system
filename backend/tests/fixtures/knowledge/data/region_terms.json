@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "regions": [
+    {"key": "GCC", "label": "Gulf / Middle East"},
+    {"key": "UK_EU", "label": "UK / Europe"},
+    {"key": "US", "label": "North America"},
+    {"key": "RU_CIS", "label": "Russia / CIS"}
+  ],
+  "concepts": [
+    {"key": "bmu", "canonical": "Building Maintenance Unit", "category": "bmu", "notes": "Permanent roof machine.",
+     "terms": [
+       {"term": "BMU", "region": "global", "language": "en", "usage": "standard"},
+       {"term": "building maintenance unit", "region": "global", "language": "en", "usage": "standard"},
+       {"term": "roof car", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "powered platform", "region": "US", "language": "en", "usage": "standard"},
+       {"term": "gondola system", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "وحدة صيانة المباني", "region": "GCC", "language": "ar", "usage": "common"}
+     ]},
+    {"key": "suspended_platform", "canonical": "Suspended platform", "category": "cradle", "notes": "",
+     "terms": [
+       {"term": "cradle", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "temporary suspended platform", "region": "UK_EU", "language": "en", "usage": "standard"},
+       {"term": "swing stage", "region": "US", "language": "en", "usage": "common"},
+       {"term": "suspended scaffold", "region": "US", "language": "en", "usage": "standard"},
+       {"term": "gondola", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "جندولا", "region": "GCC", "language": "ar", "usage": "colloquial"},
+       {"term": "سقالة معلقة", "region": "GCC", "language": "ar", "usage": "common"},
+       {"term": "люлька", "region": "RU_CIS", "language": "ru", "usage": "common"}
+     ]},
+    {"key": "davit_system", "canonical": "Davit and monorail systems", "category": "wce", "notes": "",
+     "terms": [
+       {"term": "davit system", "region": "global", "language": "en", "usage": "common"},
+       {"term": "monorail system", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "window washing equipment", "region": "US", "language": "en", "usage": "common"},
+       {"term": "facade cleaning system", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "معدات تنظيف الواجهات", "region": "GCC", "language": "ar", "usage": "common"}
+     ]},
+    {"key": "mewp", "canonical": "Mobile elevating work platform", "category": "access_rental", "notes": "",
+     "terms": [
+       {"term": "MEWP", "region": "UK_EU", "language": "en", "usage": "standard"},
+       {"term": "mobile elevating work platform", "region": "UK_EU", "language": "en", "usage": "standard"},
+       {"term": "cherry picker", "region": "UK_EU", "language": "en", "usage": "colloquial"},
+       {"term": "aerial work platform", "region": "US", "language": "en", "usage": "standard"},
+       {"term": "boom lift", "region": "global", "language": "en", "usage": "common"},
+       {"term": "man lift", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "رافعة سلة", "region": "GCC", "language": "ar", "usage": "common"}
+     ]},
+    {"key": "construction_hoist", "canonical": "Construction hoist", "category": "hoist", "notes": "",
+     "terms": [
+       {"term": "construction hoist", "region": "global", "language": "en", "usage": "standard"},
+       {"term": "passenger hoist", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "goods hoist", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "construction elevator", "region": "US", "language": "en", "usage": "common"},
+       {"term": "material hoist", "region": "GCC", "language": "en", "usage": "common"}
+     ]},
+    {"key": "scaffolding", "canonical": "Scaffolding", "category": "scaffolding", "notes": "",
+     "terms": [
+       {"term": "scaffolding", "region": "global", "language": "en", "usage": "standard"},
+       {"term": "tube and fitting", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "cuplock", "region": "GCC", "language": "en", "usage": "brand_generic"},
+       {"term": "سقالات", "region": "GCC", "language": "ar", "usage": "common"}
+     ]},
+    {"key": "equipment_hire", "canonical": "Equipment rental / hire", "category": null, "notes": "",
+     "terms": [
+       {"term": "hire", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "plant hire", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "rental", "region": ["US", "GCC"], "language": "en", "usage": "common"},
+       {"term": "rent", "region": "GCC", "language": "en", "usage": "colloquial"},
+       {"term": "تأجير", "region": "GCC", "language": "ar", "usage": "common"}
+     ]},
+    {"key": "annual_maintenance_contract", "canonical": "Annual maintenance contract", "category": null, "notes": "",
+     "terms": [
+       {"term": "annual maintenance contract", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "AMC", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "planned preventive maintenance", "region": "UK_EU", "language": "en", "usage": "standard"},
+       {"term": "PPM", "region": "UK_EU", "language": "en", "usage": "common"},
+       {"term": "service agreement", "region": "US", "language": "en", "usage": "common"}
+     ]},
+    {"key": "load_test_third_party_inspection", "canonical": "Load test & third-party inspection", "category": null,
+     "notes": "",
+     "terms": [
+       {"term": "thorough examination", "region": "UK_EU", "language": "en", "usage": "standard"},
+       {"term": "third-party inspection", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "TPI", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "annual inspection", "region": "US", "language": "en", "usage": "common"},
+       {"term": "load test", "region": "global", "language": "en", "usage": "common"}
+     ]},
+    {"key": "boq", "canonical": "Bill of quantities", "category": null, "notes": "",
+     "terms": [
+       {"term": "bill of quantities", "region": "UK_EU", "language": "en", "usage": "standard"},
+       {"term": "BOQ", "region": "GCC", "language": "en", "usage": "common"},
+       {"term": "schedule of values", "region": "US", "language": "en", "usage": "common"},
+       {"term": "جدول الكميات", "region": "GCC", "language": "ar", "usage": "common"}
+     ]},
+    {"key": "broken_concept", "canonical": "Concept without terms (dropped by validation)", "category": "bmu",
+     "terms": []},
+    {"canonical": "Concept without key (dropped by validation)", "terms": [{"term": "nothing"}]}
+  ]
+}

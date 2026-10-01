@@ -1,0 +1,27 @@
+{%- if table %}
+<h2 class="table-title" data-keep-next>{{ table.title }}</h2>
+<table class="items" data-split="rows">
+<colgroup>{% for col in table.columns %}<col style="width:{{ col.width }}%">{% endfor %}</colgroup>
+<thead><tr>{% for col in table.columns %}<th class="c-{{ col.key }}">{{ col.label }}</th>{% endfor %}</tr></thead>
+<tbody>
+{%- for row in table.rows %}
+<tr>{% for cell in row %}<td class="c-{{ cell.key }}">{% if cell.bidi %}<span class="bidi">{{ cell.text }}</span>{% else %}{{ cell.text }}{% endif %}{% if cell.sub %}<span class="spec">{{ cell.sub }}</span>{% endif %}</td>{% endfor %}</tr>
+{%- endfor %}
+{%- if table.total %}
+<tr class="total-row"><td class="total-label" colspan="{{ table.total.span }}">{{ table.total.label }}</td><td class="c-total"><span class="bidi">{{ table.total.value }}</span></td>{% for _ in range(table.total.after) %}<td></td>{% endfor %}</tr>
+{%- endif %}
+</tbody>
+</table>
+{%- endif %}
+{%- if conditions.show_title %}
+<h2 class="terms-title" data-keep-next>{{ conditions.title }}</h2>
+{%- endif %}
+{%- if conditions.scope %}
+<ul class="scope" data-split="children">{% for item in conditions.scope %}<li>{{ item }}</li>{% endfor %}</ul>
+{%- endif %}
+{%- if conditions.terms %}
+<div class="details" data-split="children">{% for term in conditions.terms %}<div{% if term.wide %} class="wide"{% endif %}><b>{{ term.label }}:</b><span>{{ term.text }}</span></div>{% endfor %}</div>
+{%- endif %}
+{%- if conditions.notes %}
+<div class="notes"><b>{{ labels.notes }}</b> {{ conditions.notes }}</div>
+{%- endif %}

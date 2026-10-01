@@ -1,0 +1,155 @@
+/* Quotation pages. Geometry and type follow the Medmack Quotation Builder v1.5.0
+   (app/quotation.html for the purpose templates, app/letter.html for the Tenders letter).
+   Page-specific numbers arrive as CSS variables from render.py (letterhead geometry). */
+@page { size: A4; margin: 0 }
+* { box-sizing: border-box }
+html, body { margin: 0; padding: 0 }
+body { background: #d7d4ca; -webkit-print-color-adjust: exact; print-color-adjust: exact }
+#ess-pages { width: 210mm; margin: 0 auto }
+
+.page {
+  position: relative; overflow: hidden; width: 210mm; height: 297mm;
+  break-after: page; page-break-after: always;
+  background: var(--paper); color: #241606;
+  font: 10.4pt/1.28 var(--latin);
+  -webkit-font-smoothing: antialiased;
+}
+.page:last-child { break-after: auto; page-break-after: auto }
+.layout-letter .page { font-size: 11pt; line-height: 1.2 }
+.page.rtl { direction: rtl; font-family: var(--rtl); font-size: var(--rtl-size) }
+@media screen {
+  #ess-pages { padding: 8mm 0 }
+  .page { margin: 0 auto 8mm; box-shadow: 0 .4mm 2.4mm rgba(36, 22, 6, .3) }
+}
+@media print { body { background: none } }
+
+/* ---- letterhead (identical on every page) ---- */
+.band { position: absolute }
+img.band { mix-blend-mode: darken; display: block }
+.band.head { left: var(--head-left); top: var(--head-top); width: var(--head-width) }
+.band.foot { left: var(--foot-left); bottom: var(--foot-bottom); width: var(--foot-width) }
+.wm { position: absolute; left: var(--wm-left); top: var(--wm-top); width: var(--wm-width); opacity: var(--wm-opacity) }
+.layout-letter .wm { opacity: var(--wm-opacity-letter) }
+.page-stamp { position: absolute; z-index: 5; height: auto }
+
+/* neutral default letterhead (no company files installed) */
+.default-head {
+  height: var(--head-height); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; color: #2f2a24;
+}
+.default-head .dh-name { font: 700 17pt/1.2 "Times New Roman", Tinos, "Liberation Serif", Times, "ESS Arabic", serif; letter-spacing: .05em; padding: 0 12mm }
+.default-head .dh-rule { width: 64mm; border-top: .3mm solid #8a8378; margin-top: 3.2mm }
+.default-foot { height: var(--foot-height); padding-top: 5mm; text-align: center; color: #7d766a }
+.default-foot .df-rule { border-top: .3mm solid #8a8378 }
+.default-foot .df-note { margin-top: 2.6mm; font: italic 8pt/1.35 "Times New Roman", Tinos, "Liberation Serif", Times, serif }
+.default-foot .df-note-ar { font: 8pt/1.5 "ESS Arabic", Arial, sans-serif; direction: rtl }
+
+/* ---- page furniture ---- */
+.page-no {
+  position: absolute; z-index: 6; top: var(--pageno-top); inset-inline-end: 13mm;
+  font-size: 8pt; line-height: 1; color: #6b6558; letter-spacing: .02em; white-space: nowrap;
+}
+.draft-mark {
+  position: absolute; z-index: 7; left: 50%; top: 50%;
+  transform: translate(-50%, -50%) rotate(-38deg);
+  white-space: nowrap; text-align: center; pointer-events: none; user-select: none;
+  color: rgba(178, 34, 34, .2); border: .9mm solid rgba(178, 34, 34, .2); border-radius: 2.5mm;
+  padding: 1.5mm 6mm 2.5mm; font-family: Arial, "Liberation Sans", Arimo, Helvetica, sans-serif; font-weight: 700;
+  direction: ltr;
+}
+.draft-mark .d1 { font-size: 54pt; letter-spacing: .12em }
+.draft-mark .d2 { font-size: 17pt; letter-spacing: .03em }
+.draft-mark .d3 { display: block; margin-top: -1mm; font: 700 15pt/1.4 "ESS Arabic", Arial, sans-serif; direction: rtl }
+
+/* ---- text box ---- */
+.content {
+  position: absolute; top: var(--content-top); left: 13mm; right: 13mm; bottom: var(--content-bottom);
+  display: flex; flex-direction: column;
+}
+.layout-letter .content { top: var(--letter-top); left: 12.7mm; right: 13mm; bottom: var(--letter-bottom) }
+.content > * { flex: none }
+.bidi { unicode-bidi: isolate }
+.pre { white-space: pre-line }
+
+/* purpose templates: To / Attn / Project  |  Date / Ref / From */
+.meta { display: grid; grid-template-columns: 1fr 49mm; column-gap: 8mm; border-bottom: 1px solid #7a1d1d; padding-bottom: 3mm; margin-bottom: 4mm }
+.meta .line { display: flex; gap: 2mm; margin: .7mm 0 }
+.meta b { min-width: 19mm; flex: none }
+.rtl .meta b { min-width: 17mm }
+.meta .right { direction: ltr }
+.rtl .meta .right { direction: rtl }
+.subject { font-weight: bold; text-decoration: underline; text-underline-offset: 2px; margin: 2.5mm 0 }
+.salute { margin: 2.5mm 0 }
+.content p { margin: 2.5mm 0 }
+h2 { margin: 3mm 0 2mm; font-size: 11pt; line-height: 1.28; color: #6f1717 }
+.continuation { color: #6b6558; font-size: 9pt; border-bottom: 1px solid #aaa08a; padding-bottom: 2mm; margin-bottom: 3mm }
+
+/* Tenders cover letter */
+.refdate { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; margin-bottom: 7.5mm }
+.refdate .date { margin-inline-start: auto; text-align: right }
+.to > div { display: flex }
+.to .lbl { width: 13mm; flex: none }
+.to .sep { width: 3.5mm; flex: none }
+.to .val { flex: 1 }
+.bold { font-weight: bold }
+.layout-letter .subject, .layout-letter .project, .layout-letter .tender {
+  font-weight: bold; text-decoration: underline; text-underline-offset: 2.5px; margin: 0;
+}
+.layout-letter .subject { margin-top: 7.5mm }
+.layout-letter .project, .layout-letter .tender { margin-top: 5.5mm }
+.layout-letter .salute { margin: 11mm 0 0 }
+.layout-letter p.para { margin: 6mm 0 0 }
+.layout-letter h2 { margin-top: 6mm }
+
+/* items table */
+table.items { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 2mm 0 3mm; background: var(--table-bg) }
+table.items th, table.items td { border: 1px solid #776d5c; padding: 1.7mm; vertical-align: top; overflow-wrap: anywhere }
+table.items th { background: #eee8c8; font-size: 9pt; line-height: 1.2 }
+table.items td { white-space: pre-line }
+table.items td .spec { display: block; margin-top: .8mm; font-size: 9pt; line-height: 1.22; color: #514a3f }
+table.items .c-no { text-align: center }
+table.items td.c-qty, table.items td.c-unit_price, table.items td.c-total { overflow-wrap: normal } /* wrap only at <wbr> */
+table.items tr.total-row td { font-weight: bold; background: #f3edcf }
+table.items tr.total-row td.total-label { text-align: end }
+table.items thead { display: table-header-group }
+table.items tr { break-inside: avoid }
+
+/* conditions */
+.scope { margin: 1.5mm 0 2mm; padding-inline-start: 6mm }
+.scope li { margin: .8mm 0 }
+.details { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 7mm; margin-top: 2mm }
+.details > div { display: flex; gap: 2mm; border-bottom: 1px dotted #a39983; padding: 1mm 0 }
+.details > div.wide { grid-column: 1 / -1 }
+.details b { min-width: 29mm; flex: none }
+.details span { white-space: pre-line }
+.notes { margin: 2.5mm 0; white-space: pre-line }
+
+/* closing + signature (signature once, at the end) */
+.closing { margin-top: auto; padding-top: 4mm }
+.closing.tight { padding-top: 0 }
+.closing p { margin: 2.5mm 0 }
+.signature { position: relative; height: 30mm; padding-top: 18mm; line-height: 1.15 }
+.signature img.sig { position: absolute; top: 0; inset-inline-start: 0; height: 19mm; width: auto }
+.letter-closing { margin-top: auto; padding-top: 8mm }
+.letter-closing.tight { padding-top: 3mm }
+.sigwrap { position: relative; padding-top: 25mm }
+.sigwrap img.sig { position: absolute; top: 2.3mm; left: 0; height: 22.5mm; width: auto }
+.signee { line-height: 1.16 }
+
+/* pre-printed paper: the body only, on white (the sheet carries the letterhead) */
+.page.preprinted { background: #fff }
+
+/* product reference photos (builder v1.4.0) */
+.reference-photo-overlay { position: absolute; z-index: 6; object-fit: contain; padding: 1.2mm; border: .35mm solid #a99f89; border-radius: 1.5mm; background: #fff }
+.reference-annex .annex-title { margin: 1mm 0 3mm; padding-bottom: 2mm; border-bottom: 1px solid #7a1d1d; text-align: center; font-size: 14pt }
+.reference-annex .annex-reference { margin: 0 0 3mm; color: #6b6558; text-align: center; font-size: 9pt }
+.photo-annex-grid { display: grid; grid-template-rows: repeat(2, 1fr); gap: 4mm; height: 158mm }
+.photo-annex-card { display: flex; min-height: 0; margin: 0; padding: 2.5mm; flex-direction: column; align-items: center; justify-content: center; border: .35mm solid #b9af9a; border-radius: 2mm; background: rgba(255, 255, 255, .92) }
+.photo-annex-card img { display: block; max-width: 100%; max-height: 66mm; object-fit: contain }
+.photo-annex-card figcaption { margin-top: 1.5mm; color: #514a3f; font-size: 8.8pt; text-align: center }
+#ess-photos { display: none }
+
+/* Without JavaScript the flow is shown as one long sheet (preview fallback). */
+.flow { width: 210mm; margin: 0 auto; padding: 20mm 13mm; background: var(--paper); font: 10.4pt/1.28 var(--latin); color: #241606; display: flex; flex-direction: column }
+.flow.rtl { direction: rtl; font-family: var(--rtl); font-size: var(--rtl-size) }
+.js .flow { position: absolute; left: -10000mm; top: 0 }

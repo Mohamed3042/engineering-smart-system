@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Engineering Smart System (ess.quotation)">
+<meta name="ess-template" content="{{ template_key }}" data-builder-id="{{ builder_id }}" data-status="{{ status }}">
+<title>{{ title }}</title>
+<style>
+{{ font_css }}
+{{ root_css }}
+{{ css }}
+</style>
+</head>
+<body class="lang-{{ lang }} layout-{{ layout }}{% if chrome.draft %} is-draft{% endif %}">
+<div id="ess-pages" data-page-word="{{ pages.page_word }}" data-of-word="{{ pages.of_word }}" data-cont-prefix="{{ pages.cont_prefix }}" data-stamp-pages="{{ pages.stamp_pages }}"></div>
+<template id="ess-page">{% include "_page.j2" %}</template>
+<main id="ess-flow" class="flow{% if rtl %} rtl{% endif %}">
+{% if layout == "letter" %}{% include "_letter_head.j2" %}{% else %}{% include "_purpose_head.j2" %}{% endif %}
+{% include "_body.j2" %}
+{% include "_closing.j2" %}
+</main>
+{%- if photos %}
+<div id="ess-photos" hidden data-annex-title="{{ labels.annex }}" data-annex-prefix="{{ pages.annex_prefix }}">
+{%- for photo in photos %}
+<figure class="ess-photo" data-mode="{{ photo.mode }}" data-page="{{ photo.page }}" data-x="{{ photo.x }}" data-y="{{ photo.y }}" data-width="{{ photo.width }}" data-aspect="{{ photo.aspect }}"><img src="{{ photo.src }}" alt="{{ photo.caption }}"><figcaption>{{ photo.caption }}</figcaption></figure>
+{%- endfor %}
+</div>
+{%- endif %}
+<script>{{ js }}</script>
+</body>
+</html>

@@ -1,0 +1,3243 @@
+{
+  "version": 1,
+  "regions": [
+    {
+      "key": "GCC",
+      "label": "Gulf / Middle East"
+    },
+    {
+      "key": "UK_EU",
+      "label": "UK / Europe"
+    },
+    {
+      "key": "US",
+      "label": "North America"
+    },
+    {
+      "key": "RU_CIS",
+      "label": "Russia / CIS"
+    },
+    {
+      "key": "SOUTH_ASIA",
+      "label": "South Asia"
+    }
+  ],
+  "concepts": [
+    {
+      "key": "bmu",
+      "canonical": "Building Maintenance Unit",
+      "category": "bmu",
+      "terms": [
+        {
+          "term": "BMU",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "building maintenance unit",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "building maintenance system",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "façade maintenance unit",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "roof car",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "powered platform",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "cradle machine",
+          "region": "GCC",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "gondola system",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "gondola system",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "وحدة صيانة المبنى",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "وحدات صيانة المباني",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "وحدة صيانة الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ونش تنظيف الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "ماكينة تنظيف الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "система обслуживания фасадов",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "машина для обслуживания фасадов",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Permanently installed roof machine (track- or parapet-mounted roof car, or monorail-based) that lowers a cradle down the façade for cleaning and maintenance. US regulations call it a \"powered platform\" (OSHA 1910.66, ASME A120.1); UK/EU codes treat it as permanently installed suspended access equipment (BS 6037-1, EN 1808). GCC tenders usually bundle it under Division 11 24 23 with monorails, davits and anchors, and buyers there often say \"cradle machine\" or \"gondola\". Russian has no single normative term; \"BMU\" is used as-is."
+    },
+    {
+      "key": "roof_car",
+      "canonical": "Roof car / roof trolley (BMU carriage)",
+      "category": "bmu",
+      "terms": [
+        {
+          "term": "roof car",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "roof trolley",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "trolley",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "track-mounted BMU",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "roof crane",
+          "region": "GCC",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "عربة السطح",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ونش سطح",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "ترولي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "кровельная тележка",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "The self-propelled carriage of a BMU that travels on roof rails or a paved runway and carries the jib/arm and cradle. In Gulf Arabic \"ونش\" (winch/crane) is used loosely, so \"ونش سطح\" may mean the whole roof machine."
+    },
+    {
+      "key": "telescopic_jib",
+      "canonical": "Telescopic jib / luffing arm",
+      "category": "bmu",
+      "terms": [
+        {
+          "term": "telescopic jib",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "luffing jib",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "luffing arm",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "slewing jib",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "boom",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "ذراع تلسكوبي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ذراع قابل للتمديد",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ذراع متحرك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "телескопическая стрела",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "стрела с изменяемым вылетом",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Arm on a BMU roof car that reaches over the parapet or setbacks; luffing changes the arm angle, telescoping changes its length, slewing rotates it. Specs quote reach (outreach) and working load of the cradle."
+    },
+    {
+      "key": "gondola_cradle",
+      "canonical": "Gondola / cradle (the suspended platform itself)",
+      "category": "cradle",
+      "terms": [
+        {
+          "term": "cradle",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "cradle",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "gondola",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "powered cradle",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "platform",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "basket",
+          "region": "global",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "جندولا",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "منصة معلقة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "سلة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "люлька",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "гондола",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "фасадная люлька",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "The suspended work platform itself. Cradles that belong to a BMU, monorail or davit installation are Division 11 scope (route to bmu/wce when those words appear); stand-alone, rented or replacement platforms are cradle work (see temporary_suspended_platform). GCC buyers say \"cradle\" for both, so check whether the enquiry is a permanent installation, a replacement cradle, or a monthly rental."
+    },
+    {
+      "key": "monorail_system",
+      "canonical": "Monorail system (façade access track)",
+      "category": "wce",
+      "terms": [
+        {
+          "term": "monorail system",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "monorail",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "overhead monorail",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "soffit monorail",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "façade cleaning (monorail) system",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "مونوريل",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "نظام سكة أحادية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "سكة علوية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "монорельс",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "монорельсовая система",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Fixed rail (roof edge, parapet or soffit) from which a cradle, bosun chair or rope-access trolley travels with an electric or manual hoist. Used where a BMU is uneconomic or cannot reach (atria, setbacks, curved façades)."
+    },
+    {
+      "key": "davit_system",
+      "canonical": "Davit system",
+      "category": "wce",
+      "terms": [
+        {
+          "term": "davit system",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "davit arm",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "davit socket",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "roof davit",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "دافيت",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ذراع دافيت",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ذراع تعليق",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "консоль",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "поворотная консоль",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "давит",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "colloquial"
+        }
+      ],
+      "notes": "Fixed or portable arms set into roof sockets/bases to suspend a cradle or rope at defined drops; a lower-cost alternative to a BMU or monorail. The Russian \"консоль\" also covers counterweighted outrigger beams of temporary platforms."
+    },
+    {
+      "key": "anchor_points_fall_arrest",
+      "canonical": "Anchor points & fall-arrest systems",
+      "category": "wce",
+      "terms": [
+        {
+          "term": "anchor point",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "anchor device",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "eyebolt",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "roof anchor",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "tieback anchor",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "lifeline",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "horizontal lifeline",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "fall arrest system",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "نقطة تثبيت",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "نقاط ارتكاز",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "حبل الحياة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "حبل النجاة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "نظام منع السقوط",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "анкерная точка",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "анкерное устройство",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "анкерная линия",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "страховочная система",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Certified anchorages and lifelines for rope access and as secondary protection on cradles (EN 795 / BS 7883 in UK-EU, ANSI/ASSP Z359 and ANSI/IWCA I-14.1 in the US). Usually a separate BOQ line under the façade-access section; periodic recertification is a recurring service."
+    },
+    {
+      "key": "rope_access",
+      "canonical": "Rope access (industrial rope access)",
+      "category": "wce",
+      "terms": [
+        {
+          "term": "rope access",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "industrial rope access",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "IRATA",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "abseiling",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "rope descent system",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "bosun's chair",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "الوصول بالحبال",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "العمل بالحبال",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "تسلق الحبال",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "промышленный альпинизм",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "верёвочный доступ",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Technicians working on twin ropes from certified anchors (IRATA / SPRAT schemes). Enquiries can be for the anchor/davit equipment (this category) or for cleaning/repair labour (route those to other_work). In Russia the trade is called \"промышленный альпинизм\"."
+    },
+    {
+      "key": "window_cleaning_system",
+      "canonical": "Window cleaning system / equipment",
+      "category": "wce",
+      "terms": [
+        {
+          "term": "window cleaning system",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "window cleaning equipment",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "window washing equipment",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "façade cleaning system",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "façade cleaning equipment",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "WCE",
+          "region": "global",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "نظام تنظيف النوافذ",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "نظام تنظيف الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "معدات تنظيف الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "система мойки фасадов",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "оборудование для мойки окон",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Tender umbrella for the permanent equipment that lets a building be cleaned (BMU, monorail, davits, anchors, travelling ladders). Some buyers use it loosely for a spider platform or even for a cleaning service — read the BOQ before classifying."
+    },
+    {
+      "key": "facade_access_equipment",
+      "canonical": "Façade access equipment (umbrella term)",
+      "category": "wce",
+      "terms": [
+        {
+          "term": "façade access equipment",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "façade access equipment",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "facade access system",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "permanently installed access equipment",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "building façade access",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "أنظمة الوصول إلى الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "معدات الوصول للواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "системы доступа к фасаду",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Umbrella for BMU, monorail, davit, anchor, gantry and travelling-ladder systems (MasterFormat 11 24 23 \"Façade Access Equipment\"; BS 6037 \"permanently installed access equipment\"). Classify by the specific system when the enquiry names one; BMU-led packages belong to bmu."
+    },
+    {
+      "key": "facade_cleaning",
+      "canonical": "Façade cleaning (service)",
+      "category": "other_work",
+      "terms": [
+        {
+          "term": "façade cleaning",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "building façade cleaning",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "external cleaning",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "high-rise cleaning",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "تنظيف الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "غسيل الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "نظافة الواجهات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "мойка фасадов",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "клининг фасадов",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "colloquial"
+        }
+      ],
+      "notes": "A labour/service contract (often monthly or per cycle) rather than equipment supply; frequently requested by facility-management companies together with maintenance of the building's cleaning machines."
+    },
+    {
+      "key": "glass_cleaning",
+      "canonical": "Glass / window cleaning (service)",
+      "category": "other_work",
+      "terms": [
+        {
+          "term": "window cleaning",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "glass cleaning",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "window washing",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "تنظيف الزجاج",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "تنظيف النوافذ",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "غسيل الزجاج",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "мойка окон",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "мойка остекления",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Cleaning of glazing (curtain walls, skylights, windows). \"Window cleaning\" alone is ambiguous: with \"system/equipment/unit\" it means equipment (wce/bmu), otherwise a service."
+    },
+    {
+      "key": "temporary_suspended_platform",
+      "canonical": "Temporary suspended platform (temporary gondola)",
+      "category": "cradle",
+      "terms": [
+        {
+          "term": "suspended platform",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "suspended working platform",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "temporary suspended access equipment",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "TSAE",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "swing stage",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "two-point suspension scaffold",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "suspended scaffold",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "temporary gondola",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "ZLP gondola",
+          "region": "GCC",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "ZLP gondola",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "suspended gondola",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "سقالة معلقة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "سقالة كهربائية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "جندولا مؤقتة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "منصة عمل معلقة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "фасадный подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "строительная люлька",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "подвесная люлька",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Motorised platform (typically ZLP630/ZLP800 class, 2–12 m long) hung from counterweighted roof outriggers or parapet clamps, with traction hoists, safety locks and wire ropes. Sold or rented monthly; installation and \"shifting\" between drops are priced separately. UK code: BS 5974; EU: EN 1808; US: OSHA 1926.451/.452."
+    },
+    {
+      "key": "suspended_platform_components",
+      "canonical": "Suspended-platform components & spares",
+      "category": "cradle",
+      "terms": [
+        {
+          "term": "traction hoist",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "hoist motor",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "safety lock",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "safety brake",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "wire rope",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "counterweight",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "outrigger beam",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "parapet clamp",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "suspension mechanism",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "موتور رفع",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "سيفتي لوك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "سيفتي بريك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "واير",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "حبل فولاذي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "ثقل موازن",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "лебёдка",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "ловитель",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "стальной канат",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "трос",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "colloquial"
+        },
+        {
+          "term": "противовес",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Spare-part vocabulary that signals a cradle repair/parts enquiry rather than a new system; Gulf Arabic quotations commonly transliterate English part names."
+    },
+    {
+      "key": "mast_climbing_work_platform",
+      "canonical": "Mast climbing work platform (MCWP)",
+      "category": "hoist",
+      "terms": [
+        {
+          "term": "mast climbing work platform",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "MCWP",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "mast climber",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "mast climbing platform",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "منصة عمل متسلقة على الصاري",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "منصة متسلقة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "мачтовая рабочая платформа",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Rack-and-pinion mast(s) with a wide work deck that climbs the façade; standard EN 1495. Supplied by the same fleets as construction hoists, so it is filed under hoist."
+    },
+    {
+      "key": "construction_hoist",
+      "canonical": "Construction hoist (rack-and-pinion)",
+      "category": "hoist",
+      "terms": [
+        {
+          "term": "construction hoist",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "builders hoist",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "rack and pinion hoist",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "goods hoist",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "material hoist",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "buck hoist",
+          "region": "US",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "construction lift",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "رافعة إنشائية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "مصعد إنشائي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "مصعد موقع",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "ونش مواد",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "строительный подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "грузопассажирский подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "мачтовый подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "реечный подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Temporary site lift on a tied mast (single/twin cage) for workers and/or materials; standards EN 12159 / EN 12158, OSHA 1926.552, ANSI A10.4. Rental quotes normally cover mast height, ties, erection/climbing, operator and monthly rate."
+    },
+    {
+      "key": "personnel_hoist",
+      "canonical": "Personnel hoist",
+      "category": "hoist",
+      "terms": [
+        {
+          "term": "personnel hoist",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "passenger hoist",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "man and material hoist",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "رافعة ركاب إنشائية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "مصعد ركاب مؤقت",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "пассажирский строительный подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Hoist certified to carry people. Caution: in Gulf Arabic \"رافعة أفراد\" usually means a man lift (MEWP), not a personnel hoist."
+    },
+    {
+      "key": "man_lift",
+      "canonical": "Man lift / boom lift (MEWP)",
+      "category": "access_rental",
+      "terms": [
+        {
+          "term": "boom lift",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "man lift",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "manlift",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "MEWP",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "cherry picker",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "aerial lift",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "aerial work platform",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "articulating boom lift",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "telescopic boom lift",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "JLG",
+          "region": "GCC",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "JLG",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "مان لفت",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "رافعة أفراد",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "رافعة ذراعية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "رافعة سلة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "بوم لفت",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "коленчатый подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "телескопический подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "автовышка",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "АГП",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Self-propelled or truck-mounted boom platforms. Size is quoted as working height (about platform height + 2 m). In US OSHA text \"manlift\" can also mean a belt manlift inside buildings; on construction sites it means a boom lift. Rental enquiries often add operator, transport and third-party inspection certificates."
+    },
+    {
+      "key": "spider_lift",
+      "canonical": "Spider lift (tracked compact boom)",
+      "category": "access_rental",
+      "terms": [
+        {
+          "term": "spider lift",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "tracked boom lift",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "spider platform",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "رافعة عنكبوتية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "منصة عنكبوتية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "سبايدر",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "гусеничный подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "подъёмник-паук",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "colloquial"
+        }
+      ],
+      "notes": "Narrow tracked boom on outriggers for atria, malls, hospitals and soft ground; sometimes specified as the \"window cleaning system\" for low/medium buildings."
+    },
+    {
+      "key": "scissor_lift",
+      "canonical": "Scissor lift",
+      "category": "access_rental",
+      "terms": [
+        {
+          "term": "scissor lift",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "scissor platform",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "slab scissor",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "rough terrain scissor",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "Genie lift",
+          "region": "GCC",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "رافعة مقصية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "رافعة مقص",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "سيزر لفت",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "ножничный подъёмник",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Vertical-only MEWP (electric slab or diesel rough-terrain). Enquiries state working height (e.g., 10–22 m), drive type and rental period (day/week/month)."
+    },
+    {
+      "key": "tower_crane",
+      "canonical": "Tower crane",
+      "category": "crane",
+      "terms": [
+        {
+          "term": "tower crane",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "hammerhead crane",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "flat-top crane",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "luffing jib crane",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "luffer",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "self-erecting crane",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "رافعة برجية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "ونش برجي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "كرين برجي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "تاور كرين",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "башенный кран",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Rental quotes list jib length, height under hook, capacity at tip, mobilisation/demobilisation, erection/climbing, operator and monthly rate; standards EN 14439, ASME B30.3."
+    },
+    {
+      "key": "mobile_crane",
+      "canonical": "Mobile crane",
+      "category": "crane",
+      "terms": [
+        {
+          "term": "mobile crane",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "truck crane",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "all-terrain crane",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "rough terrain crane",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "crawler crane",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "pick and carry crane",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "hydra",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "رافعة متحركة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "رافعة مجنزرة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "كرين",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "ونش متحرك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "автокран",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "стреловой самоходный кран",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "гусеничный кран",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Gulf \"ونش\" alone can also mean a tow truck (ونش سحب) or a winch, so require a crane/lifting context before classifying."
+    },
+    {
+      "key": "scaffolding",
+      "canonical": "Scaffolding (general)",
+      "category": "scaffolding",
+      "terms": [
+        {
+          "term": "scaffolding",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "scaffold",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "staging",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "سقالات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "سقالة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "سقالات معدنية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "строительные леса",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "леса",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "मचान",
+          "region": "SOUTH_ASIA",
+          "language": "hi",
+          "usage": "colloquial"
+        }
+      ],
+      "notes": "Note that Gulf Arabic \"سقالة\" is also used for suspended platforms (\"سقالة معلقة/كهربائية\") — check for motor/wire-rope words before routing to scaffolding instead of cradle."
+    },
+    {
+      "key": "scaffolding_cuplock",
+      "canonical": "Cuplock scaffolding",
+      "category": "scaffolding",
+      "terms": [
+        {
+          "term": "cuplock",
+          "region": "global",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "cup-lock scaffolding",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "cup lock system",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "كب لوك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "كاب لوك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "чашечные леса",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Standards (verticals) with cup joints taking ledgers (horizontals); Gulf Arabic quotations use قائم for standard, عارضة/ليدجر for ledger and جاك قاعدة for base jack. Very common in GCC and India for façade and falsework support."
+    },
+    {
+      "key": "scaffolding_ringlock",
+      "canonical": "Ringlock / modular system scaffold",
+      "category": "scaffolding",
+      "terms": [
+        {
+          "term": "ringlock",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "system scaffold",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "modular scaffold",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "Allround scaffold",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "Kwikstage",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "رينج لوك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "клиновые леса",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "модульные леса",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Rosette/wedge-connection systems. In Russian practice \"клиновые\" (wedge) and \"хомутовые\" (clamp) are the usual family names."
+    },
+    {
+      "key": "scaffolding_tube_coupler",
+      "canonical": "Tube & coupler scaffolding",
+      "category": "scaffolding",
+      "terms": [
+        {
+          "term": "tube and coupler",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "tube and fitting",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "tube and clamp",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "pipe and clamp",
+          "region": "GCC",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "سقالات أنابيب ووصلات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "بايب وكلامب",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "хомутовые леса",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Loose 48.3 mm tubes joined by couplers (EN 39 / EN 74; UK guidance NASC TG20)."
+    },
+    {
+      "key": "scaffolding_frame",
+      "canonical": "Frame scaffolding",
+      "category": "scaffolding",
+      "terms": [
+        {
+          "term": "frame scaffold",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "H-frame scaffolding",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "سقالات إطارية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "سقالات شباك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "рамные леса",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Prefabricated welded frames with cross braces; often rented by lot/area."
+    },
+    {
+      "key": "mobile_scaffold_tower",
+      "canonical": "Mobile scaffold tower (aluminium tower)",
+      "category": "scaffolding",
+      "terms": [
+        {
+          "term": "mobile scaffold tower",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "mobile access tower",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "rolling scaffold",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "Baker scaffold",
+          "region": "US",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "aluminium tower",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "برج سقالة متحرك",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "سقالة ألمنيوم متحركة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "вышка-тура",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "передвижная вышка",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Castor-mounted towers (EN 1004; PASMA training in the UK)."
+    },
+    {
+      "key": "space_frame",
+      "canonical": "Space frame",
+      "category": "space_frame",
+      "terms": [
+        {
+          "term": "space frame",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "space truss",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "double-layer grid",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "MERO system",
+          "region": "global",
+          "language": "en",
+          "usage": "brand_generic"
+        },
+        {
+          "term": "إنشاءات فراغية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "هيكل فراغي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "سبيس فريم",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "структурная конструкция",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "структурное покрытие",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "пространственная стержневая конструкция",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Node-and-member steel grids for long-span roofs, domes, canopies (petrol stations, entrances) and skylight substructures; usually design-fabricate-install packages priced per m² or lump sum."
+    },
+    {
+      "key": "skylight",
+      "canonical": "Skylight / glass roof",
+      "category": "space_frame",
+      "terms": [
+        {
+          "term": "skylight",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "rooflight",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "glass roof",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "منور",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "مناور",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "سقف زجاجي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "سكاي لايت",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "colloquial"
+        },
+        {
+          "term": "зенитный фонарь",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "светопрозрачная кровля",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Often needs its own cleaning access (gantry, travelling ladder) — a frequent cross-sell into wce."
+    },
+    {
+      "key": "car_park_shades",
+      "canonical": "Car park shades / parking canopies",
+      "category": "space_frame",
+      "terms": [
+        {
+          "term": "car park shades",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "parking shades",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "parking canopy",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "carport",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "car parking shed",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "tensile shade structure",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "مظلات سيارات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "مظلات مواقف السيارات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "مظلات شد إنشائي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "навес для парковки",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "автомобильный навес",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Steel-frame with PVC/PVDF membrane or metal sheet; filed with space frames as light steel roof structures."
+    },
+    {
+      "key": "annual_maintenance_contract",
+      "canonical": "Annual maintenance contract (AMC)",
+      "category": null,
+      "terms": [
+        {
+          "term": "annual maintenance contract",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "AMC",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "AMC",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "CMC",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "maintenance contract",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "service agreement",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "service contract",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "preventive maintenance agreement",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "عقد صيانة سنوي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "عقد صيانة دورية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "صيانة وقائية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "договор на техническое обслуживание",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "сервисный договор",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "ТО",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "colloquial"
+        }
+      ],
+      "notes": "Scope: scheduled preventive visits (often monthly), lubrication, functional and load tests, call-outs. \"Comprehensive\" (India: CMC) includes spare parts; \"labour-only\" / \"without spare parts\" excludes them — always capture which."
+    },
+    {
+      "key": "o_and_m",
+      "canonical": "Operation & maintenance (O&M) / O&M manual",
+      "category": null,
+      "terms": [
+        {
+          "term": "O&M",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "operation and maintenance",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "O&M manual",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "health and safety file",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "تشغيل وصيانة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "دليل التشغيل والصيانة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "эксплуатация и техническое обслуживание",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "руководство по эксплуатации",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Handover deliverable (manuals, as-built drawings, test certificates, training) and also the name of operate-and-maintain contracts."
+    },
+    {
+      "key": "boq",
+      "canonical": "Bill of quantities (BOQ)",
+      "category": null,
+      "terms": [
+        {
+          "term": "bill of quantities",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "BOQ",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "BOQ",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "schedule of rates",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "bid schedule",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "جدول الكميات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "جدول كميات",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ведомость объёмов работ",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "ВОР",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "смета",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "US projects rarely issue BOQs (bidders price drawings/specs on bid forms). Russian \"смета\" is a priced estimate rather than an unpriced BOQ."
+    },
+    {
+      "key": "rfq",
+      "canonical": "Request for quotation (RFQ) / enquiry",
+      "category": null,
+      "terms": [
+        {
+          "term": "RFQ",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "request for quotation",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "enquiry",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "enquiry",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "inquiry",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "RFP",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "invitation to tender",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "invitation to bid",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "NIT",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "pre-tender enquiry",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "طلب عرض سعر",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "طلب تسعير",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "دعوة لتقديم عطاء",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "запрос коммерческого предложения",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "запрос КП",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "colloquial"
+        },
+        {
+          "term": "запрос котировок",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "GCC main contractors send \"pre-tender\" RFQs to specialists before submitting their own bid; the closing date and tender number are the key fields to extract."
+    },
+    {
+      "key": "quotation",
+      "canonical": "Quotation / offer",
+      "category": null,
+      "terms": [
+        {
+          "term": "quotation",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "quote",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "offer",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "proposal",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "techno-commercial offer",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "عرض سعر",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "عرض أسعار",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "عرض فني ومالي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "коммерческое предложение",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "КП",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Our outgoing document; a supplier's quotation to us is a vendor_offer, not a work enquiry."
+    },
+    {
+      "key": "purchase_order",
+      "canonical": "Purchase order (PO / LPO)",
+      "category": null,
+      "terms": [
+        {
+          "term": "purchase order",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "PO",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "LPO",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "work order",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "letter of award",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "أمر شراء",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "أمر شراء محلي",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "أمر عمل",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "заказ",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "договор поставки",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Signals a won job: link to the quotation reference and start the project."
+    },
+    {
+      "key": "tender",
+      "canonical": "Tender / bid",
+      "category": null,
+      "terms": [
+        {
+          "term": "tender",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "tender",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "bid",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "مناقصة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "عطاء",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "тендер",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "торги",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "конкурс",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Public tenders reach specialists through main contractors; mails carry tender numbers, closing dates, site-visit dates and addenda."
+    },
+    {
+      "key": "addendum",
+      "canonical": "Addendum (tender amendment)",
+      "category": null,
+      "terms": [
+        {
+          "term": "addendum",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "tender addendum",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "bid addendum",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "corrigendum",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "ملحق",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ملحق المناقصة",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "изменения в документацию",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "дополнение к документации",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        }
+      ],
+      "notes": "Changes BOQ/specs or the closing date; must be attached to the existing project, not opened as a new enquiry. In Arabic, \"ملحق\" also names a contract extension (e.g., maintenance addendum)."
+    },
+    {
+      "key": "technical_query",
+      "canonical": "Technical query (TQ) / RFI",
+      "category": null,
+      "terms": [
+        {
+          "term": "technical query",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "TQ",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "RFI",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "request for information",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "pre-bid query",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "clarification",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "استفسار فني",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "طلب استيضاح",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "технический вопрос",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "запрос разъяснений",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Questions raised before the tender query deadline; answers usually come back as an addendum."
+    },
+    {
+      "key": "submittal",
+      "canonical": "Submittal (material/technical submittal, shop drawings)",
+      "category": null,
+      "terms": [
+        {
+          "term": "submittal",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "material submittal",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "technical submittal",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "material approval request",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "shop drawing",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "technical submission",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "طلب اعتماد مواد",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "تقديم للاعتماد",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "مخططات تنفيذية",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "согласование документации",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "common"
+        },
+        {
+          "term": "рабочая документация",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Post-award approval package (data sheets, calculations, shop drawings, method statement) sent to the consultant via the main contractor."
+    },
+    {
+      "key": "method_statement",
+      "canonical": "Method statement",
+      "category": null,
+      "terms": [
+        {
+          "term": "method statement",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "RAMS",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "method statement",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "work plan",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "job hazard analysis",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "lift plan",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "بيان طريقة العمل",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "طريقة التنفيذ",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "ППР",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "технологическая карта",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Installation/erection sequence with risk assessment; in Russia the closest equivalent is the \"проект производства работ (ППР)\"."
+    },
+    {
+      "key": "load_test_third_party_inspection",
+      "canonical": "Load test & third-party inspection / certification",
+      "category": null,
+      "terms": [
+        {
+          "term": "load test",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "proof load test",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "thorough examination",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "third-party inspection",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "TPI",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "TPI",
+          "region": "SOUTH_ASIA",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "annual inspection",
+          "region": "US",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "certification",
+          "region": "global",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "اختبار التحميل",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "فحص الأحمال",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "فحص طرف ثالث",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "شهادة فحص",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "техническое освидетельствование",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "статические и динамические испытания",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        },
+        {
+          "term": "экспертиза промышленной безопасности",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "UK LOLER \"thorough examination\" (6-monthly for equipment lifting people); GCC clients ask for third-party inspection certificates (TPI) for each machine and sometimes for operators; Russia: technical examination under the lifting-structures rules."
+    },
+    {
+      "key": "div_11_masterformat",
+      "canonical": "Division 11 / MasterFormat 11 24 23 (Façade Access Equipment)",
+      "category": null,
+      "terms": [
+        {
+          "term": "Division 11",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "MasterFormat 11 24 23",
+          "region": "US",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "11 24 23",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "Div-11",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "Div 11 window cleaning",
+          "region": "GCC",
+          "language": "en",
+          "usage": "colloquial"
+        },
+        {
+          "term": "القسم 11",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        }
+      ],
+      "notes": "CSI MasterFormat: 11 24 00 Maintenance Equipment → 11 24 23 Façade Access Equipment (BMU, davits, monorails, anchors). GCC consultants reuse CSI numbering in specifications and BOQs, so \"Div-11\" in a subject line is a strong bmu/wce signal."
+    },
+    {
+      "key": "equipment_hire",
+      "canonical": "Equipment rental / hire",
+      "category": null,
+      "terms": [
+        {
+          "term": "rental",
+          "region": "global",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "hire",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "standard"
+        },
+        {
+          "term": "plant hire",
+          "region": "UK_EU",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "rent",
+          "region": "GCC",
+          "language": "en",
+          "usage": "common"
+        },
+        {
+          "term": "تأجير",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "standard"
+        },
+        {
+          "term": "إيجار",
+          "region": "GCC",
+          "language": "ar",
+          "usage": "common"
+        },
+        {
+          "term": "аренда",
+          "region": "RU_CIS",
+          "language": "ru",
+          "usage": "standard"
+        }
+      ],
+      "notes": "Rates are quoted per day/week/month with minimum period, transport (mobilisation/demobilisation) and operator as separate lines."
+    }
+  ]
+}
