@@ -225,6 +225,12 @@ def extract_file(session: Session, f: ProjectFile) -> ProjectFile:
         "text_path": str(text_path.relative_to(get_settings().data_dir)),
         "meta": doc.meta if isinstance(doc.meta, dict) else {},
     }
+    if doc.kind in ("cad", "image") and len(text.strip()) < 20:
+        f.extraction_status = "not_supported"
+    elif doc.warnings and len(text.strip()) < 200:
+        f.extraction_status = "partial"
+    else:
+        f.extraction_status = "extracted"
     f.updated_at = utcnow()
     _register_children(session, f, list(getattr(doc, "children", None) or []))
     return f
@@ -273,6 +279,7 @@ def extract_project_files(project_id: str) -> dict:
                     done += 1
                 except Exception as exc:
                     f.error = f"extract: {exc}"[:500]
+                    f.extraction_status = "failed"
                     errors.append(f.name)
                 s.add(f)
             s.flush()

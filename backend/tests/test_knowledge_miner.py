@@ -266,6 +266,35 @@ def test_ai_refinement_keeps_only_verified_quotes(docs, fixture_data, monkeypatc
     assert get(out, "service_family", "elevators") is None  # quote not found in any source -> dropped
 
 
+def test_real_discover_business_task_with_fake_engine(docs, fixture_data):
+    tasks = pytest.importorskip("ess.ai.tasks")
+    if not hasattr(tasks, "discover_business"):
+        pytest.skip("ess.ai.tasks.discover_business not available")
+    import re
+
+    class Engine:
+        def complete_json(self, system, user, schema, **kwargs):
+            key = re.search(r"- (x-\d+): company_doc - profile\.md", user).group(1)
+            item = {"value": None, "language": "en", "region": None, "variants": []}
+            return {"items": [
+                {**item, "kind": "service_family", "key": "facade_access", "label": "Facade access equipment",
+                 "variants": ["facade access"],
+                 "evidence": [{"quote": "designs, supplies, installs and maintains facade access equipment",
+                               "source": key}]},
+                {**item, "kind": "product", "key": "northstar", "label": "NorthStar cradle",
+                 "evidence": [{"quote": "NorthStar twin-hoist cradle", "source": key}]},  # really in a quotation
+                {**item, "kind": "service_family", "key": "elevators", "label": "Elevators",
+                 "evidence": [{"quote": "We install passenger elevators in every tower.", "source": key}]},
+            ], "summary": "Facade access company."}
+
+    out = mine_corpus(docs, engine=Engine())
+    facade = get(out, "service_family", "facade_access")
+    assert facade is not None and facade.meta.get("ai") and "facade access" in facade.synonyms
+    northstar = get(out, "term", "northstar")
+    assert northstar is not None and northstar.claim_basis == "delivered_work"  # source corrected to the quotation
+    assert get(out, "service_family", "elevators") is None
+
+
 def test_ai_engine_without_task_module_falls_back(docs, fixture_data, monkeypatch):
     monkeypatch.setitem(sys.modules, "ess.ai.tasks", None)  # import fails
     out = mine_corpus(docs, engine=object())

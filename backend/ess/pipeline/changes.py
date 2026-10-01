@@ -78,3 +78,32 @@ def detect_changes(text: str, *, email_id: str, sent_at: Optional[str], current_
                         "date": sent_at, "evidence": {"quote": _sentence(body, m.start(), m.end()),
                                                        "source_type": "email", "source_id": email_id}})
     return changes
+
+
+_INTENT_RULES = [
+    ("addendum", re.compile(r"\baddendum\b|\badd[-\s]?0?\d\b|ملحق", re.I)),
+    ("deadline_change", re.compile(r"extended|extension|postpone|تمديد", re.I)),
+    ("reminder", re.compile(r"\breminder\b|\bgentle\b|follow[-\s]?up|تذكير", re.I)),
+    ("revision", re.compile(r"\brev(?:ision)?\.?\s*[A-Z]?\d|\btechnical proposal\b|\bR0\d\b", re.I)),
+    ("purchase_order", re.compile(r"\b(?:purchase order|LPO|P\.?O\.?\s*(?:no|#))", re.I)),
+    ("award", re.compile(r"\b(?:award(?:ed)?|letter of intent|LOI)\b", re.I)),
+    ("rfq", re.compile(r"\b(?:RFQ|R\.F\.Q|request for (?:quotation|proposal)|inquiry|enquiry|tender|quotation)\b|عرض سعر|مناقصة", re.I)),
+    ("clarification", re.compile(r"\b(?:clarification|query|TQ|technical query|RFI)\b", re.I)),
+]
+_GROUP_INTENT = {"promotions": "newsletter", "bills": "invoice", "vendor_offer": "offer",
+                 "notifications": "notification", "internal": "internal"}
+
+
+def detect_intent(subject: str, body: str = "", category: str = "", request_kind: str | None = None) -> str:
+    """What the message is for — separate from which service family it concerns."""
+    if category in _GROUP_INTENT:
+        return _GROUP_INTENT[category]
+    head = f"{subject or ''}\n{(body or '')[:600]}"
+    for intent, rx in _INTENT_RULES:
+        if rx.search(head):
+            return intent
+    if request_kind in ("tender_rfq", "direct_rfq", "o_and_m"):
+        return "rfq"
+    if request_kind == "revision":
+        return "revision"
+    return "other"

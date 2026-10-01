@@ -25,7 +25,7 @@ _KIND_CUES = {
                "مناقصة", "مناقصات", "ممارسة"],
     "project": ["project", "construction", "development", "launch", "launches", "tower", "phase", "groundbreaking",
                 "ground-breaking", "handover", "مشروع", "إنشاء", "تطوير"],
-    "people": ["appoints", "appointed", "appointment", "names", "named", "joins", "promoted", "new ceo",
+    "people": ["appoints", "appointed", "appointment", "named as", "joins as", "has joined", "promoted", "new ceo",
                "chief executive", "managing director", "chairman", "تعيين", "يعين"],
 }
 _KIND_INDEX = TermIndex.from_phrases(_KIND_CUES, origin="update")

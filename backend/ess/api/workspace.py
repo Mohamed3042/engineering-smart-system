@@ -286,6 +286,39 @@ def search(q: str, session: Session = Depends(get_session), ws: Workspace = Depe
     }
 
 
+@router.patch("/enquiries/{enquiry_id}")
+def update_enquiry(enquiry_id: str, data: dict = Body(...), session: Session = Depends(get_session),
+                   ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> Enquiry:
+    """Our status and the customer's answer are separate facts (sent ≠ accepted)."""
+    from ..pipeline.state import refresh_project_state
+
+    enq = get_or_404(session, Enquiry, enquiry_id, ws)
+    if data.get("status") in ("open", "quoted", "declined", "lost", "won", "closed"):
+        enq.status = data["status"]
+    if data.get("customer_response") in ("none", "awaiting", "clarification", "accepted", "rejected"):
+        enq.customer_response = data["customer_response"]
+        enq.customer_response_at = utcnow()
+        from ..workspace import log_activity
+
+        log_activity(session, ws.id, "customer_response", f"Customer response: {enq.customer_response}",
+                     detail=data.get("note", ""), actor=user.name, project_id=enq.project_id)
+    if data.get("due_date"):
+        from datetime import date as _date
+
+        new = _date.fromisoformat(str(data["due_date"])[:10])
+        if new != enq.due_date:
+            enq.due_date_history = [*(enq.due_date_history or []), {"value": enq.due_date.isoformat() if enq.due_date else None,
+                                                                    "changed_at": utcnow().isoformat(), "confirmed_by": user.name}]
+            enq.due_date = new
+    enq.updated_at = utcnow()
+    session.add(enq)
+    project = session.get(Project, enq.project_id)
+    if project:
+        refresh_project_state(session, project)
+    session.commit()
+    return enq
+
+
 @router.get("/enquiries")
 def enquiries(project_id: Optional[str] = None, session: Session = Depends(get_session),
               ws: Workspace = Depends(ws_dep)) -> list[Enquiry]:

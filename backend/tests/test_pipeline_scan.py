@@ -87,11 +87,27 @@ def test_scan_groups_enquiries_and_detects_extension(env):
         enquiries = s.exec(select(Enquiry).where(Enquiry.project_id == p.id)).all()
         assert len(enquiries) == 2
         alpha = next(e for e in enquiries if "alpha" in e.ref)
-        assert alpha.due_date.isoformat() == "2026-10-18"
-        assert alpha.due_date_history and alpha.due_date_history[0]["value"] == "2026-09-13"
-        kinds = [c["kind"] for c in p.changes]
-        assert "deadline_changed" in kinds
+        # an extension is only proposed until a person confirms it
+        assert alpha.due_date.isoformat() == "2026-09-13"
+        change = next(c for c in p.changes if c["kind"] == "deadline_changed")
+        assert change["new_value"] == "2026-10-18" and change["pending_confirmation"] is True
         assert p.next_action["kind"] == "review_change"
+        m3 = s.get(Email, "m3")
+        assert m3.intent == "deadline_change" and s.get(Email, "m1").intent == "rfq"
+        project_id, index = p.id, p.changes.index(change)
+
+    from ess.api.projects import acknowledge_change
+    from ess.models import TeamMember, Workspace
+
+    with session_scope() as s:
+        ws = s.exec(select(Workspace)).first()
+        user = s.exec(select(TeamMember)).first()
+        acknowledge_change(project_id, index, {"apply": True}, session=s, ws=ws, user=user)
+    with session_scope() as s:
+        alpha = s.exec(select(Enquiry).where(Enquiry.project_id == project_id)).all()
+        alpha = next(e for e in alpha if "alpha" in e.ref)
+        assert alpha.due_date.isoformat() == "2026-10-18"
+        assert alpha.due_date_history[-1]["value"] == "2026-09-13"
         files = s.exec(select(ProjectFile).where(ProjectFile.project_id == p.id)).all()
         assert [f.name for f in files] == ["BOQ-Div11.pdf"]
         links = s.exec(select(ProjectLink).where(ProjectLink.project_id == p.id)).all()

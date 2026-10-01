@@ -236,6 +236,12 @@ _LEGAL_TAIL_RE = re.compile(
     r"k\.s\.c\.p|s\.p\.c|general\s+trading(?:\s*(?:&|and)\s*contracting)?|est)\b\.?)[\s,.\-]*$")
 
 
+_GENERIC_NAME_WORDS = frozenset({"contracting", "construction", "constructions", "contractors", "trading", "general",
+                                 "engineering", "group", "company", "holding", "holdings", "international", "services",
+                                 "industries", "enterprises", "corporation", "est", "establishment", "co", "and", "",
+                                 "the"})
+
+
 def short_name(name: str) -> str:
     out = (name or "").strip()
     for _ in range(4):
@@ -551,23 +557,29 @@ def _meets(claim: _Claim, section: str, rules: Mapping[str, Any], standard: str)
 
 
 def _summary(name: str, sections: dict[str, Any], standard: str, met: bool, evidence_count: int) -> str:
-    def first(sec: str) -> str | None:
+    def first(sec: str, skip: Iterable[str] = ()) -> str | None:
         for c in sections[sec]["claims"]:
-            if c.get("meets_standard"):
+            if c.get("meets_standard") and c.get("fact") not in ("identity",) and c["text"] not in skip:
                 return c["text"]
         return None
 
-    parts = [p for p in (first("overview"), first("business_lines")) if p]
+    def sentence(t: str) -> str:
+        t = t.strip()
+        return t if t.endswith((".", "!", "?", "؟")) else t + "."
+
+    overview = first("overview")
+    parts = [sentence(p) for p in (overview, first("business_lines", skip=[overview or ""])) if p]
     current = [c["text"] for c in sections["projects_current"]["claims"] if c.get("meets_standard")][:2]
     if current:
-        parts.append("Current: " + "; ".join(t[:160] for t in current))
+        parts.append("Current projects: " + " ".join(sentence(t[:200]) for t in current))
     news = sections["news"]["claims"]
     if news:
-        parts.append(f"{len(news)} news item(s) found.")
-    parts.append(f"Evidence: {evidence_count} cited source quotes; {standard} standard "
-                 f"{'met' if met else 'not met'}.")
-    text = " ".join(parts)
-    return text if parts[:-1] else f"{name}: little public information found. {parts[-1]}"
+        parts.append(f"{len(news)} news item(s) in the search window.")
+    tail = (f"Evidence: {evidence_count} cited source quote(s); {standard} standard "
+            f"{'met' if met else 'not met'}.")
+    if not parts:
+        return f"{name}: little public information found. {tail}"
+    return " ".join([*parts, tail])
 
 
 # --------------------------------------------------------------------------------------------

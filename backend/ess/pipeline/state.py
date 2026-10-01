@@ -97,6 +97,31 @@ def compute_stage(project: Project, files: list[ProjectFile], quotations: list[Q
 
 
 EXPLICIT_SOURCES = ("scan", "user", "ai", "mcp")
+REVISION_KINDS = ("technical_revision", "addendum", "scope_change")
+
+
+def reopen_for_revision(session: Session, project: Project, change: dict) -> Optional[Review]:
+    """A new technical revision is not covered by an earlier sign-off: open a fresh review that
+    points at the old one, and flag linked quotations for an impact review. History is kept."""
+    if change.get("kind") not in REVISION_KINDS:
+        return None
+    last = session.exec(select(Review).where(Review.project_id == project.id)
+                        .order_by(Review.created_at.desc())).first()
+    if last is None or last.decision != "approved":
+        return None
+    from ..pipeline.analysis import build_checklist
+    from ..models import Workspace
+
+    ws = session.get(Workspace, project.workspace_id)
+    fresh = Review(workspace_id=project.workspace_id, project_id=project.id, checklist=build_checklist(ws, project),
+                   revision=str(change.get("title") or change.get("kind")), supersedes_id=last.id)
+    session.add(fresh)
+    for q in session.exec(select(Quotation).where(Quotation.project_id == project.id,
+                                                  Quotation.status.in_(("draft", "needs_review", "approved", "sent")))).all():
+        q.impact_review = {"required": True, "reason": change.get("title") or change.get("kind"),
+                           "change": change, "since": utcnow().isoformat()}
+        session.add(q)
+    return fresh
 
 
 def compute_next_action(project: Project, stage: str, blockers: list[dict], quotations: list[Quotation]) -> dict:

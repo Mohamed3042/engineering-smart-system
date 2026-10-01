@@ -240,8 +240,24 @@ def acknowledge_change(project_id: str, index: int, data: dict = Body(default={}
     changes = list(p.changes or [])
     if not 0 <= index < len(changes):
         raise HTTPException(404, {"code": "no_change", "message": "Change not found"})
-    changes[index] = {**changes[index], "acknowledged": True, "acknowledged_by": user.name,
-                      "acknowledged_at": utcnow().isoformat(), "note": data.get("note", "")}
+    change = changes[index]
+    applied = None
+    if change.get("kind") == "deadline_changed" and change.get("pending_confirmation") and data.get("apply", True):
+        from datetime import date as _date
+
+        enq = session.get(Enquiry, change.get("enquiry_id")) if change.get("enquiry_id") else None
+        targets = [enq] if enq else session.exec(select(Enquiry).where(Enquiry.project_id == p.id,
+                                                                       Enquiry.status == "open")).all()
+        for e in targets:
+            e.due_date_history = [*(e.due_date_history or []), {"value": e.due_date.isoformat() if e.due_date else None,
+                                                                "changed_at": change.get("date"),
+                                                                "confirmed_by": user.name,
+                                                                "evidence": change.get("evidence")}]
+            e.due_date = _date.fromisoformat(change["new_value"])
+            session.add(e)
+        applied = change["new_value"]
+    changes[index] = {**change, "acknowledged": True, "acknowledged_by": user.name, "pending_confirmation": False,
+                      "applied": applied, "acknowledged_at": utcnow().isoformat(), "note": data.get("note", "")}
     p.changes = changes
     log_activity(session, ws.id, "change_reviewed", f"{p.name}: {changes[index].get('title')}", actor=user.name,
                  project_id=p.id, detail=data.get("note", ""))
@@ -308,7 +324,7 @@ def approve_link(link_id: str, session: Session = Depends(get_session), ws: Work
     link.status, link.approved_by, link.approved_at = "approved", user.name, utcnow()
     session.add(link)
     session.add(Approval(workspace_id=ws.id, action="download_link", target_type="link", target_id=link.id,
-                         decided_by=user.name, decision="approved", note=link.url))
+                         decided_by=user.name, decision="approved", revision=link.url, note=link.url))
     session.commit()
     started = jobs.submit(f"link:{link.id}", download_link_job, link.id, user.name)
     return {"started": started, "link": link}
@@ -394,6 +410,21 @@ def file_page(file_id: str, page: int, dpi: int = 110, session: Session = Depend
         raise HTTPException(422, {"code": "render_failed", "message": str(exc)})
 
 
+@router.post("/files/{file_id}/review")
+def review_file(file_id: str, data: dict = Body(default={}), session: Session = Depends(get_session),
+                ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> ProjectFile:
+    """A person confirms they read this document. Separate from 'downloaded' and 'extracted'."""
+    f = get_or_404(session, ProjectFile, file_id, ws)
+    if f.status != "ready":
+        raise HTTPException(409, {"code": "not_ready", "message": "The file is not downloaded yet"})
+    f.reviewed_by, f.reviewed_at = user.name, utcnow()
+    session.add(f)
+    session.add(Approval(workspace_id=ws.id, action="review_file", target_type="file", target_id=f.id,
+                         decided_by=user.name, decision="approved", revision=f.sha256, note=data.get("note", "")))
+    session.commit()
+    return f
+
+
 @router.post("/projects/{project_id}/extract")
 def extract_files(project_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
     get_or_404(session, Project, project_id, ws)
@@ -467,7 +498,13 @@ def approve_review(project_id: str, data: dict = Body(default={}), session: Sess
     review.note = data.get("note", review.note)
     session.add(review)
     session.add(Approval(workspace_id=ws.id, action="approve_scope", target_type="project", target_id=p.id,
-                         decided_by=user.name, decision="approved", note=review.note or ""))
+                         decided_by=user.name, decision="approved", revision=review.revision or review.id,
+                         note=review.note or ""))
+    for q in session.exec(select(Quotation).where(Quotation.project_id == p.id)).all():
+        if (q.impact_review or {}).get("required"):
+            q.impact_review = {**q.impact_review, "required": False, "cleared_by": user.name,
+                               "cleared_at": utcnow().isoformat(), "review_id": review.id}
+            session.add(q)
     log_activity(session, ws.id, "scope_approved", f"Technical scope approved: {p.name}", actor=user.name,
                  project_id=p.id, severity="success")
     refresh_project_state(session, p)
@@ -487,7 +524,7 @@ def request_changes(project_id: str, data: dict = Body(...), session: Session = 
     review.reviewer_id, review.reviewer_name = user.id, user.name
     session.add(review)
     session.add(Approval(workspace_id=ws.id, action="request_changes", target_type="project", target_id=p.id,
-                         decided_by=user.name, decision="rejected", note=note))
+                         decided_by=user.name, decision="rejected", revision=review.revision or review.id, note=note))
     from ..learning import on_review_note
 
     on_review_note(session, ws, p, note, user.name)

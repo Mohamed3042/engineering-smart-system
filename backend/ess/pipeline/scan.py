@@ -90,6 +90,9 @@ def _classify(session: Session, ws: Workspace, email: Email, categories: list[Ca
 
     learned = learned_category(session, ws, email)
     if learned:
+        from .changes import detect_intent
+
+        email.intent = detect_intent(email.subject, email.body_text or "", learned["category"])
         email.category, email.category_confidence = learned["category"], learned["confidence"]
         email.category_reason, email.category_evidence = learned["reason"], learned["evidence"]
         email.category_source = "learned"
@@ -120,6 +123,10 @@ def _classify(session: Session, ws: Workspace, email: Email, categories: list[Ca
                 if result is not None:
                     result["reason"] = f"{result.get('reason', '')} (AI failed: {exc})"[:500]
     if result:
+        from .changes import detect_intent
+
+        email.intent = result.get("intent") or detect_intent(email.subject, email.body_text or "",
+                                                             result.get("category") or "", result.get("request_kind"))
         email.category = result.get("category") or "other"
         email.category_confidence = float(result.get("confidence") or 0)
         email.category_reason = result.get("reason") or ""
@@ -194,12 +201,15 @@ def link_email_to_project(session: Session, ws: Workspace, email: Email) -> Opti
     sent_at = email.date.isoformat() if email.date else None
     for change in detect_changes(email.body_text or "", email_id=email.id, sent_at=sent_at, current_due=enquiry.due_date):
         if change["kind"] == "deadline_changed":
-            enquiry.due_date_history = [*(enquiry.due_date_history or []),
-                                        {"value": change["old_value"], "changed_at": sent_at, "evidence": change["evidence"]}]
-            enquiry.due_date = date.fromisoformat(change["new_value"])
+            # proposed only: the closing date (and its reminders) change when a person confirms it
+            change["enquiry_id"] = enquiry.id
+            change["pending_confirmation"] = True
         known = {(c.get("kind"), c.get("new_value"), (c.get("evidence") or {}).get("source_id")) for c in project.changes or []}
         if (change["kind"], change["new_value"], email.id) not in known:
             project.changes = [*(project.changes or []), change]
+            from .state import reopen_for_revision
+
+            reopen_for_revision(session, project, change)
     session.add(enquiry)
     email.project_id = project.id
     email.enquiry_id = enquiry.id

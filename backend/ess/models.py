@@ -119,6 +119,7 @@ class Approval(SQLModel, table=True):
     target_id: str = Field(index=True)
     decided_by: str
     decision: str  # approved | rejected
+    revision: Optional[str] = None  # exact version the decision covers (quotation v / review id / file sha)
     note: str = ""
     created_at: datetime = Field(default_factory=utcnow)
 
@@ -186,7 +187,11 @@ class Email(SQLModel, table=True):
     category_confidence: float = 0.0
     category_reason: str = ""
     category_evidence: list = _json([])
-    category_source: str = "rules"  # rules | ai | mcp | user | import
+    category_source: str = "rules"  # rules | ai | mcp | user | import | learned
+    # What the message is for, independent of the service family:
+    # rfq | addendum | deadline_change | reminder | revision | clarification | award | purchase_order
+    # | invoice | offer | newsletter | notification | internal | other
+    intent: str = "other"
     priority: str = "normal"  # high | normal | low
     state: str = "new"  # new | needs_review | linked | update | archived | ignored
     project_id: Optional[str] = Field(default=None, index=True)
@@ -354,6 +359,9 @@ class Enquiry(SQLModel, table=True):
     due_date_history: list = _json([])
     status: str = "open"  # open | quoted | declined | lost | won | closed
     our_response: dict = _json({})
+    # The customer's answer after we sent our offer: none | awaiting | clarification | accepted | rejected
+    customer_response: str = "none"
+    customer_response_at: Optional[datetime] = None
     quotation_id: Optional[str] = None
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -400,6 +408,10 @@ class ProjectFile(SQLModel, table=True):
     error: Optional[str] = None
     pages: int = 0
     summary: str = _text()
+    # three separate facts: transferred (status) · extracted (extraction_status) · reviewed by a person
+    extraction_status: str = "pending"  # pending | extracted | partial | failed | not_supported
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
     extraction: dict = _json({})
     analysis: dict = _json({})
     created_at: datetime = Field(default_factory=utcnow)
@@ -415,8 +427,10 @@ class Review(SQLModel, table=True):
     reviewer_id: Optional[str] = None
     reviewer_name: Optional[str] = None
     note: str = _text()
-    decision: Optional[str] = None  # approved | changes_requested
+    decision: Optional[str] = None  # approved | changes_requested | superseded
     decided_at: Optional[datetime] = None
+    revision: str = ""  # what was reviewed, e.g. "R03" or the change that reopened it
+    supersedes_id: Optional[str] = None
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
@@ -473,6 +487,7 @@ class Quotation(SQLModel, table=True):
     sent_at: Optional[datetime] = None
     sent_via: Optional[str] = None
     mail_draft_id: Optional[str] = None
+    impact_review: dict = _json({})  # {"required": bool, "reason", "change", "since"} after a new revision
     change_requests: list = _json([])
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -498,6 +513,8 @@ class KnowledgeItem(SQLModel, table=True):
     score: float = 0.0
     confidence: float = 0.0
     status: str = "suggested"  # suggested | owner_confirmed | rejected
+    apply_to_classification: bool = False  # separate choice from confirming the finding
+    original: dict = _json({})  # wording and source before an owner edited it
     source: str = "mined"  # mined | import | user
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

@@ -96,6 +96,16 @@ def test_build_corpus_prefers_documents_extractor(monkeypatch, tmp_path):
     assert [d.text for d in docs] == ["Item 1 Supply of cradle"]
 
 
+def test_build_corpus_with_real_documents_package(monkeypatch):
+    pytest.importorskip("ess.documents.extract")
+    monkeypatch.undo()  # use ess.documents.extract.extract_document for real
+    corpus._documents_extractor.cache_clear()
+    docs = {d.source_id: d for d in build_corpus_from_folder(FIXTURES / "northwind", source_type="auto")}
+    assert docs["quotations/NW-26-0101 BMU Al Noor Tower.txt"].source_type == "own_quotation"
+    assert "BS EN 1808:2015" in docs["quotations/NW-26-0101 BMU Al Noor Tower.txt"].text
+    assert docs["company/profile.md"].source_type == "company_doc"
+
+
 def test_build_corpus_missing_folder():
     with pytest.raises(FileNotFoundError):
         build_corpus_from_folder("/nonexistent/folder/for/ess")

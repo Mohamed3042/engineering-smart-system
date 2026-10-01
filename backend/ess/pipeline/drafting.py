@@ -202,6 +202,10 @@ def approve_quotation(session: Session, ws: Workspace, q: Quotation, user: TeamM
         if review is None or review.decision != "approved":
             raise HTTPException(409, {"code": "review_required",
                                       "message": "The engineer review must approve the technical scope first."})
+    if (q.impact_review or {}).get("required"):
+        raise HTTPException(409, {"code": "impact_review",
+                                  "message": "A new technical revision arrived: the engineer must review it first ("
+                                             + str(q.impact_review.get("reason")) + ")."})
     gaps = missing_prices(q)
     if gaps:
         raise HTTPException(409, {"code": "prices_missing",
@@ -212,7 +216,7 @@ def approve_quotation(session: Session, ws: Workspace, q: Quotation, user: TeamM
     q.updated_at = utcnow()
     session.add(q)
     session.add(Approval(workspace_id=ws.id, action="approve_quotation", target_type="quotation", target_id=q.id,
-                         decided_by=user.name, decision="approved", note=note))
+                         decided_by=user.name, decision="approved", revision=f"{q.reference} v{q.version}", note=note))
     log_activity(session, ws.id, "quotation_approved", f"Quotation {q.reference} approved", actor=user.name,
                  project_id=q.project_id, quotation_id=q.id, severity="success")
     project = session.get(Project, q.project_id)
@@ -247,10 +251,14 @@ def send_quotation(session: Session, ws: Workspace, q: Quotation, user: TeamMemb
         if enquiry:
             enquiry.status = "quoted"
             enquiry.our_response = {"status": "quoted", "date": utcnow().isoformat(), "detail": q.reference}
+            enquiry.customer_response = "awaiting"  # sent ≠ accepted
             session.add(enquiry)
     session.add(q)
+    import hashlib as _hashlib
+
     session.add(Approval(workspace_id=ws.id, action="send_quotation", target_type="quotation", target_id=q.id,
                          decided_by=user.name, decision="approved",
+                         revision=f"{q.reference} v{q.version} pdf:{_hashlib.sha256(pdf).hexdigest()[:16]}",
                          note=f"to={', '.join(to)}; send_now={send_now}; draft={draft_id}"))
     log_activity(session, ws.id, "quotation_sent" if send_now else "quotation_draft_saved",
                  f"Quotation {q.reference} {'sent' if send_now else 'saved as mail draft'}",

@@ -55,6 +55,11 @@ def add_item(data: dict = Body(...), session: Session = Depends(get_session), ws
 def edit_item(item_id: str, data: dict = Body(...), session: Session = Depends(get_session),
               ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> KnowledgeItem:
     item = get_or_404(session, KnowledgeItem, item_id, ws)
+    wording = ("label", "label_ar", "description", "synonyms")
+    if any(k in data and data[k] != getattr(item, k) for k in wording) and not item.original:
+        # keep what was found and where, before the owner's correction
+        item.original = {**{k: getattr(item, k) for k in wording}, "evidence": item.evidence,
+                         "source": item.source, "edited_by": user.name, "edited_at": utcnow().isoformat()}
     for k in ("label", "label_ar", "description", "synonyms", "region", "language", "value"):
         if k in data:
             setattr(item, k, data[k])
@@ -68,10 +73,15 @@ def edit_item(item_id: str, data: dict = Body(...), session: Session = Depends(g
             item.confidence = max(item.confidence, 0.95)
             item.evidence = [*(item.evidence or []), {"quote": f"Confirmed by {user.name}", "source_type": "owner",
                                                       "weight": 1.0, "at": utcnow().isoformat()}]
+    if "apply_to_classification" in data:
+        if data["apply_to_classification"] and item.status != "owner_confirmed":
+            raise HTTPException(409, {"code": "confirm_first", "message": "Confirm the finding before using it for sorting"})
+        item.apply_to_classification = bool(data["apply_to_classification"])
     item.updated_at = utcnow()
     session.add(item)
     session.commit()
-    if item.kind == "service_family" and item.status == "owner_confirmed":
+    # confirming a finding and using it to sort mail are two separate choices
+    if item.kind in ("service_family", "term") and item.apply_to_classification:
         _sync_category(session, ws, item)
     return item
 

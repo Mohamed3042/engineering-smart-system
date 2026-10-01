@@ -343,6 +343,11 @@ def _apply_email_meta(row: Email, e: dict[str, Any], *, overwrite_category: bool
     row.message_count = e.get("message_count") or row.message_count
     if e.get("answered_by_us") is not None:
         row.answered_by_us = bool(e["answered_by_us"]) or row.answered_by_us
+    from .changes import detect_intent
+
+    if e.get("intent") or row.intent in ("other", "", None):
+        row.intent = e.get("intent") or detect_intent(e.get("subject") or row.subject, e.get("body_text") or "",
+                                                      e.get("category") or row.category)
     if overwrite_category or row.category_source in ("rules", "import") and row.category in ("other", ""):
         if e.get("category"):
             row.category = e["category"]

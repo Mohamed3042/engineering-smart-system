@@ -151,3 +151,44 @@ def test_mcp_requires_declared_eligible_engine(client):
     res = call("submit_classification", {"email_id": "demo-m1", "category": "bmu", "confidence": 0.9, "reason": "x",
                                          "evidence": [{"quote": "Building Maintenance Unit (BMU)"}]})
     assert res.get("isError") is True and "declare_engine" in res["content"][0]["text"]
+
+
+def test_new_revision_reopens_review_and_blocks_quotation(client):
+    pytest.importorskip("ess.quotation.templates")
+    _demo(client)
+    from ess.db import session_scope
+    from ess.models import Project, Quotation, Review
+    from ess.pipeline.state import refresh_project_state, reopen_for_revision
+
+    projects = {p["name"]: p for p in client.get("/api/projects").json()["items"]}
+    pid = projects["Harbor Offices"]["id"]
+    q = client.post("/api/quotations", json={"project_id": pid}).json()
+    review = client.get(f"/api/projects/{pid}/review").json()
+    client.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked"} for i in review["checklist"]]})
+    assert client.post(f"/api/projects/{pid}/review/approve", json={}).status_code == 200
+
+    with session_scope() as s:  # a technical revision arrives by mail
+        p = s.get(Project, pid)
+        change = {"kind": "technical_revision", "title": "Revision R02: 36 months", "date": "2026-10-01T09:00:00Z"}
+        p.changes = [*(p.changes or []), change]
+        assert reopen_for_revision(s, p, change) is not None
+        s.flush()
+        refresh_project_state(s, p)
+    detail = client.get(f"/api/projects/{pid}").json()
+    assert detail["review"]["decision"] is None and detail["review"]["supersedes_id"]
+    assert detail["project"]["stage"] == "engineer_review"
+    items = [{**i, "unit_price": 50} for i in q["data"]["items"]]
+    client.put(f"/api/quotations/{q['id']}", json={"data": {"items": items}})
+    r = client.post(f"/api/quotations/{q['id']}/approve", json={})
+    assert r.status_code == 409 and r.json()["detail"]["code"] in ("impact_review", "review_required")
+    with session_scope() as s:
+        reviews = s.query(Review).filter(Review.project_id == pid).all()
+        assert sum(1 for r_ in reviews if r_.decision == "approved") == 1  # old sign-off kept in history
+        assert s.get(Quotation, q["id"]).impact_review["required"] is True
+
+
+def test_customer_response_is_separate_from_sent(client):
+    _demo(client)
+    enq = client.get("/api/enquiries").json()[0]
+    r = client.patch(f"/api/enquiries/{enq['id']}", json={"customer_response": "clarification", "note": "asked about loads"})
+    assert r.json()["customer_response"] == "clarification" and r.json()["status"] == "open"
