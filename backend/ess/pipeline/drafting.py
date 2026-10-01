@@ -79,7 +79,8 @@ def create_quotation(session: Session, ws: Workspace, project: Project, *, enqui
                      template_key: Optional[str] = None, language: Optional[str] = None,
                      signatory: Optional[Signatory] = None, actor: str = "system") -> Quotation:
     from ..quotation.numbering import next_reference
-    from ..quotation.templates import choose_template, default_quotation
+    from ..models import TemplateSetting
+    from ..quotation.templates import apply_overrides, choose_template, default_quotation
 
     from ..learning import memory_context, resolve_template
 
@@ -108,6 +109,8 @@ def create_quotation(session: Session, ws: Workspace, project: Project, *, enqui
     pdict = project_dict(project, customer)
     edict = enquiry_dict(session, enquiry)
     data = default_quotation(template_key, language, pdict, edict, sig, currency=ws.currency or None)
+    own = session.get(TemplateSetting, f"{ws.id}:{template_key}:{data['language']}")
+    apply_overrides(data, own.overrides if own else None)  # the company's own wording for this template
     data["reference"] = next_reference(sig["initials"], datetime.now(timezone.utc).year, _existing_refs(session, ws))
     data["paper_id"] = paper_id or (ws.settings or {}).get("quotations", {}).get("default_paper_id")
     data["status"] = "draft"
@@ -314,7 +317,8 @@ def default_send_message(session: Session, ws: Workspace, q: Quotation) -> dict:
     to = [contact["email"]] if contact.get("email") else []
     name = contact.get("name") or "Sir/Madam"
     subject = f"Quotation {q.reference} – {q.data.get('subject') or q.data.get('project_name') or ''}".strip(" –")
-    sig = q.data.get("signatory") or {}
+    signatory = session.get(Signatory, q.signatory_id) if q.signatory_id else default_signatory(session, ws)
+    sig = {"full_name": signatory.full_name if signatory else ""}
     body = (f"Dear {name},\n\nPlease find attached our quotation {q.reference}"
             f" for {q.data.get('project_name') or 'the above project'}.\n\n"
             "Should you have any question, please do not hesitate to contact us.\n\nBest regards,\n"

@@ -5,7 +5,7 @@ import copy
 import io
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlmodel import Session, col, select
 
@@ -231,7 +231,10 @@ def approve(quotation_id: str, data: dict = Body(default={}), session: Session =
 @router.post("/quotations/{quotation_id}/request-changes")
 def quotation_changes(quotation_id: str, data: dict = Body(...), session: Session = Depends(get_session),
                       ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> dict:
+    require_role(user, "engineer", "Requesting changes on a quotation")
     q = get_or_404(session, Quotation, quotation_id, ws)
+    if q.status != "needs_review":
+        raise HTTPException(409, {"code": "bad_state", "message": f"Quotation is {q.status}, not waiting for approval"})
     note = (data.get("note") or "").strip()
     if not note:
         raise HTTPException(400, {"code": "note_required", "message": "Say what must change"})
@@ -276,7 +279,10 @@ def approval_queue(session: Session = Depends(get_session), ws: Workspace = Depe
     history = session.exec(select(Approval).where(Approval.workspace_id == ws.id)
                            .order_by(col(Approval.created_at).desc()).limit(50)).all()
     projects = {p.id: p for p in session.exec(select(Project).where(Project.workspace_id == ws.id)).all()}
-    return {"pending": [{**drafting.as_public(q), "project": projects.get(q.project_id)} for q in pending],
+    customers = {c.id: c for c in session.exec(select(Customer).where(Customer.workspace_id == ws.id)).all()}
+    return {"pending": [{**drafting.as_public(q), "project": projects.get(q.project_id),
+                         "customer": customers.get(q.customer_id or ""),
+                         "approval_blockers": drafting.approval_blockers(session, ws, q)} for q in pending],
             "history": history}
 
 
@@ -301,15 +307,15 @@ def templates(session: Session = Depends(get_session), ws: Workspace = Depends(w
 def update_template(key: str, language: str, data: dict = Body(...), session: Session = Depends(get_session),
                     ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> TemplateSetting:
     require_role(user, "admin", "Editing templates")
-    from ..quotation.templates import TEMPLATES
+    from ..quotation.templates import OVERRIDE_KEYS, TEMPLATES
 
     if key not in TEMPLATES:
         raise HTTPException(404, {"code": "no_template", "message": key})
     row = session.get(TemplateSetting, f"{ws.id}:{key}:{language}") or TemplateSetting(
         id=f"{ws.id}:{key}:{language}", workspace_id=ws.id, key=key, language=language)
     row.enabled = data.get("enabled", row.enabled)
-    row.overrides = {k: v for k, v in (data.get("overrides") or row.overrides).items()
-                     if k in ("intro", "terms", "exclusions", "price_unit", "closing")}
+    if "overrides" in data:  # the full set of the company's wording; {} or nulls go back to the template's
+        row.overrides = {k: v for k, v in (data["overrides"] or {}).items() if k in OVERRIDE_KEYS and v not in (None, "", [])}
     row.applies_to = data.get("applies_to", row.applies_to)
     row.updated_at = utcnow()
     session.add(row)
@@ -322,11 +328,13 @@ async def template_preview(data: dict = Body(...), session: Session = Depends(ge
                            ws: Workspace = Depends(ws_dep)) -> dict:
     from ..quotation.assets import LetterheadAssets
     from ..quotation.render import render_quotation_html
-    from ..quotation.templates import default_quotation
+    from ..quotation.templates import apply_overrides, default_quotation
 
     sig = drafting.signatory_dict(session.get(Signatory, data.get("signatory_id") or "") , ws)
     q = default_quotation(data.get("template_key") or "supply_installation", data.get("language") or "en",
                           {"name": "Sample project", "service_family": "bmu"}, {"company": "Sample customer"}, sig)
+    own = session.get(TemplateSetting, f"{ws.id}:{q['template_key']}:{q['language']}")
+    apply_overrides(q, own.overrides if own else None)
     assets = LetterheadAssets.load(get_settings().private_dir, ws.company_name or ws.name, sig["initials"])
     return {"html": render_quotation_html(q, {"company_name": ws.company_name or ws.name, "name": ws.name}, sig, assets)}
 
@@ -459,7 +467,7 @@ def catalog(q: str = "", language: str = "en", transaction: Optional[str] = None
 
 
 @router.post("/quotations/{quotation_id}/photos")
-async def add_photo(quotation_id: str, file: UploadFile = File(...), caption: str = "", placement: str = "annex",
+async def add_photo(quotation_id: str, file: UploadFile = File(...), caption: str = Form(""), placement: str = Form("annex"),
                     session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
     from ..quotation.photos import normalize_photo
 

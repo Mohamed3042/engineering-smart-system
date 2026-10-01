@@ -670,6 +670,25 @@ def currency_label(currency: str | None, language: str) -> str:
     return code
 
 
+OVERRIDE_KEYS = ("intro", "terms", "exclusions", "price_unit", "closing")
+
+
+def apply_overrides(data: dict[str, Any], overrides: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The workspace's own wording for a template (Quotation setup › Templates), in place.
+
+    Set fields replace the template's; terms are replaced one by one, by key; empty or missing
+    fields keep the template's wording.
+    """
+    ov = overrides or {}
+    for key in ("intro", "exclusions", "price_unit", "closing"):
+        if ov.get(key) not in (None, "", []):
+            data[key] = ov[key]
+    texts = {t.get("key"): t.get("text") for t in ov.get("terms") or [] if isinstance(t, Mapping) and t.get("text")}
+    if texts:
+        data["terms"] = [{**t, "text": texts[t["key"]]} if t.get("key") in texts else t for t in data.get("terms") or []]
+    return data
+
+
 def default_quotation(template_key: str, language: str | None, project: Mapping[str, Any] | None,
                       enquiry: Mapping[str, Any] | None, signatory: Mapping[str, Any] | None, *,
                       existing_refs: Iterable[str] | None = None, today: date | None = None,

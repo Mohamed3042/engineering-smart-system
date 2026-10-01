@@ -187,6 +187,22 @@ def test_unknown_quantity_stays_unknown_and_blocks_approval(client):
     assert "quantities_missing" in codes and "prices_missing" not in codes
 
 
+def test_company_template_wording_reaches_drafts_and_preview(client):
+    pytest.importorskip("ess.quotation.templates")
+    _demo(client)
+    ov = {"intro": "Our own opening line.", "terms": [{"key": "validity", "label": "Validity", "text": "Two months."}],
+          "exclusions": ["Civil works by others."], "price_unit": None, "closing": None}
+    assert client.put("/api/templates/annual_maintenance/en", json={"enabled": True, "overrides": ov}).status_code == 200
+    pid = next(p["id"] for p in client.get("/api/projects").json()["items"] if p["name"] == "Harbor Offices")
+    q = client.post("/api/quotations", json={"project_id": pid}).json()
+    assert q["data"]["intro"] == "Our own opening line." and q["data"]["exclusions"] == ["Civil works by others."]
+    assert {t["key"]: t["text"] for t in q["data"]["terms"]}["validity"] == "Two months."
+    html = client.post("/api/templates/preview", json={"template_key": "annual_maintenance", "language": "en"}).json()["html"]
+    assert "Our own opening line." in html
+    client.put("/api/templates/annual_maintenance/en", json={"overrides": {}})  # back to the template's wording
+    assert client.post("/api/quotations", json={"project_id": pid}).json()["data"]["intro"] is None
+
+
 def test_mcp_requires_declared_eligible_engine(client):
     _demo(client)
     headers = {"accept": "application/json, text/event-stream", "content-type": "application/json"}

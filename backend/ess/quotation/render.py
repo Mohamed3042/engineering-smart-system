@@ -511,7 +511,7 @@ def build_context(quotation: Mapping[str, Any], workspace: Mapping[str, Any] | N
         "table": _table(copy, spec, quotation, cur, labels),
         "conditions": _conditions(copy, spec, quotation, cur, labels),
         "closing": {
-            "lines": list(copy.closing),
+            "lines": _paragraphs(quotation.get("closing")) or list(copy.closing),
             "signoff": copy.signoff,
             "signature": {
                 "src": signature.data_uri if signature else None,
