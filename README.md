@@ -57,8 +57,19 @@ Without them the PDF uses a neutral letterhead marked *specimen*.
 All mail, files, quotations, letterheads, signatures and secrets live in `data/` (git-ignored).
 Secrets are encrypted at rest. The repository contains code and invented sample data only.
 
+## UI concept
+
+**158 independently generated mockups: 79 desktop screens and 79 phone screens** (version 2) —
+[browse every screen](docs/ui-mockups/SCREEN-INDEX.md), [refinement notes](docs/ui-mockups/REFINEMENT-NOTES.md),
+[desktop](docs/ui-mockups/Desktop), [phone](docs/ui-mockups/Phone),
+[generation prompts](docs/ui-mockups/GENERATION-PROMPTS.json). The concepts cover onboarding, AI connections,
+inbox classification, projects, drawings, engineer review, quotations, customers, research, automations,
+settings, dialogs and recovery states; version 2 adds requirement revisions, deadline amendments, renewed
+approval, customer-response tracking, Arabic inspection requests, BOQ evidence and maintenance quotations.
+They are generated visual concepts with fictional sample content; the visual direction applies Impeccable
+Operate principles. Collaboration notes: [for the concept author](docs/collab/notes-for-astra.md) ·
+[from the concept author](docs/collab/notes-from-astra.md).
+
 ## Project layout
 
 See [docs/architecture.md](docs/architecture.md). Backend: Python 3.11, FastAPI, SQLite, Playwright.
-The UI concept screens are in [docs/ui-mockups](docs/ui-mockups/SCREEN-INDEX.md); the interface is
-built from the refined concept once it is final.
