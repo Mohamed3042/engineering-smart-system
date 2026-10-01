@@ -33,6 +33,7 @@ import {
 import { useCreateAutomation, useStepCatalog, useUpdateAutomation, type CatalogConfig, type CatalogStep } from "./api";
 import { stepDoes, type TriggerSummary } from "./lib";
 import { TriggerStatusBlock } from "./parts";
+import { useReturnFocus } from "./useReturnFocus";
 import {
   MIN_INTERVAL,
   configId,
@@ -281,6 +282,8 @@ function EditorForm({
   // Set just before the page itself navigates away (after a save, or a confirmed discard) so the guard lets it go.
   const leaving = useRef(false);
   const dirty = !sameDraft(draft, initial);
+  useReturnFocus(adding);
+  useReturnFocus(discard);
   const problems = useMemo(() => validate(draft, catalog), [draft, catalog]);
   const shown: Problems = showProblems ? problems : { config: {} };
 
@@ -291,6 +294,7 @@ function EditorForm({
 
   // Leaving with unsaved changes asks first: here (links, back) and when the tab closes.
   const blocker = useBlocker(() => dirty && !saving && !leaving.current);
+  useReturnFocus(blocker.state === "blocked");
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => {

@@ -18,6 +18,9 @@ export const customerRoutes: RouteObject[] = [
     HydrateFallback: PageLoading,
     lazy: async () => ({ Component: (await import("./DirectoryPage")).DirectoryPage }),
   },
+  // no company is called "opportunities" or "updates": these addresses open the directory
+  { path: "customers/opportunities", element: <Navigate to="/customers" replace /> },
+  { path: "customers/updates", element: <Navigate to="/customers" replace /> },
   {
     path: "customers/:customerId",
     HydrateFallback: PageLoading,

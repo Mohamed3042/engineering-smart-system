@@ -215,7 +215,7 @@ function ReviewRound({ detail, review, stacked }: TabProps & { review: Review; s
   const saved = useMemo(() => {
     const server = toDraft(review);
     return JSON.stringify(payload(server.items, server.note));
-  }, [review, detail]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [review, detail]);
   const dirty = !approved && JSON.stringify(payload(draft.items, draft.note)) !== saved;
   const [approveOpen, setApproveOpen] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);

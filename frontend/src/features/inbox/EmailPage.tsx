@@ -36,6 +36,7 @@ import { emailStateInfo } from "./labels";
 import { CreateProjectDialog, ProjectPickerDialog } from "./LinkDialogs";
 import { IntentLabel, dirOf, senderName } from "./parts";
 import { UnsubscribeDialog } from "./UnsubscribeDialog";
+import { useReturnFocus } from "./useReturnFocus";
 
 /**
  * Where the message is filed, and how a person changes that. Unlinked work mail waits for a person,
@@ -175,6 +176,8 @@ function Detail({
   const update = useUpdateEmail();
   const [unsub, setUnsub] = useState(false);
   const [dialog, setDialog] = useState<"file" | "create" | null>(null);
+  // The picker and the create dialog hand over to each other; focus goes back once, to the button that started it.
+  useReturnFocus(dialog !== null);
   const archived = email.state === "archived";
   const state = emailStateInfo(email.state);
 

@@ -94,39 +94,18 @@ function viewableType(file: Pick<ProjectFile, "name" | "mime">): string | null {
 }
 
 /**
- * Open the original file in a new tab. The server sends every file as a download, so a PDF or a
- * picture is read and shown from memory (the browser's own viewer, with its own zoom). Other file
- * types are downloaded for the computer to open.
+ * Open the original file in a new tab: a PDF or a picture opens in the browser's own viewer (the
+ * server sends it inline), other file types are downloaded for the computer to open.
  */
 export async function openOriginal(file: Pick<ProjectFile, "id" | "name" | "mime">) {
-  const href = fileContentUrl(file.id);
-  const type = viewableType(file);
-  if (!type) {
+  if (!viewableType(file)) {
     downloadOriginal(file.id);
     return;
   }
-  // opened inside the click, so that pop-up blockers allow it; filled in when the file has arrived
-  const tab = window.open("", "_blank");
-  if (!tab) {
-    downloadOriginal(file.id);
-    return;
-  }
-  try {
-    tab.document.title = file.name;
-    tab.document.body.textContent = "Opening the file…";
-  } catch {
-    /* a tab that cannot be written to is still navigated below */
-  }
-  try {
-    const res = await fetch(href);
-    if (!res.ok) throw new Error(res.status === 404 ? "The file is not in the project yet." : `The server answered ${res.status}.`);
-    const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type }));
-    tab.location.replace(url);
-    window.setTimeout(() => URL.revokeObjectURL(url), 10 * 60_000);
-  } catch (error) {
-    tab.close();
-    toastError(error, "Could not open the original");
-  }
+  // no "noopener" feature here: with it window.open returns null even when the tab opened
+  const tab = window.open(`${fileContentUrl(file.id)}?inline=1`, "_blank");
+  if (tab) tab.opener = null;
+  else downloadOriginal(file.id); // pop-ups blocked: save it instead
 }
 
 export function OpenOriginalButton({ file, className }: { file: ProjectFile; className?: string }) {

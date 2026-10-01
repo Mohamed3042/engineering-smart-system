@@ -333,7 +333,9 @@ export function PageStage({
     return (
       <div className="space-y-2">
         {fallback}
-        <InlineError error={pages.error} />
+        <p role="alert" className="text-xs text-block">
+          The real pages could not load.
+        </p>
         <Button variant="secondary" size="sm" onClick={() => pages.refetch()}>
           Try again
         </Button>

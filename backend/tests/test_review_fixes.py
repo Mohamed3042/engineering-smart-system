@@ -159,6 +159,13 @@ def test_failed_attachment_can_be_retried(client, monkeypatch):
                         source="email_attachment", email_id="demo-m1", status="failed", error="timeout")
         s.add(f)
         fid = f.id
+    r = client.post(f"/api/files/{fid}/retry")  # no mailbox: refused, the file keeps its error
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "no_mailbox" and not calls
+    from ess.models import Connection
+
+    with session_scope() as s:
+        assert s.get(ProjectFile, fid).error == "timeout"
+        s.add(Connection(workspace_id=_ws_id(), kind="mail", method="imap", provider="imap", status="connected"))
     r = client.post(f"/api/files/{fid}/retry")
     assert r.status_code == 200 and r.json()["kind"] == "attachment"
     assert calls and calls[0][1] == "fetch_attachments" and calls[0][3] == {"retry_failed": True, "file_ids": [fid]}

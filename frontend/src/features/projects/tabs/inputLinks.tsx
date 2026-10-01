@@ -138,7 +138,8 @@ export function useLinkActions(detail: ProjectDetail) {
 /* ------------------------------------------------------------------ text */
 
 export function linkTitle(l: ProjectLink): string {
-  return `${linkSourceLabel(l.kind)} link`;
+  const label = linkSourceLabel(l.kind);
+  return /link$/i.test(label) ? label : `${label} link`;
 }
 
 /** "Found in Sarah Mitchell's email · 24 Sep" (links to the email), or "Added by hand". */

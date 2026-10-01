@@ -64,7 +64,8 @@ def _boq_scope(files: list[ProjectFile]) -> list[dict]:
             desc = row.get("description") or ""
             items.append({"description": desc[:400], "qty": row.get("qty"), "unit": row.get("unit"),
                           "evidence": {"quote": desc[:200], "source_type": "file", "source_id": f.id,
-                                       "source_label": f.name, "page": row.get("row")}})
+                                       "source_label": f.name, "page": row.get("page"),  # PDF page
+                                       "sheet": row.get("sheet"), "row": row.get("row")}})  # spreadsheet
     return items
 
 

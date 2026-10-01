@@ -171,7 +171,14 @@ def fetch_attachments(project_id: str, *, retry_failed: bool = False, file_ids: 
         pending = s.exec(query).all()
         if not pending:
             return {"saved": 0, "failed": []}
-        source = mail_source_for(s, ws)
+        try:
+            source = mail_source_for(s, ws)
+        except Exception as exc:  # no mailbox or a broken connection: say so on every file instead of failing silently
+            for f in pending:
+                f.status, f.error = "failed", f"Mailbox not available: {exc}"[:500]
+                s.add(f)
+            refresh_project_state(s, project)
+            return {"saved": 0, "failed": [f.name for f in pending], "error": str(exc)[:300]}
         for f in pending:
             if not f.email_id:
                 continue

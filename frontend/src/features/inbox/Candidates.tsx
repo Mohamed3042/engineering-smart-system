@@ -3,7 +3,6 @@ import { useState } from "react";
 import { pluralize } from "@/lib/format";
 import { Button, Panel, PanelHeader } from "@/ui";
 import type { UnsubscribeCandidate } from "./api";
-import { dirOf } from "./parts";
 import type { UnsubscribeTarget } from "./UnsubscribeDialog";
 
 const FIRST = 5;
@@ -30,12 +29,16 @@ export function Candidates({ candidates, onUnsubscribe }: { candidates: Unsubscr
         {shown.map((c) => (
           <li key={c.sender} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-ink" dir={dirOf(c.name)}>
-                {c.name || c.sender}
+              <p className="truncate font-medium text-ink">
+                <bdi dir="auto">{c.name || c.sender}</bdi>
               </p>
-              <p className="truncate text-sm text-ink-3" dir={dirOf(c.sample_subject)}>
-                {c.name ? `${c.sender} · ` : ""}
-                {pluralize(c.count, "message")} · {c.sample_subject || "(no subject)"}
+              <p className="truncate text-sm text-ink-3">
+                {c.name ? (
+                  <>
+                    <span dir="ltr">{c.sender}</span> ·{" "}
+                  </>
+                ) : null}
+                {pluralize(c.count, "message")} · <bdi dir="auto">{c.sample_subject || "(no subject)"}</bdi>
               </p>
             </div>
             {c.can_unsubscribe ? (

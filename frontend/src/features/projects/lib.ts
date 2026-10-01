@@ -372,8 +372,11 @@ export function readableEvidence(ev: Evidence, emails: DetailEmail[], files: Pro
   const file = files.find((f) => f.id === e.source_id);
   const page = pageNumber(e.page);
   if (!file || isPdfFile(file)) return { ...e, page };
-  if (isImageFile(file) || page === null) return { ...e, page: null };
-  return { ...e, page: null, source_label: `${e.source_label || file.name} · row ${page}` };
+  // spreadsheets: newer analyses store "row" (and "sheet"); older ones stored the row in "page"
+  const row = pageNumber(typeof e.row === "number" || typeof e.row === "string" ? e.row : e.page);
+  if (isImageFile(file) || row === null) return { ...e, page: null };
+  const sheet = typeof e.sheet === "string" && e.sheet ? ` · ${e.sheet}` : "";
+  return { ...e, page: null, source_label: `${e.source_label || file.name}${sheet} · row ${row}` };
 }
 
 /* ------------------------------------------------------------------ closing-date history */

@@ -5,6 +5,7 @@
 import { X } from "lucide-react";
 import { Dialog as D, DropdownMenu as M, Popover as P, Tooltip as T } from "radix-ui";
 import { useState, type ReactNode } from "react";
+import { useReturnFocus } from "./useReturnFocus";
 import { cn } from "@/lib/cn";
 import { Button, type ButtonVariant } from "./Button";
 
@@ -26,6 +27,7 @@ export interface DialogProps {
 const dialogWidths = { sm: "sm:max-w-md", md: "sm:max-w-lg", lg: "sm:max-w-2xl", xl: "sm:max-w-4xl" };
 
 export function Dialog({ open, onOpenChange, trigger, title, description, children, footer, size = "md", hideClose }: DialogProps) {
+  useReturnFocus(!trigger && !!open); // opened from state: focus goes back where it was
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       {trigger ? <D.Trigger asChild>{trigger}</D.Trigger> : null}
@@ -142,6 +144,7 @@ export interface DrawerProps {
 
 /** Side panel on desktop, bottom sheet on phones. */
 export function Drawer({ open, onOpenChange, trigger, title, description, children, footer, width = "md" }: DrawerProps) {
+  useReturnFocus(!trigger && !!open);
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       {trigger ? <D.Trigger asChild>{trigger}</D.Trigger> : null}

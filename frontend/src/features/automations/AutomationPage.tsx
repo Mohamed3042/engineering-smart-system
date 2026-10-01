@@ -41,6 +41,7 @@ import {
 import { useAutomation, useDeleteAutomation, useRunNow, useStepCatalog, type AutomationDetail, type CatalogStep, type Run } from "./api";
 import { configuredTrigger, formatDuration, isAdmin, runStateInfo, runTriggerLabel, stepDoes, stepEnabled, triggerSummary } from "./lib";
 import { EnabledSwitch, gateLabels, LastRun, TriggerStatusBlock } from "./parts";
+import { useReturnFocus } from "./useReturnFocus";
 import { WorkflowEditor } from "./WorkflowEditor";
 
 /** The settings a person changed from the standard, in the catalogue's words: "Most threads per run: 200". */
@@ -114,6 +115,7 @@ function Settings({ data, canEdit }: { data: AutomationDetail; canEdit: boolean 
   const navigate = useNavigate();
   const del = useDeleteAutomation();
   const [confirm, setConfirm] = useState(false);
+  useReturnFocus(confirm);
   const builtIn = !!data.built_in;
   const needsMail = a.trigger === "new_email" || a.steps.some((s) => s.type === "sync_mail" && stepEnabled(s));
   const noMailbox = needsMail && a.trigger !== "manual" && !!session.data && !session.data.mail;

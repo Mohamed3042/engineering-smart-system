@@ -385,6 +385,11 @@ def retry_file(file_id: str, session: Session = Depends(get_session), ws: Worksp
     shared link re-runs that link's download."""
     f = get_or_404(session, ProjectFile, file_id, ws)
     if f.source == "email_attachment":
+        from ..pipeline.connect import active_connection
+
+        if active_connection(session, ws, "mail") is None:
+            raise HTTPException(409, {"code": "no_mailbox",
+                                      "message": "Connect the mailbox first (Settings → Connections), then try again."})
         f.status, f.error = "not_downloaded", None
         session.add(f)
         session.commit()
@@ -439,12 +444,15 @@ def file_meta(file_id: str, session: Session = Depends(get_session), ws: Workspa
 
 
 @router.get("/files/{file_id}/content")
-def file_content(file_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)):
+def file_content(file_id: str, inline: bool = False, session: Session = Depends(get_session),
+                 ws: Workspace = Depends(ws_dep)):
+    """The original file; ?inline=1 lets the browser show a PDF or picture in a tab instead of saving it."""
     f = get_or_404(session, ProjectFile, file_id, ws)
     path = abs_path(f.path)
     if path is None or not path.exists():
         raise HTTPException(404, {"code": "missing", "message": "File not downloaded yet"})
-    return FileResponse(path, media_type=f.mime or "application/octet-stream", filename=f.name)
+    return FileResponse(path, media_type=f.mime or "application/octet-stream", filename=f.name,
+                        content_disposition_type="inline" if inline else "attachment")
 
 
 @router.get("/files/{file_id}/text")

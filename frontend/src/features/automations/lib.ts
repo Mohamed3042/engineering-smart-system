@@ -48,7 +48,7 @@ export function intervalLabel(minutes: number | null | undefined): string | null
 }
 
 /** Where a person starts a new workflow (the route lives in this folder's routes.tsx). */
-export const NEW_WORKFLOW_PATH = "/automations/new";
+export { newAutomationHref as NEW_WORKFLOW_PATH } from "@/lib/routes";
 
 /** What the workflow is set to, in words: By hand, Every hour, When new mail arrives. Not whether it really starts by itself. */
 export function configuredTrigger(a: Pick<Automation, "trigger" | "interval_minutes">): string {

@@ -16,6 +16,7 @@ export const quotationPreviewHref = (id: string) => `/quotations/${id}/preview`;
 export const customerHref = (id: string, tab?: "projects" | "research" | "updates" | "opportunities") =>
   tab ? `/customers/${id}/${tab}` : `/customers/${id}`;
 export const automationHref = (id: string) => `/automations/${id}`;
+export const newAutomationHref = "/automations/new";
 export const runHref = (id: string) => `/automations/runs/${id}`;
 
 /** Where a project's next action is done. Kinds come from backend/ess/pipeline/state.py. */
