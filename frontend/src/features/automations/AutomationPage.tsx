@@ -2,16 +2,18 @@
  * One workflow (mockup 37, read-only): how it starts, its ordered steps with the human gates marked,
  * "Run now", and its recent runs.
  */
-import { Clock, History, Play } from "lucide-react";
+import { Clock, History, Pencil, Play, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { isApiError } from "@/api/client";
-import { useCurrentUser, useSession } from "@/api/session";
+import { useCurrentUser } from "@/api/session";
 import { formatDateTime, pluralize } from "@/lib/format";
 import { runHref } from "@/lib/routes";
 import {
   Banner,
   Button,
   Chip,
+  ConfirmDialog,
   EmptyState,
   KeyValue,
   ListRow,
@@ -34,9 +36,10 @@ import {
   toast,
   toastError,
 } from "@/ui";
-import { useAutomation, useRunNow, type AutomationDetail, type Run } from "./api";
+import { useAutomation, useDeleteWorkflow, useRunNow, type AutomationDetail, type Run } from "./api";
 import { formatDuration, isAdmin, runStateInfo, runTriggerLabel, stepDoes, stepEnabled, triggerInfo } from "./lib";
 import { EnabledSwitch, gateLabels, LastRun } from "./parts";
+import { WorkflowEditor } from "./WorkflowEditor";
 
 function Steps({ data }: { data: AutomationDetail }) {
   const steps = data.automation.steps;
@@ -96,9 +99,7 @@ function Steps({ data }: { data: AutomationDetail }) {
 
 function Settings({ data, canEdit }: { data: AutomationDetail; canEdit: boolean }) {
   const a = data.automation;
-  const session = useSession();
-  const trigger = triggerInfo(a);
-  const noMailbox = a.trigger === "schedule" && !!session.data && !session.data.mail;
+  const trigger = triggerInfo(a, data.trigger_status);
   return (
     <Panel>
       <PanelHeader title="Settings" />
@@ -115,14 +116,8 @@ function Settings({ data, canEdit }: { data: AutomationDetail; canEdit: boolean 
             { label: "Runs", value: <span className="tabular">{a.runs_count}</span> },
           ]}
         />
-        {noMailbox && a.enabled ? (
-          <p className="rounded-lg bg-review-soft px-3 py-2 text-sm text-review">
-            No mailbox is connected, so scheduled runs do not start.{" "}
-            <Link to="/settings/connections" className="font-medium underline underline-offset-2">
-              Connect the mailbox
-            </Link>
-          </p>
-        ) : null}
+        {data.trigger_status?.next_run_at ? <p className="text-sm text-ink-3">Next run: <time dir="ltr" dateTime={data.trigger_status.next_run_at}>{formatDateTime(data.trigger_status.next_run_at)}</time></p> : null}
+        {data.built_in ? <p className="text-sm text-ink-3">Built-in workflow. It can be edited or switched off.</p> : null}
       </PanelBody>
     </Panel>
   );
@@ -204,8 +199,12 @@ function Detail({ data, id }: { data: AutomationDetail; id: string }) {
   const canEdit = isAdmin(useCurrentUser()?.role);
   const waiting = data.runs.filter((r) => r.status === "waiting_approval");
   const gates = gateLabels(a);
+  const [editing, setEditing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const remove = useDeleteWorkflow();
 
-  const start = () =>
+  const start = () => {
+    if (editing || deleteOpen || remove.isPending || run.isPending) return;
     run.mutate(undefined, {
       onSuccess: (r) => {
         toast.success("Run started", { description: "Follow it step by step on the next page." });
@@ -213,6 +212,7 @@ function Detail({ data, id }: { data: AutomationDetail; id: string }) {
       },
       onError: (err) => toastError(err, "The run did not start"),
     });
+  };
 
   return (
     <>
@@ -222,11 +222,16 @@ function Detail({ data, id }: { data: AutomationDetail; id: string }) {
         status={<StatusChip info={a.enabled ? { label: "Enabled", tone: "brand" } : { label: "Paused", tone: "muted" }} size="md" />}
         meta={a.description || undefined}
         actions={
-          <Button icon={<Play />} loading={run.isPending} onClick={start}>
+          <div className="flex flex-wrap gap-2">
+          {canEdit && !editing ? <Button variant="secondary" icon={<Pencil />} onClick={() => setEditing(true)}>Edit workflow</Button> : null}
+          {canEdit && !data.built_in ? <Button variant="quiet-danger" icon={<Trash2 />} onClick={() => setDeleteOpen(true)}>Delete</Button> : null}
+          <Button icon={<Play />} loading={run.isPending} disabled={editing || deleteOpen || remove.isPending} aria-describedby={editing ? "workflow-edit-run-note" : undefined} onClick={start}>
             Run now
           </Button>
+          </div>
         }
       />
+      {editing ? <p id="workflow-edit-run-note" className="mb-4 text-sm text-ink-2">Save or cancel the edits before running this workflow.</p> : null}
       {waiting.length ? (
         <Banner
           className="mb-6"
@@ -241,11 +246,12 @@ function Detail({ data, id }: { data: AutomationDetail; id: string }) {
           It stopped at a step that needs a person{gates.length ? `: ${gates.join(", ")}` : ""}. Nothing moves on until someone continues it.
         </Banner>
       ) : null}
-      <div className="mb-8 flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+      {editing ? <div className="mb-8"><WorkflowEditor automation={a} onCancel={() => setEditing(false)} onSaved={() => setEditing(false)} /></div> : <div className="mb-8 flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <Steps data={data} />
         <Settings data={data} canEdit={canEdit} />
-      </div>
+      </div>}
       <RunsList runs={data.runs} />
+      <ConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete this workflow?" description={`Delete “${a.name}”. It will stop appearing in Automations.`} confirmLabel="Delete workflow" variant="danger" loading={remove.isPending} onConfirm={() => remove.mutate(a.id, { onSuccess: () => { toast.success("Workflow deleted"); navigate("/automations"); }, onError: (error) => toastError(error, "The workflow was not deleted") })} />
     </>
   );
 }

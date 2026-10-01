@@ -14,6 +14,7 @@ import {
   Checkbox,
   EmptyState,
   FilterChips,
+  Field,
   LoadingRows,
   Page,
   PageHeader,
@@ -29,13 +30,13 @@ import { groupCount, useEmails, useInboxSummary, type EmailQuery } from "./api";
 import { BulkBar } from "./BulkBar";
 import { Candidates } from "./Candidates";
 import { EmailCards, EmailTable } from "./EmailList";
-import { GROUP_HINT, GROUP_LABEL, MAIL_GROUPS, STATE_FILTERS, isMailGroup, type MailGroup } from "./labels";
+import { GROUP_HINT, GROUP_LABEL, INTENT_OPTIONS, WORK_TYPE_OPTIONS, MAIL_GROUPS, STATE_FILTERS, isMailGroup, type MailGroup } from "./labels";
 import { UnsubscribeDialog, type UnsubscribeTarget } from "./UnsubscribeDialog";
 import { VisibilityDrawer } from "./VisibilityDrawer";
 
 const PAGE_SIZE = 50;
 
-type Patch = Partial<Record<"group" | "category" | "state" | "q" | "sort" | "hidden" | "page", string | number | boolean | null>>;
+type Patch = Partial<Record<"group" | "category" | "state" | "q" | "sort" | "hidden" | "page" | "intent" | "work_type", string | number | boolean | null>>;
 
 /** Filters live in the URL, so the list survives going back from a message and can be shared. */
 function useInboxFilters() {
@@ -50,6 +51,8 @@ function useInboxFilters() {
     sort: params.get("sort") === "oldest" ? "oldest" : "newest",
     hidden: params.get("hidden") === "1",
     page: Math.max(1, Number(params.get("page")) || 1),
+    intent: params.get("intent") ?? "",
+    work_type: params.get("work_type") ?? "",
   };
   const update = (patch: Patch) =>
     setParams(
@@ -111,6 +114,8 @@ export function InboxPage() {
     page: f.page,
     page_size: PAGE_SIZE,
     include_hidden: f.hidden || undefined,
+    intent: f.intent || undefined,
+    work_type: f.work_type || undefined,
   };
   const emails = useEmails(query);
   const items = emails.data?.items ?? [];
@@ -123,11 +128,11 @@ export function InboxPage() {
   const groupCats = groupInfo?.categories ?? [];
   const chipCats = groupCats.filter((c) => c.count > 0 && (c.visible || f.hidden || groupHidden || f.category.includes(c.key)));
   const hiddenCount = groupHidden ? 0 : groupCats.filter((c) => !c.visible).reduce((n, c) => n + c.count, 0);
-  const anyFilter = !!f.q || f.category.length > 0 || f.state !== "open";
+  const anyFilter = !!f.q || !!f.intent || !!f.work_type || f.category.length > 0 || f.state !== "open";
   const clearFilters = () => {
     pushedQ.current = "";
     setQInput("");
-    update({ q: "", category: "", state: "open" });
+    update({ q: "", category: "", state: "open", intent: "", work_type: "" });
   };
 
   const onToggle = (id: string, on: boolean) =>
@@ -238,6 +243,15 @@ export function InboxPage() {
         {groupHidden ? `. ${GROUP_LABEL[f.group]} is switched off under Show and hide, so it stays out of combined lists. You can still read it here.` : ""}
       </p>
 
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
+        <Field label="Message purpose">
+          <Select value={f.intent} onChange={(e) => update({ intent: e.target.value })} options={[{ value: "", label: "All purposes" }, ...INTENT_OPTIONS]} />
+        </Field>
+        <Field label="Work type" hint="Uses the project linked to the message.">
+          <Select value={f.work_type} onChange={(e) => update({ work_type: e.target.value })} options={[{ value: "", label: "All work types" }, ...WORK_TYPE_OPTIONS]} />
+        </Field>
+      </div>
+
       {chipCats.length > 1 || hiddenCount > 0 ? (
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           {chipCats.length > 1 ? (
@@ -255,7 +269,7 @@ export function InboxPage() {
       ) : null}
 
       <div className="mt-5">
-        {f.group === "promotions" && !f.q && summary.data ? (
+        {f.group === "promotions" && !anyFilter && summary.data ? (
           <Candidates candidates={summary.data.unsubscribe_candidates} onUnsubscribe={setUnsub} />
         ) : null}
 

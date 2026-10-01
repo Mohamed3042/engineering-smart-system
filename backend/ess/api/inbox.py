@@ -230,7 +230,7 @@ def link_email(email_id: str, data: dict = Body(...), session: Session = Depends
                ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> dict:
     """A person files a message under a project when automatic linking found none (or the wrong one).
 
-    Body: {"project_id": "..."} for an existing project, or {"create": {"name", "service_family",
+    Body: {"project_id": "...", "enquiry_id": "..." (optional)} for an existing project, or {"create": {"name", "service_family",
     "work_type", "request_kind", "tender_no", "due_date", "location"}} to open a new project from the
     message. The whole thread follows; the sender's enquiry, attachments and shared links come along."""
     from datetime import date as _date
@@ -265,21 +265,93 @@ def link_email(email_id: str, data: dict = Body(...), session: Session = Depends
     else:
         raise HTTPException(400, {"code": "target_required", "message": "Choose a project or create a new one."})
 
-    previous = session.get(Project, email.project_id) if email.project_id and email.project_id != project.id else None
-    thread = session.exec(select(Email).where(Email.workspace_id == ws.id, Email.thread_id == email.thread_id)).all()
-    for msg in sorted(thread, key=lambda m: m.date or utcnow()):
-        if msg.id != email.id and msg.project_id and msg.project_id != (previous.id if previous else None):
-            continue  # a reply already filed elsewhere stays where a person or the scan put it
-        if previous is not None and msg.enquiry_id:
+    chosen_enquiry = None
+    if data.get("enquiry_id"):
+        chosen_enquiry = get_or_404(session, Enquiry, data["enquiry_id"], ws)
+        if chosen_enquiry.project_id != project.id:
+            raise HTTPException(400, {"code": "wrong_enquiry", "message": "Choose an enquiry from this project."})
+
+    original_project_id = email.project_id
+    previous = session.get(Project, original_project_id) if original_project_id and original_project_id != project.id else None
+    thread = session.exec(select(Email).where(Email.workspace_id == ws.id, Email.thread_id == email.thread_id)).all() if email.thread_id else [email]
+    messages = sorted((msg for msg in thread if msg.id == email.id or not msg.project_id or
+                       msg.project_id in (original_project_id, project.id)),
+                      key=lambda msg: msg.date.isoformat() if msg.date else "")
+    old_enquiries = {msg.id: msg.enquiry_id for msg in messages}
+    moved_files: dict[str, list[ProjectFile]] = {}
+    # Detach the whole affected thread before assigning its destination enquiries. Outbound mail may
+    # come before the selected inbound message, or may itself be the message the person selected.
+    for msg in messages:
+        if msg.enquiry_id:
             old = session.get(Enquiry, msg.enquiry_id)
-            if old is not None:
+            if old is not None and old.workspace_id == ws.id:
                 old.email_ids = [i for i in (old.email_ids or []) if i != msg.id]
+                remaining_threads = {m.thread_id for i in old.email_ids if (m := session.get(Email, i)) is not None}
+                old.thread_ids = [t for t in (old.thread_ids or []) if t in remaining_threads]
                 session.add(old)
-        if msg.direction != "inbound":
-            msg.project_id = project.id
-            session.add(msg)
-            continue
-        link_email_to_project(session, ws, msg, project=project)
+        # Preserve downloaded bytes and extraction when mail is refiled; do not create fresh placeholders.
+        links = session.exec(select(ProjectLink).where(ProjectLink.workspace_id == ws.id,
+                                                       ProjectLink.email_id == msg.id)).all()
+        link_ids = [link.id for link in links]
+        files = session.exec(select(ProjectFile).where(ProjectFile.workspace_id == ws.id,
+                              or_(ProjectFile.email_id == msg.id, col(ProjectFile.link_id).in_(link_ids)))).all()
+        moved_files[msg.id] = list(files)
+        for file in files:
+            file.project_id = project.id
+            session.add(file)
+        for link in links:
+            link.project_id = project.id
+            session.add(link)
+    session.flush()
+
+    destinations: dict[str, Enquiry] = {}
+    inbound = [msg for msg in messages if msg.direction == "inbound"]
+    for msg in inbound:
+        link_email_to_project(session, ws, msg, project=project, enquiry=chosen_enquiry)
+        destination = session.get(Enquiry, msg.enquiry_id)
+        if old_enquiries[msg.id] and destination is not None:
+            destinations[old_enquiries[msg.id]] = destination
+        for file in moved_files[msg.id]:
+            file.enquiry_id = msg.enquiry_id
+            session.add(file)
+        session.add(msg)
+
+    for msg in (msg for msg in messages if msg.direction != "inbound"):
+        destination = chosen_enquiry or destinations.get(old_enquiries[msg.id])
+        if destination is None and inbound:
+            # A previously unfiled outgoing reply follows the selected inbound enquiry (or the latest
+            # inbound message in its thread); never reuse an enquiry belonging to the old project.
+            anchor = email if email.direction == "inbound" else inbound[-1]
+            destination = session.get(Enquiry, anchor.enquiry_id)
+        if destination is None:
+            old = session.get(Enquiry, old_enquiries[msg.id]) if old_enquiries[msg.id] else None
+            if old is not None and old.workspace_id != ws.id:
+                old = None
+            if old is not None and old.project_id == project.id:
+                destination = old
+            else:
+                customer_id = old.customer_id if old else msg.customer_id
+                customer = session.get(Customer, customer_id) if customer_id else None
+                if customer is None or customer.workspace_id != ws.id:
+                    customer_id = None
+                destination = session.exec(select(Enquiry).where(Enquiry.workspace_id == ws.id,
+                                       Enquiry.project_id == project.id, Enquiry.customer_id == customer_id)).first()
+                if destination is None:
+                    destination = Enquiry(workspace_id=ws.id, project_id=project.id, customer_id=customer_id,
+                                          ref=f"E-{project.code}-{msg.id}", received_at=old.received_at if old else msg.date,
+                                          contact=dict(old.contact or {}) if old else {"email": (msg.to or [""])[0]})
+                    session.add(destination)
+                    session.flush()
+        if msg.id not in (destination.email_ids or []):
+            destination.email_ids = [*(destination.email_ids or []), msg.id]
+        if msg.thread_id and msg.thread_id not in (destination.thread_ids or []):
+            destination.thread_ids = [*(destination.thread_ids or []), msg.thread_id]
+        msg.project_id, msg.enquiry_id = project.id, destination.id
+        msg.state = "linked"
+        for file in moved_files[msg.id]:
+            file.enquiry_id = destination.id
+            session.add(file)
+        session.add(destination)
         session.add(msg)
     cats = {c.key: c for c in _categories(session, ws)}
     if cats.get(email.category) is None or cats[email.category].group != "work":

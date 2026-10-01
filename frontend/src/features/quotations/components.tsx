@@ -24,6 +24,7 @@ import { emailHref, fileHref } from "@/lib/routes";
 import { Button, Chip, EvidenceQuote, InlineError, Popover, Skeleton, StatusChip, sourceLabel } from "@/ui";
 import type { Quote, TermChange } from "./api";
 import { explainError, TERM_STATUS, termStatus, type Gate } from "./lib";
+import { openEditorSection } from "./editor/EditorSection";
 
 /* ------------------------------------------------------------------ status */
 
@@ -65,7 +66,7 @@ export function GateList({ gates, className, compact }: { gates: Gate[]; classNa
             <p className="text-sm text-ink-3">{g.detail}</p>
             {g.fix ? (
               g.fix.to.startsWith("#") ? (
-                <a href={g.fix.to} className={cn(fixCls, "mt-1 inline-block")}>
+                <a href={g.fix.to} onClick={() => openEditorSection(g.fix!.to.slice(1))} className={cn(fixCls, "mt-1 inline-block")}>
                   {g.fix.label}
                 </a>
               ) : (

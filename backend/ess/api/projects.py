@@ -439,12 +439,13 @@ def file_meta(file_id: str, session: Session = Depends(get_session), ws: Workspa
 
 
 @router.get("/files/{file_id}/content")
-def file_content(file_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)):
+def file_content(file_id: str, inline: bool = False, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)):
     f = get_or_404(session, ProjectFile, file_id, ws)
     path = abs_path(f.path)
     if path is None or not path.exists():
         raise HTTPException(404, {"code": "missing", "message": "File not downloaded yet"})
-    return FileResponse(path, media_type=f.mime or "application/octet-stream", filename=f.name)
+    return FileResponse(path, media_type=f.mime or "application/octet-stream", filename=f.name,
+                        content_disposition_type="inline" if inline else "attachment")
 
 
 @router.get("/files/{file_id}/text")
@@ -528,7 +529,13 @@ def update_review(project_id: str, data: dict = Body(...), session: Session = De
     if review.decision == "approved":
         raise HTTPException(409, {"code": "decided", "message": "This review is already approved"})
     if isinstance(data.get("checklist"), list):
-        allowed = {"pending", "checked", "needs_review", "failed"}
+        allowed = {"pending", "checked", "needs_review", "failed", "na"}
+        if any(not isinstance(i, dict) or not isinstance(i.get("key"), str) or not i["key"].strip()
+               for i in data["checklist"]):
+            raise HTTPException(422, {"code": "invalid_checklist", "message": "Each check needs a valid key"})
+        keys = [i["key"] for i in data["checklist"]]
+        if len(keys) != len(set(keys)):
+            raise HTTPException(422, {"code": "invalid_checklist", "message": "A check cannot appear more than once"})
         review.checklist = [{**i, "status": i.get("status") if i.get("status") in allowed else "pending"}
                             for i in data["checklist"]]
     if "note" in data:
@@ -547,9 +554,40 @@ def approve_review(project_id: str, data: dict = Body(default={}), session: Sess
     require_role(user, "engineer", "Approving the technical scope")
     p = get_or_404(session, Project, project_id, ws)
     review = _review(session, ws, p)
-    open_items = [i["label"] for i in review.checklist if i.get("status") != "checked"]
+    from ..workspace import DEFAULT_SETTINGS
+
+    required = (ws.settings or {}).get("review_checklist") or DEFAULT_SETTINGS["review_checklist"]
+    present = {i.get("key") for i in review.checklist if isinstance(i, dict)}
+    missing = [i.get("label") or i["key"] for i in required if i["key"] not in present]
+    if not review.checklist or missing:
+        raise HTTPException(409, {"code": "checklist_open", "message": "Restore all required checks before approval: " + ", ".join(missing)})
+    files = session.exec(select(ProjectFile).where(ProjectFile.project_id == p.id,
+                                                   ProjectFile.workspace_id == ws.id)).all()
+
+    def complete(item: dict) -> bool:
+        note = str(item.get("note") or "").strip()
+        if item.get("status") == "na":
+            return bool(note)
+        if item.get("status") != "checked":
+            return False
+        key = str(item.get("key") or "")
+        if key != "drawings" and "revision" not in key.lower():
+            return True
+        if note or any(isinstance(ev, dict) and str(ev.get("quote") or "").strip()
+                       for ev in item.get("evidence") or []):
+            return True
+        for file in files:
+            for finding in (file.analysis or {}).values():
+                if not isinstance(finding, dict):
+                    continue
+                revision = (finding.get("sheet") or {}).get("revision")
+                if isinstance(revision, dict) and revision.get("readable") is not False and str(revision.get("value") or "").strip():
+                    return True
+        return False
+
+    open_items = [i.get("label") or i.get("key") or "Unnamed check" for i in review.checklist if not complete(i)]
     if open_items:
-        raise HTTPException(409, {"code": "checklist_open", "message": "Check every item first: " + ", ".join(open_items)})
+        raise HTTPException(409, {"code": "checklist_open", "message": "Complete each check and record a reason when not applicable or the drawing revision is missing: " + ", ".join(open_items)})
     review.decision, review.decided_at = "approved", utcnow()
     review.reviewer_id, review.reviewer_name = user.id, user.name
     review.note = data.get("note", review.note)

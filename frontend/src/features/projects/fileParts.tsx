@@ -2,7 +2,7 @@
  * File pieces shared by the Inputs tab, the Analysis tab and the file viewer: the three separate
  * file facts, upload, mark reviewed, and what the AI read on a drawing sheet.
  */
-import { Upload } from "lucide-react";
+import { RefreshCw, Upload } from "lucide-react";
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { useCurrentUser } from "@/api/session";
@@ -33,9 +33,11 @@ export function reviewedLine(f: ProjectFile): string | null {
 
 /** Transfer, extraction and human review are three separate facts: three chips, never merged. */
 export function FileFacts({ file, labelled }: { file: ProjectFile; labelled?: boolean }) {
+  const previousError = useRef<string | null>(file.error);
+  useEffect(() => { if (file.error) previousError.current = file.error; }, [file.error]);
   const facts = [
-    { label: "Transfer", info: fileStatusInfo(file.status), detail: file.status === "ready" ? null : file.error },
-    { label: "Extraction", info: extractionStatusInfo(file.extraction_status), detail: null },
+    { label: "Transfer", info: fileStatusInfo(file.status), detail: file.status === "ready" ? null : file.error || (previousError.current ? `Previous attempt: ${previousError.current}` : null) },
+    { label: "Extraction", info: extractionStatusInfo(file.extraction_status), detail: file.extraction_status === "failed" ? file.error || previousError.current : null },
     { label: "Human review", info: fileReviewInfo(file), detail: reviewedLine(file) },
   ];
   if (!labelled) {
@@ -60,6 +62,31 @@ export function FileFacts({ file, labelled }: { file: ProjectFile; labelled?: bo
       ))}
     </dl>
   );
+}
+
+/** Retrying asks the server to obtain this same file again; the original error stays visible. */
+export function RetryFileButton({ file, className }: { file: ProjectFile; className?: string }) {
+  const retry = useProjectMutation(async () => {
+    const result = await api.post<{ started: boolean }>(`/files/${encodeURIComponent(file.id)}/retry`);
+    markBusy(file.project_id);
+    return result;
+  }, {
+    projectId: file.project_id,
+    invalidate: [["file", file.id]],
+    success: (r) => r.started ? `Trying ${file.name} again.` : "This file is already downloading.",
+  });
+  if (file.status === "ready" || file.status === "downloading" || (file.source !== "email_attachment" && !file.link_id)) return null;
+  return <Button size="sm" variant="secondary" icon={<RefreshCw />} loading={retry.isPending} className={className} onClick={() => retry.mutate()}>
+    {file.status === "not_downloaded" ? "Download attachment" : "Retry download"}
+  </Button>;
+}
+
+export function FileTransferError({ file }: { file: ProjectFile }) {
+  const previous = useRef(file.error);
+  useEffect(() => { if (file.error) previous.current = file.error; }, [file.error]);
+  if (file.status === "ready") return null;
+  const error = file.error || (previous.current ? `Previous attempt: ${previous.current}` : null);
+  return error ? <p className="mt-1 max-w-[18rem] break-words text-xs text-block">{error}</p> : null;
 }
 
 export const fileContentUrl = (id: string) => `/api/files/${encodeURIComponent(id)}/content`;

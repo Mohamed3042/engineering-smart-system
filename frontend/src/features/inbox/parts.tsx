@@ -18,7 +18,7 @@ export const dirOf = (text: string | null | undefined) => (isRtl(text) ? "rtl" :
 
 export function MailDate({ date, className }: { date: string | null; className?: string }) {
   return (
-    <time dateTime={date ?? undefined} className={cn("whitespace-nowrap tabular", className)}>
+    <time dir="ltr" dateTime={date ?? undefined} className={cn("whitespace-nowrap tabular", className)}>
       {formatRelative(date)}
     </time>
   );
@@ -32,7 +32,7 @@ export function SenderCell({ email }: { email: EmailListItem }) {
         {name || email.from_email || "Unknown sender"}
       </p>
       {name ? (
-        <p className="truncate text-sm text-ink-3" title={email.from_email}>
+        <p dir="ltr" className="truncate text-sm text-ink-3" title={email.from_email}>
           {email.from_email}
         </p>
       ) : null}

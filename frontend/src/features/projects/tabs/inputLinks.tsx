@@ -68,11 +68,11 @@ export function useLinkActions(detail: ProjectDetail) {
     },
   );
   const reject = useProjectMutation(
-    ({ link }: { link: ProjectLink; resolve: boolean }) => api.post<ProjectLink>(`/links/${encodeURIComponent(link.id)}/reject`),
+    ({ link, resolve }: { link: ProjectLink; resolve: boolean }) => api.post<ProjectLink>(`/links/${encodeURIComponent(link.id)}/${resolve ? "resolve" : "reject"}`),
     {
       projectId: p.id,
       invalidate: [["approvals"]],
-      success: (_r, v) => (v.resolve ? `Marked resolved: ${v.link.host || "link"}` : `Link rejected: ${v.link.host || "link"}`),
+      success: (_r, v) => (v.resolve ? `Files obtained another way: ${v.link.host || "link"}` : `Link rejected: ${v.link.host || "link"}`),
       onSuccess: () => setRejecting(null),
     },
   );
@@ -109,13 +109,13 @@ export function useLinkActions(detail: ProjectDetail) {
       <ConfirmDialog
         open={!!r}
         onOpenChange={(o) => !o && setRejecting(null)}
-        title={r?.resolve ? `Mark the ${r.link.host || "link"} download as resolved?` : `Reject the download from ${r?.link.host || "this link"}?`}
+        title={r?.resolve ? "Were these files obtained another way?" : `Reject the download from ${r?.link.host || "this link"}?`}
         description={
           r?.resolve
-            ? "Use this when you got these files another way, for example you uploaded them. The link stays listed as rejected and stops blocking the project."
+            ? "Confirm only after you have obtained these files, for example by uploading them. The link is recorded as obtained another way and stops blocking the project."
             : "Nothing is downloaded from this link. It stays listed as rejected; you can approve it later."
         }
-        confirmLabel={r?.resolve ? "Mark resolved" : "Reject link"}
+        confirmLabel={r?.resolve ? "Obtained another way" : "Reject link"}
         variant={r?.resolve ? "primary" : "danger"}
         loading={reject.isPending}
         onConfirm={() => r && reject.mutate(r)}
@@ -149,6 +149,7 @@ export function LinkOrigin({ link, detail, className }: { link: ProjectLink; det
 }
 
 function statusDetail(l: ProjectLink): string | null {
+  if (l.status === "resolved") return l.note || "Files obtained another way";
   if (l.status === "downloaded") return `${l.files_count} ${l.files_count === 1 ? "file" : "files"}`;
   if (l.approved_by && l.status !== "rejected") return `Approved by ${l.approved_by}${l.approved_at ? ` · ${formatDateShort(l.approved_at)}` : ""}`;
   return null;
@@ -180,7 +181,7 @@ function linkMenu(l: ProjectLink, actions: LinkActions): MenuItem[] {
   if (LINK_NEEDS_DECISION.has(l.status)) {
     items.push({ label: "Reject link", danger: true, separatorBefore: true, onSelect: () => actions.reject(l) });
   } else if (LINK_NEEDS_RECOVERY.has(l.status)) {
-    items.push({ label: "Mark resolved", separatorBefore: true, onSelect: () => actions.resolve(l) });
+    items.push({ label: "Obtained another way", separatorBefore: true, onSelect: () => actions.resolve(l) });
   }
   return items;
 }
@@ -223,6 +224,8 @@ export function LinksSection({
   onAdd: () => void;
 }) {
   const links = detail.links;
+  const [showCompleted, setShowCompleted] = useState(false);
+  const completed = links.filter((l) => ["downloaded", "resolved", "rejected"].includes(l.status));
   return (
     <Section
       title={`Shared links (${links.length})`}
@@ -303,7 +306,7 @@ export function LinksSection({
             </Table>
           </Panel>
           <ul className="space-y-3 lg:hidden" aria-label="Shared links">
-            {links.map((l) => {
+            {links.filter((l) => showCompleted || !completed.includes(l)).map((l) => {
               const action = rowAction(l, actions, "w-full");
               return (
                 <li key={l.id} data-link-anchor={l.id}>
@@ -338,6 +341,7 @@ export function LinksSection({
               );
             })}
           </ul>
+          {completed.length ? <Button variant="secondary" className="w-full lg:hidden" aria-expanded={showCompleted} onClick={() => setShowCompleted((v) => !v)}>{showCompleted ? "Hide completed links" : `Show completed links (${completed.length})`}</Button> : null}
         </>
       )}
     </Section>

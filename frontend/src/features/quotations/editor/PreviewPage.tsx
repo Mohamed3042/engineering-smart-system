@@ -15,6 +15,7 @@ import { pdfUrl, useInvalidate } from "../api";
 import { GateList, QuoteStatusChip } from "../components";
 import { blockerGates, blockersOf, paperModeLabel, revisionLabel } from "../lib";
 import type { AreaProps } from "./QuotationArea";
+import { RenderedPages } from "./RenderedPages";
 
 export function PreviewPage({ detail, draft, save, saving }: AreaProps) {
   const q = detail.quotation;
@@ -152,19 +153,14 @@ export function PreviewPage({ detail, draft, save, saving }: AreaProps) {
           </PanelBody>
         </Panel>
 
-        <div className="hidden min-w-0 md:block lg:col-start-1 lg:row-start-1">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           {!final ? (
             <p className="flex items-center gap-2 rounded-t-lg border border-b-0 border-review-line bg-review-soft px-4 py-2 text-sm font-semibold text-review">
               <FilePen className="size-4 shrink-0" aria-hidden />
               DRAFT · not approved, not signed, not for sending
             </p>
           ) : null}
-          <iframe
-            key={src}
-            title={`PDF of ${rev}`}
-            src={src}
-            className={`h-[80dvh] min-h-[32rem] w-full border border-line bg-hover ${final ? "rounded-lg" : "rounded-b-lg"}`}
-          />
+          <div className="rounded-b-lg border border-line bg-surface p-4"><RenderedPages key={bump} q={q} /></div>
         </div>
       </div>
     </Page>

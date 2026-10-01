@@ -3,17 +3,20 @@
  * their source sheet and row, drawing findings, and the three separate facts. Marking reviewed
  * confirms a person read the file; it does not approve design or prices.
  */
-import { ChevronLeft, ChevronRight, Download, FileQuestion, Mail, RefreshCw, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft, ChevronRight, Download, ExternalLink, FileQuestion, Mail, Maximize, Minimize, RefreshCw, ShieldCheck } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import type { ProjectFile } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatDate, isRtl } from "@/lib/format";
 import { docKindLabel, fileSourceLabel } from "@/lib/labels";
-import { emailHref, projectHref } from "@/lib/routes";
+import { emailHref, fileHref, projectHref } from "@/lib/routes";
 import {
   Button,
+  CollapsibleSection,
+  Dialog,
   EmptyState,
+  Input,
   KeyValue,
   Page,
   PageHeader,
@@ -22,6 +25,7 @@ import {
   PanelHeader,
   QueryState,
   Skeleton,
+  Select,
   Table,
   TBody,
   TD,
@@ -118,7 +122,7 @@ function FileView({ file }: { file: ProjectFile }) {
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-6">
-          <PageViewer file={file} page={page} total={total} onPage={setPage} />
+          <div id="source-page" className="scroll-mt-4"><PageViewer file={file} page={page} total={total} onPage={setPage} /></div>
           {boq.length ? <BoqPanel file={file} /> : null}
           <TextPanel file={file} />
         </div>
@@ -193,9 +197,26 @@ function Warnings({ file }: { file: ProjectFile }) {
 /* ------------------------------------------------------------------ pages */
 
 function PageViewer({ file, page, total, onPage }: { file: ProjectFile; page: number; total: number; onPage: (n: number) => void }) {
-  const [failed, setFailed] = useState<number | null>(null);
-  const [loaded, setLoaded] = useState<number | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [zoom, setZoom] = useState(100);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const viewer = useRef<HTMLDivElement>(null);
+  const id = useId();
+  useEffect(() => {
+    const changed = () => setFullscreen(document.fullscreenElement === viewer.current);
+    document.addEventListener("fullscreenchange", changed);
+    return () => document.removeEventListener("fullscreenchange", changed);
+  }, []);
+  const toggleFullscreen = async () => {
+    if (document.fullscreenElement === viewer.current) { await document.exitFullscreen(); return; }
+    try {
+      if (!viewer.current?.requestFullscreen) { setExpanded(true); return; }
+      await viewer.current.requestFullscreen();
+    } catch { setExpanded(true); }
+  };
 
   if (file.status !== "ready") {
     return (
@@ -215,16 +236,7 @@ function PageViewer({ file, page, total, onPage }: { file: ProjectFile; page: nu
       </Panel>
     );
   }
-  if (isImage(file)) {
-    return (
-      <Panel className="overflow-hidden">
-        <div className="bg-sunken p-2 sm:p-4">
-          <img src={fileContentUrl(file.id)} alt={file.name} className="mx-auto h-auto w-full max-w-full bg-surface" />
-        </div>
-      </Panel>
-    );
-  }
-  if (!isPdf(file)) {
+  if (!isPdf(file) && !isImage(file)) {
     return (
       <Panel>
         <EmptyState compact icon={<FileQuestion />} title="No page view for this file type">
@@ -234,29 +246,39 @@ function PageViewer({ file, page, total, onPage }: { file: ProjectFile; page: nu
     );
   }
 
-  const src = `/api/files/${encodeURIComponent(file.id)}/pages/${page}.png${attempt ? `?retry=${attempt}` : ""}`;
-  return (
-    <Panel className="overflow-hidden">
-      <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
+  const src = isImage(file) ? fileContentUrl(file.id) : `/api/files/${encodeURIComponent(file.id)}/pages/${page}.png?dpi=${Math.min(300, Math.round(110 * zoom / 100))}&retry=${attempt}`;
+  const original = `${fileContentUrl(file.id)}?inline=true${isPdf(file) ? `#page=${page}` : ""}`;
+  const toolbar = (prefix: string) => <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-3 py-2">
+      {isPdf(file) ? <>
         <Button size="sm" variant="ghost" icon={<ChevronLeft />} disabled={page <= 1} onClick={() => onPage(page - 1)}>
           Previous
         </Button>
-        <p className="text-sm text-ink-2 tabular" aria-live="polite">
-          Page {page}
-          {total ? ` of ${total}` : ""}
-        </p>
+        <form className="flex items-center gap-1.5 text-sm text-ink-2" onSubmit={(e) => {
+          e.preventDefault();
+          const value = Number(new FormData(e.currentTarget).get("page"));
+          if (Number.isFinite(value)) onPage(Math.min(total || value, Math.max(1, Math.floor(value))));
+        }}>
+          <label htmlFor={`${id}-${prefix}-page`}>Page</label>
+          <Input key={page} id={`${id}-${prefix}-page`} name="page" type="number" min={1} max={total || undefined} defaultValue={page} className="w-16 px-2 tabular" aria-label="Go to page" />
+          {total ? <span>of {total}</span> : null}
+          <Button size="sm" variant="secondary" type="submit">Go</Button>
+        </form>
         <Button
           size="sm"
           variant="ghost"
           iconRight={<ChevronRight />}
-          disabled={(!!total && page >= total) || failed === page}
+          disabled={!!total && page >= total}
           onClick={() => onPage(page + 1)}
         >
           Next
         </Button>
-      </div>
-      <div className="bg-sunken p-2 sm:p-4">
-        {failed === page ? (
+      </> : null}
+      <Select aria-label="Page zoom" value={String(zoom)} onChange={(e) => setZoom(Number(e.target.value))} options={[{value:"100",label:"Fit width"},{value:"150",label:"150%"},{value:"200",label:"200%"},{value:"300",label:"300%"}]} className="w-32" />
+      <Button size="sm" variant="secondary" icon={fullscreen ? <Minimize /> : <Maximize />} onClick={toggleFullscreen}>{fullscreen ? "Exit full screen" : "Full screen"}</Button>
+      <Button asChild size="sm" variant="ghost" icon={<ExternalLink />}><a href={original} target="_blank" rel="noreferrer noopener">Open original</a></Button>
+    </div>;
+  const image = <div tabIndex={0} role="region" aria-label={`Source page ${page}. Scroll to inspect at ${zoom}% zoom.`} className={cn("overflow-auto bg-sunken p-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand sm:p-4", fullscreen ? "h-[calc(100dvh-8rem)]" : "max-h-[75dvh]")}>
+        {failed === src ? (
           <EmptyState
             compact
             title="This page could not be shown"
@@ -273,23 +295,29 @@ function PageViewer({ file, page, total, onPage }: { file: ProjectFile; page: nu
               </Button>
             }
           >
-            The page image did not render. Download the original to view it.
+            The page image did not render. Use Open original to inspect the source.
           </EmptyState>
         ) : (
-          <div className="relative">
-            {loaded !== page ? <Skeleton className="absolute inset-0 h-full min-h-[60vh] w-full" /> : null}
+          <div className="relative" style={{ width: `${zoom}%`, minWidth: "100%" }}>
+            {loaded !== src ? <Skeleton className="absolute inset-0 h-full min-h-[45vh] w-full" /> : null}
             <img
               key={src}
               src={src}
               alt={`Page ${page} of ${file.name}`}
-              className={cn("relative mx-auto h-auto w-full max-w-full bg-surface shadow-panel", loaded !== page && "min-h-[60vh] opacity-0")}
-              onLoad={() => setLoaded(page)}
-              onError={() => setFailed(page)}
+              className={cn("relative mx-auto h-auto w-full max-w-none bg-surface shadow-panel", loaded !== src && "min-h-[45vh] opacity-0")}
+              onLoad={() => setLoaded(src)}
+              onError={() => setFailed(src)}
             />
           </div>
         )}
+      </div>;
+  return (
+    <>
+      <div ref={viewer} className={cn("bg-surface", fullscreen && "h-dvh overflow-auto")}>
+        <Panel className="overflow-hidden">{toolbar("inline")}{image}<p className="border-t border-line px-3 py-2 text-xs text-ink-3">{isPdf(file) ? `Source page ${page}. ` : "Source image. "}Choose zoom, then scroll to inspect details. Reading a source does not approve its engineering.</p></Panel>
       </div>
-    </Panel>
+      <Dialog open={expanded} onOpenChange={setExpanded} title={file.name} description={`Source page ${page}. Use zoom and scroll to inspect the document.`} size="xl">{toolbar("expanded")}{image}</Dialog>
+    </>
   );
 }
 
@@ -298,6 +326,7 @@ function PageViewer({ file, page, total, onPage }: { file: ProjectFile; page: nu
 function BoqPanel({ file }: { file: ProjectFile }) {
   const rows = boqRows(file);
   const all = typeof file.extraction?.boq_items === "number" ? (file.extraction.boq_items as number) : null;
+  const source = (r: typeof rows[number]) => r.page ? <Link to={`${fileHref(file.id)}?page=${r.page}#source-page`} onClick={() => document.getElementById("source-page")?.scrollIntoView({ block: "start" })} className="rounded text-brand-ink underline underline-offset-2">{boqSource(r)} · View page</Link> : <a href={`${fileContentUrl(file.id)}?inline=true`} target="_blank" rel="noreferrer noopener" className="rounded text-brand-ink underline underline-offset-2">{boqSource(r)} · Open source</a>;
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
@@ -327,7 +356,7 @@ function BoqPanel({ file }: { file: ProjectFile }) {
                   <QtyValue qty={r.qty} text={r.qty_text} />
                 </TD>
                 <TD>{r.unit || <span className="text-ink-3">—</span>}</TD>
-                <TD className="whitespace-nowrap text-sm text-ink-2">{boqSource(r)}</TD>
+                <TD className="whitespace-nowrap text-sm text-ink-2">{source(r)}</TD>
               </TR>
             ))}
           </TBody>
@@ -347,7 +376,7 @@ function BoqPanel({ file }: { file: ProjectFile }) {
               <dt className="text-ink-3">Unit</dt>
               <dd className="text-ink">{r.unit || "—"}</dd>
               <dt className="text-ink-3">Source</dt>
-              <dd className="text-ink-2">{boqSource(r)}</dd>
+              <dd className="text-ink-2">{source(r)}</dd>
             </dl>
           </li>
         ))}
@@ -371,10 +400,9 @@ function TextPanel({ file }: { file: ProjectFile }) {
           ? `Reading failed${file.error ? `: ${file.error}` : "."}`
           : "No text was found in this file.";
   return (
-    <Panel>
-      <PanelHeader
+    <CollapsibleSection
         title="Extracted text"
-        description="As read from the file. Extracted is not reviewed."
+        summary="Extracted is not reviewed"
         actions={
           text.data?.text && text.data.text.length > 4000 ? (
             <Button size="sm" variant="ghost" onClick={() => setAll((v) => !v)}>
@@ -382,7 +410,7 @@ function TextPanel({ file }: { file: ProjectFile }) {
             </Button>
           ) : undefined
         }
-      />
+      >
       {!ready ? (
         <PanelBody>
           <p className="text-sm text-ink-3">The text is read once the file is downloaded.</p>
@@ -414,6 +442,6 @@ function TextPanel({ file }: { file: ProjectFile }) {
           )}
         </QueryState>
       )}
-    </Panel>
+    </CollapsibleSection>
   );
 }

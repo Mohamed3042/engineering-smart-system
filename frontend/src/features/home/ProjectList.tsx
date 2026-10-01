@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { daysUntil, dueLabel, formatDate, formatDateShort, pluralize } from "@/lib/format";
 import { reviewStatusInfo, stageInfo, workTypeLabel } from "@/lib/labels";
 import { nextActionHref, projectHref } from "@/lib/routes";
-import { Button, Chip, Dot, ListRow, RowChevron, StatusChip, Table, TBody, TD, TH, THead, TR, Tooltip } from "@/ui";
+import { Button, Chip, CollapsibleSection, Dot, RowChevron, StatusChip, Table, TBody, TD, TH, THead, TR, Tooltip } from "@/ui";
 import { useCategoryIcon } from "@/features/inbox/categoryIcon";
 import {
   changeValues,
@@ -267,17 +267,23 @@ export function ProjectCard({ row, bucket }: { row: DashboardRow; bucket: Bucket
   const change = latestChange(row);
   const values = change ? changeValues(change) : null;
   return (
-    <ListRow
-      to={projectHref(row.id)}
-      leading={
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-sunken text-ink-2" aria-hidden>
-          <Icon className="size-5" />
+    <CollapsibleSection
+      title={
+        <span className="block min-w-0 text-sm">
+          <bdi dir="auto" className="block break-words">{row.name}</bdi>
+          <bdi dir="auto" className="mt-0.5 block break-words text-xs font-normal text-ink-3">
+            {row.customer || "No company linked"}
+          </bdi>
         </span>
       }
-      title={<span className="line-clamp-3 break-words">{row.name}</span>}
-      subtitle={row.customer ?? undefined}
-      aside={<AttentionChip row={row} />}
-      footer={<NextAction row={row} block />}
+      summary={<AttentionChip row={row} />}
+      actions={
+        <Button asChild variant="ghost" size="sm" className="min-h-11 min-w-11 px-2">
+          <Link to={projectHref(row.id)} aria-label={`Open project ${row.name}`}>
+            <ChevronRight aria-hidden />
+          </Link>
+        </Button>
+      }
     >
       {change ? (
         <div className="mb-3">
@@ -321,6 +327,7 @@ export function ProjectCard({ row, bucket }: { row: DashboardRow; bucket: Bucket
           </li>
         ) : null}
       </ul>
-    </ListRow>
+      <div className="mt-4"><NextAction row={row} block /></div>
+    </CollapsibleSection>
   );
 }

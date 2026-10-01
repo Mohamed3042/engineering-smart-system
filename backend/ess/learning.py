@@ -28,10 +28,17 @@ def record_lesson(session: Session, ws: Workspace, kind: str, *, scope: str = "w
     """Store a correction; an identical correction (same kind, scope and outcome) is counted, not duplicated."""
     existing = session.exec(select(Lesson).where(Lesson.workspace_id == ws.id, Lesson.kind == kind,
                                                  Lesson.scope == scope, Lesson.scope_key == scope_key)).all()
+    if kind == "category_correction":
+        for lesson in existing:
+            if lesson.after != after and lesson.active:
+                lesson.active = False
+                session.add(lesson)
     for lesson in existing:
         if lesson.after == after and (lesson.before == before or kind in ("category_correction", "template_choice")):
             lesson.count += 1
             lesson.last_seen_at = utcnow()
+            if kind == "category_correction":
+                lesson.active = True
             if note:
                 lesson.note = note
             session.add(lesson)
@@ -57,7 +64,7 @@ def learned_category(session: Session, ws: Workspace, email: Email) -> Optional[
                                                     Lesson.scope_key == key)
                                .order_by(col(Lesson.last_seen_at).desc())).all()
         if lessons:
-            best = max(lessons, key=lambda l: (l.count, l.last_seen_at))
+            best = lessons[0]  # the latest explicit correction wins over an older, often repeated mistake
             return {"category": best.after, "confidence": 0.97, "priority": None,
                     "reason": f"Learned: {best.created_by or 'a person'} filed mail from this {scope} as "
                               f"'{best.after}' ({best.count}×)",
@@ -163,8 +170,10 @@ def on_knowledge_feedback(session: Session, ws: Workspace, kind: str, label: str
 
 
 def memory_context(session: Session, ws: Workspace, *, task: str, customer_id: Optional[str] = None,
-                   service_family: Optional[str] = None, limit: int = 15) -> list[str]:
-    """Short lessons for an AI prompt, most specific and most repeated first."""
+                   service_family: Optional[str] = None, work_type: Optional[str] = None,
+                   sender_email: Optional[str] = None,
+                   limit: int = 15) -> list[str]:
+    """Short applicable lessons. Template choices require the exact service family and work type."""
     kinds = {
         "classify_email": ("category_correction",),
         "extract_request": ("fact_correction", "review_note", "change_request"),
@@ -177,13 +186,32 @@ def memory_context(session: Session, ws: Workspace, *, task: str, customer_id: O
     rows = session.exec(select(Lesson).where(Lesson.workspace_id == ws.id, Lesson.active == True,  # noqa: E712
                                              col(Lesson.kind).in_(kinds))).all()
 
+    sender = (sender_email or "").strip().lower()
+    domain = sender.rsplit("@", 1)[-1] if "@" in sender else ""
+
+    def applies(l: Lesson) -> bool:
+        if l.kind == "template_choice":
+            return bool(l.scope == "service_family" and service_family and work_type
+                        and l.scope_key == f"{service_family}|{work_type}")
+        if l.scope == "workspace":
+            return True
+        if l.scope == "customer":
+            return bool(customer_id and l.scope_key == customer_id)
+        if l.scope == "service_family":
+            return bool(service_family and l.scope_key.split("|")[0] == service_family)
+        if l.scope == "sender":
+            return bool(sender and l.scope_key.lower() == sender)
+        if l.scope == "domain":
+            return bool(domain and l.scope_key.lower() == domain)
+        return False
+
     def rank(l: Lesson) -> tuple:
         specific = (l.scope == "customer" and l.scope_key == customer_id) or (
             l.scope == "service_family" and l.scope_key.split("|")[0] == service_family)
         return (not specific, -l.count, -(l.last_seen_at.timestamp() if l.last_seen_at else 0))
 
     out = []
-    for l in sorted(rows, key=rank)[:limit]:
+    for l in sorted((l for l in rows if applies(l)), key=rank)[:limit]:
         if l.kind == "category_correction":
             out.append(f"Mail from {l.scope_key} is '{l.after}', not '{l.before}' (corrected {l.count}×).")
         elif l.kind == "quotation_edit":

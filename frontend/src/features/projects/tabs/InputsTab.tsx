@@ -4,7 +4,7 @@
  * and highlights that link.
  */
 import { Download, Ellipsis, FileSearch, FolderOpen, Link2, Mail, RefreshCw, ShieldCheck } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "@/api/client";
 import type { ProjectFile, ScopeItem } from "@/api/types";
@@ -15,6 +15,7 @@ import { emailHref, fileHref, projectHref } from "@/lib/routes";
 import {
   Button,
   ConfirmDialog,
+  CollapsibleSection,
   EmptyState,
   IconButton,
   ListRow,
@@ -31,8 +32,8 @@ import {
   TR,
   type MenuItem,
 } from "@/ui";
-import { markBusy, useProjectMutation, type ProjectDetail } from "../api";
-import { downloadOriginal, FileFacts, MarkReviewedDialog, reviewedLine, UploadButton } from "../fileParts";
+import { markBusy, useProjectMutation, useProjectWork, type ProjectDetail } from "../api";
+import { downloadOriginal, FileFacts, FileTransferError, MarkReviewedDialog, reviewedLine, RetryFileButton, UploadButton } from "../fileParts";
 import { fileReviewInfo, firstEvidence, LINK_NEEDS_DECISION, LINK_NEEDS_RECOVERY, linkRecoveryText } from "../lib";
 import { Bidi, FileIcon } from "../parts";
 import type { TabProps } from "../ProjectLayout";
@@ -71,6 +72,7 @@ export function InputsTab({ detail }: TabProps) {
       </div>
 
       <MissingInputs detail={detail} actions={actions} highlight={highlight} onAddLink={() => setAddLink(true)} />
+      <WorkStatus detail={detail} />
       <FilesSection detail={detail} onReview={setReviewing} onAddLink={() => setAddLink(true)} />
       <LinksSection detail={detail} actions={actions} highlight={highlight} onAdd={() => setAddLink(true)} />
 
@@ -79,6 +81,34 @@ export function InputsTab({ detail }: TabProps) {
       <AddLinkDialog open={addLink} onOpenChange={setAddLink} projectId={p.id} />
     </div>
   );
+}
+
+function WorkStatus({ detail }: TabProps) {
+  const work = useProjectWork(detail.project.id);
+  const attachments = detail.files.filter((f) => f.source === "email_attachment");
+  const ready = attachments.filter((f) => f.status === "ready");
+  const failed = attachments.filter((f) => ["failed", "expired", "needs_login"].includes(f.status));
+  const priorErrors = useRef(new Map<string, string>());
+  useEffect(() => { attachments.forEach((f) => { if (f.error) priorErrors.current.set(f.id, f.error); }); }, [attachments]);
+  const retry = useProjectMutation(async () => {
+    const result = await api.post<{ started: boolean }>(`/projects/${encodeURIComponent(detail.project.id)}/fetch-attachments`, { retry_failed: true });
+    markBusy(detail.project.id);
+    return result;
+  }, { projectId: detail.project.id, success: (r) => r.started ? "Trying the failed attachments again." : "Attachments are already downloading." });
+  if (!attachments.length && !work.data?.busy && !work.isError) return null;
+  const active = [work.data?.attachments ? "Downloading attachments" : null, work.data?.downloads.length ? "Downloading shared files" : null,
+    work.data?.extracting ? "Reading files" : null, work.data?.analyzing ? "Studying the documents" : null].filter(Boolean);
+  return <Panel>
+    <PanelHeader title="File collection and reading" description={work.isError ? "Background status unavailable. File states below show the last saved result." : !work.data ? "Checking background work…" : active.length ? `${active.join(" · ")}. This view keeps checking until the work finishes.` : "No background work is running."}
+      actions={work.isError ? <Button size="sm" variant="secondary" onClick={() => work.refetch()}>Retry status</Button> : failed.length ?
+        <Button size="sm" variant="secondary" icon={<RefreshCw />} loading={retry.isPending} disabled={work.data?.attachments} onClick={() => retry.mutate()}>Retry all failed attachments</Button> : undefined} />
+    <div className="px-5 py-3" aria-live="polite">
+      {attachments.length ? <p className="text-sm text-ink-2">{ready.length} of {attachments.length} attachments downloaded{failed.length ? ` · ${failed.length} failed` : ""}. Downloaded files still need extraction and human review.</p> : null}
+      {work.data?.attachments && priorErrors.current.size ? <CollapsibleSection title="Previous download errors" summary={priorErrors.current.size} className="mt-3">
+        <ul className="space-y-2 text-sm text-ink-2">{attachments.filter((f) => priorErrors.current.has(f.id)).map((f) => <li key={f.id}><Bidi text={f.name} className="font-medium" />: {priorErrors.current.get(f.id)}</li>)}</ul>
+      </CollapsibleSection> : null}
+    </div>
+  </Panel>;
 }
 
 /* ------------------------------------------------------------------ missing inputs */
@@ -172,7 +202,7 @@ function MissingInputs({
       ) : (
         <>
           <Button size="sm" variant="ghost" className={BTN} onClick={() => actions.resolve(l)}>
-            Mark resolved
+            Obtained another way
           </Button>
           <OpenLink url={l.url} className={BTN} />
           {l.status === "failed" ? (
@@ -243,6 +273,7 @@ function MissingInputs({
       ),
       actions: (
         <>
+          <RetryFileButton file={f} className={BTN} />
           {f.email_id ? (
             <Button asChild size="sm" variant="secondary" className={BTN}>
               <Link to={emailHref(f.email_id)}>
@@ -420,7 +451,9 @@ function FilesSection({
   onAddLink: () => void;
 }) {
   const p = detail.project;
-  const files = detail.files;
+  const [showReviewed, setShowReviewed] = useState(false);
+  const files = [...detail.files].sort((a, b) => Number(!!a.reviewed_by) - Number(!!b.reviewed_by));
+  const reviewed = files.filter((f) => f.reviewed_by && f.status === "ready");
   const navigate = useNavigate();
 
   const menu = (f: ProjectFile): MenuItem[] => {
@@ -500,11 +533,7 @@ function FilesSection({
                     </TD>
                     <TD>
                       <StatusChip info={fileStatusInfo(f.status)} size="sm" />
-                      {f.status !== "ready" && f.error ? (
-                        <p className="mt-1 line-clamp-2 max-w-[14rem] text-xs text-block" title={f.error}>
-                          {f.error}
-                        </p>
-                      ) : null}
+                      <FileTransferError file={f} />
                     </TD>
                     <TD>
                       <StatusChip info={extractionStatusInfo(f.extraction_status)} size="sm" />
@@ -520,6 +549,7 @@ function FilesSection({
                     </TD>
                     <TD className="w-px">
                       <div className="flex items-center justify-end gap-1">
+                        <RetryFileButton file={f} />
                         <Button asChild size="sm" variant="secondary">
                           <Link to={fileHref(f.id)}>Open</Link>
                         </Button>
@@ -532,7 +562,7 @@ function FilesSection({
             </Table>
           </Panel>
           <ul className="space-y-3 lg:hidden" aria-label="Files">
-            {files.map((f) => (
+            {files.filter((f) => showReviewed || !f.reviewed_by || f.status !== "ready").map((f) => (
               <li key={f.id}>
                 <ListRow
                   leading={<FileIcon file={f} className="mt-0.5" />}
@@ -548,10 +578,12 @@ function FilesSection({
                   }
                 >
                   <FileFacts file={f} labelled />
+                  <RetryFileButton file={f} className="mt-3 w-full" />
                 </ListRow>
               </li>
             ))}
           </ul>
+          {reviewed.length ? <Button variant="secondary" className="w-full lg:hidden" aria-expanded={showReviewed} onClick={() => setShowReviewed((v) => !v)}>{showReviewed ? "Hide reviewed files" : `Show reviewed files (${reviewed.length})`}</Button> : null}
         </>
       )}
     </Section>

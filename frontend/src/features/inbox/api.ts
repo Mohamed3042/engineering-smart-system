@@ -78,6 +78,9 @@ export interface EmailDetail {
   category: Category | null;
   project: Project | null;
   customer: Customer | null;
+  enquiry: Enquiry | null;
+  files: ProjectFile[];
+  links: ProjectLink[];
 }
 
 export type UnsubscribeMethod = "one_click" | "link" | "mailto" | "none";
@@ -107,6 +110,8 @@ export type EmailQuery = {
   page_size?: number;
   include_hidden?: boolean;
   thread_id?: string;
+  intent?: string;
+  work_type?: string;
 };
 
 /* ------------------------------------------------------------------ reads */
@@ -147,21 +152,74 @@ export function useProjectEnquiries(projectId: string | null | undefined) {
 
 /**
  * Links and saved files of the project an email belongs to: this is what says whether a link was
- * downloaded or an attachment saved. Same request and cache key as the project page.
+ * downloaded or an attachment saved. Background work keeps these facts refreshed until it finishes.
  */
 export function useProjectParts(projectId: string | null | undefined) {
   return useQuery({
-    queryKey: ["project", projectId],
-    queryFn: () => api.get<{ links: ProjectLink[]; files: ProjectFile[] }>(`/projects/${encodeURIComponent(projectId ?? "")}`),
+    queryKey: ["email-project-parts", projectId],
+    queryFn: async () => {
+      const path = `/projects/${encodeURIComponent(projectId ?? "")}`;
+      const [parts, work] = await Promise.all([
+        api.get<{ links: ProjectLink[]; files: ProjectFile[] }>(path),
+        api.get<{ busy: boolean }>(`${path}/work`),
+      ]);
+      return { ...parts, mailWorkBusy: work.busy };
+    },
     enabled: !!projectId,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchInterval: (query) => query.state.data?.mailWorkBusy ? 2000 : false,
+  });
+}
+
+export interface ProjectChoice { id: string; name: string; code: string; customer: { name: string } | null }
+
+export function useLinkProjects(search: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["projects", { q: search }],
+    queryFn: () => api.get<{ items: ProjectChoice[] }>("/projects", { q: search || undefined }),
+    enabled,
+  });
+}
+
+export interface NewProjectFromEmail {
+  name: string;
+  service_family: string;
+  work_type: string;
+  request_kind: string;
+  tender_no?: string;
+  location?: string;
+  due_date?: string;
+}
+
+export function useLinkEmail() {
+  const invalidate = useInvalidateMail();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; project_id?: string; enquiry_id?: string; create?: NewProjectFromEmail }) =>
+      api.post<{ email: Email; project: Project; enquiry: Enquiry | null; created: boolean }>(`/emails/${encodeURIComponent(id)}/link`, body),
+    onSuccess: () => invalidate(["project", "projects", "enquiries", "customer", "customers", "activity"]),
+  });
+}
+
+export function useRetryEmailFile() {
+  const invalidate = useInvalidateMail();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/files/${encodeURIComponent(id)}/retry`),
+    onSuccess: () => invalidate(["project", "files"]),
+  });
+}
+
+export function useRetryEmailLink() {
+  const invalidate = useInvalidateMail();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/links/${encodeURIComponent(id)}/retry`),
+    onSuccess: () => invalidate(["project", "files"]),
   });
 }
 
 /* ------------------------------------------------------------------ writes */
 
 /** Everything an email change can affect: lists, the detail, counts, the control center, activity. */
-const MAIL_KEYS = ["emails", "email", "inbox-summary", "categories", "dashboard", "notifications", "learning"] as const;
+const MAIL_KEYS = ["emails", "email", "email-project-parts", "inbox-summary", "categories", "dashboard", "notifications", "learning"] as const;
 
 export function useInvalidateMail() {
   const qc = useQueryClient();

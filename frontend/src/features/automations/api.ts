@@ -3,7 +3,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { Automation, AutomationRun, AutomationRunStep, OmitKnown } from "@/api/types";
+import type { Automation, AutomationRun, AutomationRunStep, AutomationStep, OmitKnown } from "@/api/types";
 
 /** A run's steps also carry the step type, its gate flag and who approved it (runner.py start_run / resume_run). */
 export interface RunStep extends AutomationRunStep {
@@ -19,12 +19,20 @@ export interface Run extends OmitKnown<AutomationRun, "steps"> {
 /** GET /api/automations: each row carries its latest run. */
 export interface AutomationRow extends Automation {
   last_run: Run | null;
+  trigger_status: TriggerStatus;
+  built_in: boolean;
 }
+
+export interface TriggerStatus { mode: string; automatic: boolean; label: string; detail: string; next_run_at?: string }
+export interface StepCatalogItem { type: string; label: string; description: string; locked?: boolean; config?: { key: string; label: string; type: "number"; default: number }[] }
+export interface WorkflowInput { name: string; description: string; trigger: string; interval_minutes: number | null; enabled: boolean; steps: AutomationStep[] }
 
 /** GET /api/automations/{id}: the workflow and its 30 newest runs. */
 export interface AutomationDetail {
   automation: Automation;
   runs: Run[];
+  trigger_status: TriggerStatus;
+  built_in: boolean;
 }
 
 /** GET /api/runs/{id} */
@@ -41,6 +49,25 @@ export function useAutomations() {
     queryFn: () => api.get<AutomationRow[]>("/automations"),
     refetchInterval: (q) => (q.state.data?.some((a) => isRunning(a.last_run)) ? 3000 : false),
   });
+}
+
+export function useStepCatalog() {
+  return useQuery({ queryKey: ["automation-step-catalog"], queryFn: () => api.get<StepCatalogItem[]>("/automations/step-catalog"), staleTime: 300_000 });
+}
+
+export function useSaveWorkflow() {
+  const invalidate = useInvalidateAutomations();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: WorkflowInput }) => id
+      ? api.patch<AutomationRow>(`/automations/${encodeURIComponent(id)}`, body)
+      : api.post<AutomationRow>("/automations", body),
+    onSuccess: (a) => invalidate(a.id),
+  });
+}
+
+export function useDeleteWorkflow() {
+  const invalidate = useInvalidateAutomations();
+  return useMutation({ mutationFn: (id: string) => api.del(`/automations/${encodeURIComponent(id)}`), onSuccess: () => invalidate() });
 }
 
 export function useAutomation(id: string) {

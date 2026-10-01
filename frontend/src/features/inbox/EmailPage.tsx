@@ -3,7 +3,7 @@
  * text, attachments and links with their status, how it was filed and why, the linked project and
  * customer, and unsubscribe behind a confirmation. Nothing here sends, replies or deletes mail.
  */
-import { Archive, ArchiveRestore, MailMinus } from "lucide-react";
+import { Archive, ArchiveRestore, Forward, MailMinus, Reply } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { isApiError } from "@/api/client";
@@ -32,8 +32,10 @@ import { AttachmentsPanel, LinksPanel, MessagePanel, ThreadPanel } from "./Email
 import { emailStateInfo } from "./labels";
 import { IntentLabel, dirOf, senderName } from "./parts";
 import { UnsubscribeDialog } from "./UnsubscribeDialog";
+import { LinkProjectDrawer } from "./LinkProjectDrawer";
+import { ComposeDrawer, type ComposeMode } from "./ComposeDrawer";
 
-function ProjectPanel({ detail }: { detail: EmailDetail }) {
+function ProjectPanel({ detail, onLink }: { detail: EmailDetail; onLink: () => void }) {
   const { email, project, customer } = detail;
   return (
     <Panel>
@@ -59,6 +61,8 @@ function ProjectPanel({ detail }: { detail: EmailDetail }) {
             {email.state === "needs_review" ? "; this one is waiting for a person to check it" : ""}.
           </p>
         )}
+        {detail.enquiry ? <p className="text-sm text-ink-2">Enquiry: <bdi>{detail.enquiry.contact.name || detail.enquiry.contact.email || detail.enquiry.ref}</bdi></p> : null}
+        {project ? <Button variant="secondary" className="w-full sm:w-auto" onClick={onLink}>Change project or enquiry</Button> : null}
         {customer ? (
           <KeyValue
             labelWidth="sm"
@@ -67,7 +71,7 @@ function ProjectPanel({ detail }: { detail: EmailDetail }) {
                 label: "Customer",
                 value: (
                   <Link to={customerHref(customer.id)} className="font-medium text-brand-ink hover:underline">
-                    {customer.name}
+                    <bdi>{customer.name}</bdi>
                   </Link>
                 ),
                 hint: customerKindLabel(customer.kind || "other"),
@@ -75,7 +79,7 @@ function ProjectPanel({ detail }: { detail: EmailDetail }) {
             ]}
           />
         ) : (
-          <p className="text-sm text-ink-3">No customer on file for {email.from_email || "this sender"}.</p>
+          <p className="text-sm text-ink-3">No customer on file for <bdi dir="ltr">{email.from_email || "this sender"}</bdi>.</p>
         )}
       </PanelBody>
     </Panel>
@@ -126,6 +130,8 @@ function Detail({ detail, backTo }: { detail: EmailDetail; backTo: string }) {
   const parts = useProjectParts(email.project_id);
   const update = useUpdateEmail();
   const [unsub, setUnsub] = useState(false);
+  const [compose, setCompose] = useState<ComposeMode | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
   const archived = email.state === "archived";
   const state = emailStateInfo(email.state);
 
@@ -156,13 +162,18 @@ function Detail({ detail, backTo }: { detail: EmailDetail; backTo: string }) {
         }
         meta={
           <span className="break-words">
-            {senderName(email)} · <span className="tabular">{formatDateTime(email.date)}</span>
+            <bdi dir={dirOf(senderName(email))}>{senderName(email)}</bdi> · <bdi dir="ltr" className="tabular">{formatDateTime(email.date)}</bdi>
           </span>
         }
         actions={
+          <div className="flex flex-wrap gap-2">
+          {!project ? <Button onClick={() => setLinkOpen(true)}>File under a project</Button> : null}
+          <Button variant="secondary" icon={<Reply />} onClick={() => setCompose("reply")}>Reply</Button>
+          <Button variant="secondary" icon={<Forward />} onClick={() => setCompose("forward")}>Forward</Button>
           <Button variant="secondary" icon={archived ? <ArchiveRestore /> : <Archive />} onClick={move} loading={update.isPending}>
             {archived ? "Move back to inbox" : "Archive"}
           </Button>
+          </div>
         }
       />
 
@@ -171,16 +182,16 @@ function Detail({ detail, backTo }: { detail: EmailDetail; backTo: string }) {
           <MessagePanel email={email} />
           <AttachmentsPanel
             email={email}
-            parts={{ hasProject: !!project, loading: parts.isLoading, files: parts.data?.files, links: parts.data?.links, projectId: project?.id }}
+            parts={{ hasProject: !!project, loading: parts.isLoading, error: parts.isError, retry: () => parts.refetch(), files: parts.data?.files, links: parts.data?.links, projectId: project?.id }}
           />
           <LinksPanel
             email={email}
-            parts={{ hasProject: !!project, loading: parts.isLoading, files: parts.data?.files, links: parts.data?.links, projectId: project?.id }}
+            parts={{ hasProject: !!project, loading: parts.isLoading, error: parts.isError, retry: () => parts.refetch(), files: parts.data?.files, links: parts.data?.links, projectId: project?.id }}
           />
         </div>
         <aside className="space-y-6">
           <CategoryPanel detail={detail} />
-          <ProjectPanel detail={detail} />
+          <ProjectPanel detail={detail} onLink={() => setLinkOpen(true)} />
           <UnsubscribePanel detail={detail} onOpen={() => setUnsub(true)} />
         </aside>
       </div>
@@ -190,6 +201,8 @@ function Detail({ detail, backTo }: { detail: EmailDetail; backTo: string }) {
       </div>
 
       <UnsubscribeDialog target={unsub ? email : null} onOpenChange={(o) => !o && setUnsub(false)} />
+      {compose ? <ComposeDrawer key={compose} email={email} mode={compose} onClose={() => setCompose(null)} /> : null}
+      {linkOpen ? <LinkProjectDrawer detail={detail} open onOpenChange={setLinkOpen} /> : null}
     </>
   );
 }

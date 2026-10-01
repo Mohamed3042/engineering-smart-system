@@ -6,13 +6,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { useCategories, useCategoryLabel } from "@/api/session";
+import { useCategories, useCategoryLabel, useWorkspace } from "@/api/session";
 import type { TemplateRule } from "@/api/types";
 import { requestKindLabel, workTypeLabel } from "@/lib/labels";
 import { Button, Checkbox, Dialog, Field, Input, Select, Switch, toast } from "@/ui";
 import { useCustomers, useInvalidate, usePapers, useSignatories, useTemplates } from "./api";
 import { ExplainedError, Reason } from "./components";
-import { matchSummary, paperModeLabel, templateName, useRoleGate } from "./lib";
+import { matchSummary, paperModeLabel, templateEnabled, templateName, useRoleGate } from "./lib";
 
 const WORK_TYPES = [
   "supply_installation",
@@ -71,6 +71,7 @@ export function RuleDialog({
   const familyLabel = useCategoryLabel();
   const categories = useCategories();
   const templates = useTemplates();
+  const workspace = useWorkspace();
   const papers = usePapers();
   const sigs = useSignatories();
   const fromQuote = Boolean(prefill?.customer !== undefined && !rule);
@@ -128,10 +129,12 @@ export function RuleDialog({
   const priority = Number(f.priority);
   const priorityBad = !Number.isInteger(priority) || priority < 0 || priority > 1000;
   const denied = roleGate("engineer", rule ? "Editing template rules" : "Adding template rules");
-  const ready = Boolean(f.template_key) && !priorityBad && !denied;
+  const resolvedLanguage = f.language || (workspace.settings?.quotations?.default_language as string | undefined) || "en";
+  const chosenTemplate = templates.data?.find((t) => t.key === f.template_key);
+  const eligible = templateEnabled(chosenTemplate, resolvedLanguage);
+  const ready = Boolean(f.template_key) && eligible && !priorityBad && !denied;
   const customerName = (id: string) =>
     id === prefill?.customer?.id ? prefill.customer.name : (customers.data?.items.find((c) => c.id === id)?.name ?? "One customer");
-  const chosenTemplate = templates.data?.find((t) => t.key === f.template_key);
 
   const submit = () => {
     if (!ready) return;
@@ -243,12 +246,12 @@ export function RuleDialog({
         <fieldset className="space-y-3">
           <legend className="text-base font-semibold text-ink">Use</legend>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Template" required htmlFor="rule-template">
+            <Field label="Template" required htmlFor="rule-template" error={f.template_key && templates.data && !eligible ? "This template is switched off for the selected language. Choose another template." : undefined}>
               <Select
                 id="rule-template"
                 value={f.template_key}
                 placeholder="Choose a template"
-                options={(templates.data ?? []).map((t) => ({ value: t.key, label: t.label.en }))}
+                options={(templates.data ?? []).filter((t) => templateEnabled(t, resolvedLanguage) || t.key === f.template_key).map((t) => ({ value: t.key, label: `${t.label.en}${templateEnabled(t, resolvedLanguage) ? "" : " · switched off"}`, disabled: !templateEnabled(t, resolvedLanguage) }))}
                 onChange={(e) => set("template_key", e.target.value)}
               />
             </Field>
@@ -258,8 +261,7 @@ export function RuleDialog({
                 value={f.language}
                 placeholder="Workspace default"
                 options={[
-                  { value: "en", label: "English" },
-                  ...(!chosenTemplate || chosenTemplate.languages.includes("ar") ? [{ value: "ar", label: "Arabic" }] : []),
+                  ...["en", "ar"].filter((language) => !chosenTemplate || (chosenTemplate.languages.includes(language) && templateEnabled(chosenTemplate, language))).map((language) => ({ value: language, label: language === "ar" ? "Arabic" : "English" })),
                 ]}
                 onChange={(e) => set("language", e.target.value)}
               />

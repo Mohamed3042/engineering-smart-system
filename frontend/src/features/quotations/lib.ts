@@ -274,6 +274,13 @@ export function blockerGates(blockers: ApprovalBlocker[], q: Pick<Quote, "id" | 
   });
 }
 
+/** Match the backend's language resolution before checking the company switch. */
+export function templateEnabled(template: TemplateInfo | undefined, language: string): boolean {
+  if (!template) return false;
+  const resolved = template.languages.includes(language) ? language : "en";
+  return template.settings?.[resolved]?.enabled !== false;
+}
+
 /* ------------------------------------------------------------------ API errors */
 
 export interface Explained {
@@ -332,6 +339,9 @@ export function explainError(err: unknown, q?: Pick<Quote, "id" | "project_id"> 
       return { title: "Confirm first", message: err.message };
     case "not_connected":
       return { title: "No mailbox connected", message: err.message, fix: { to: "/settings/connections", label: "Open connections" } };
+    case "template_disabled":
+    case "no_template_enabled":
+      return { title: "Choose an enabled template", message: err.message, fix: { to: "/quotations/setup/templates", label: "Open template setup" } };
     case "forbidden":
       return { title: "Not allowed for your role", message: err.message };
     case "note_required":

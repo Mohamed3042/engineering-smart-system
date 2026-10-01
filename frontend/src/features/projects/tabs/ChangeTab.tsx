@@ -148,7 +148,7 @@ function ChangeView({ detail, change, index }: TabProps & { change: ProjectChang
           ) : hasValues ? (
             <div className="grid grid-cols-1 border-b border-line md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
               <div className="px-5 py-4">
-                <p className="text-sm text-ink-3">{deadline ? "Previous closing date" : "Before"}</p>
+                <p className="text-sm text-ink-3">{deadline ? pending ? "Confirmed closing date" : "Previous confirmed closing date" : "Before"}</p>
                 <Bidi
                   text={change.old_value == null || change.old_value === "" ? "Not recorded" : displayValue(change.old_value)}
                   as="p"
@@ -160,7 +160,7 @@ function ChangeView({ detail, change, index }: TabProps & { change: ProjectChang
                 <ArrowDown className="size-6 md:hidden" />
               </div>
               <div className="border-t border-line px-5 py-4 md:border-l md:border-t-0">
-                <p className="text-sm text-ink-3">{deadline ? "New closing date" : "Now"}</p>
+                <p className="text-sm text-ink-3">{deadline ? pending ? "Proposed closing date — not applied" : "Amended closing date" : "Now"}</p>
                 <Bidi
                   text={change.new_value == null || change.new_value === "" ? "Not stated" : displayValue(change.new_value)}
                   as="p"

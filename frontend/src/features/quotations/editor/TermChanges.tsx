@@ -5,8 +5,8 @@
  * wording with a reason, or asks the customer; nothing is preselected.
  */
 import { useMutation } from "@tanstack/react-query";
-import { Clock, GitBranch } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronDown, Clock, GitBranch } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "@/api/client";
 import { formatDate, formatDateTime, isRtl } from "@/lib/format";
@@ -49,9 +49,28 @@ function decisionSentence(c: TermChange): string {
     .join(" · ");
 }
 
+function decisionOrder(c: TermChange): number {
+  const status = termStatus(c);
+  return status === "pending" ? 0 : status === "clarification" ? 1 : 2;
+}
+
+function DecisionDetails({ completed, children }: { completed: boolean; children: ReactNode }) {
+  if (!completed) return <div className="space-y-4">{children}</div>;
+  return (
+    <details className="group/decision">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-brand [&::-webkit-details-marker]:hidden">
+        <ChevronDown className="size-4 shrink-0 -rotate-90 transition-transform duration-200 group-open/decision:rotate-0" aria-hidden />
+        <span className="group-open/decision:hidden">View decision and source</span>
+        <span className="hidden group-open/decision:inline">Hide decision and source</span>
+      </summary>
+      <div className="space-y-4 pt-2">{children}</div>
+    </details>
+  );
+}
+
 export function TermChangesPanel({ detail, dirty, onRevise }: { detail: QuoteDetail; dirty: boolean; onRevise: () => void }) {
   const q = detail.quotation;
-  const changes = termChanges(q.data);
+  const changes = termChanges(q.data).sort((a, b) => decisionOrder(a) - decisionOrder(b));
   const [deciding, setDeciding] = useState<TermChange | null>(null);
   if (!changes.length) return null;
   const waiting = changes.filter((c) => termStatus(c) === "pending").length;
@@ -101,6 +120,7 @@ export function TermChangesPanel({ detail, dirty, onRevise }: { detail: QuoteDet
                   <TermStatusChip change={c} />
                 </div>
 
+                <DecisionDetails completed={status === "accepted" || status === "retained"}>
                 <div className="grid gap-4 md:grid-cols-2">
                   <Wording label="Template wording" text={c.from} lang={q.language} />
                   <Wording label="Customer-requested wording" text={c.to} lang={q.language} strong />
@@ -153,6 +173,7 @@ export function TermChangesPanel({ detail, dirty, onRevise }: { detail: QuoteDet
                   )}
                   <Reason>{reason}</Reason>
                 </div>
+                </DecisionDetails>
               </li>
             );
           })}

@@ -10,7 +10,7 @@ import type { Evidence, Quotation } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { formatDate, formatDateShort, formatDateTime, humanize } from "@/lib/format";
 import { customerResponseInfo, enquiryStatusInfo, quotationStatusInfo } from "@/lib/labels";
-import { customerHref, quotationHref } from "@/lib/routes";
+import { customerHref, projectChangeHref, quotationHref } from "@/lib/routes";
 import {
   Banner,
   Button,
@@ -325,12 +325,19 @@ function ClosingDate({ e, detail }: { e: EnquiryRow; detail: TabProps["detail"] 
   // Each history entry holds a date that was replaced, newest last.
   const earlier = ((e.due_date_history ?? []) as HistoryEntry[]).filter((h) => h.value && h.value !== e.due_date).reverse();
   const withQuotes = earlier.some((h) => h.evidence?.quote || h.note);
+  const proposed = detail.project.changes.map((change, index) => ({ change, index })).filter(({ change }) => change.kind === "deadline_changed" && change.pending_confirmation && !change.acknowledged && (!change.enquiry_id || change.enquiry_id === e.id));
   return (
     <div className="flex items-start gap-1">
       <div className="min-w-0">
+        <p className="mb-1 text-xs text-ink-3">Confirmed closing date</p>
         <DueDate value={e.due_date} />
+        {proposed.map(({ change, index }) => <div key={index} className="mt-2 text-sm">
+          <p className="text-review">Proposed {formatDate(typeof change.new_value === "string" ? change.new_value : null, "date not stated")} · not applied</p>
+          {change.evidence?.quote ? <EvidenceQuote evidence={withSource(change.evidence, detail.emails, detail.files)} className="mt-1" /> : null}
+          <Link to={projectChangeHref(detail.project.id, index)} className="mt-1 inline-block rounded py-1 font-medium text-brand-ink underline underline-offset-2">Review deadline change</Link>
+        </div>)}
         {earlier.length ? (
-          <ul className="mt-1 space-y-0.5 text-xs text-ink-3" aria-label="Earlier closing dates">
+          <details className="mt-2"><summary className="cursor-pointer rounded py-1 text-xs text-brand-ink">Earlier dates ({earlier.length})</summary><ul className="mt-1 space-y-0.5 text-xs text-ink-3" aria-label="Earlier closing dates">
             {earlier.map((h, i) => {
               const ev = h.evidence ? withSource(h.evidence, detail.emails, detail.files) : null;
               const href = ev ? evidenceHref(ev) : null;
@@ -348,7 +355,7 @@ function ClosingDate({ e, detail }: { e: EnquiryRow; detail: TabProps["detail"] 
                 </li>
               );
             })}
-          </ul>
+          </ul></details>
         ) : null}
       </div>
       {withQuotes ? (

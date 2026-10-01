@@ -234,7 +234,7 @@ def prepare(c) -> dict:
 
     def approve_review(pid):
         review = ok(c.get(f"/api/projects/{pid}/review"))
-        ok(c.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked"} for i in review["checklist"]],
+        ok(c.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked", "note": "Sample engineer confirmed this fictional review basis."} for i in review["checklist"]],
                                                        "note": "Scope, loads and standards checked against the sample files."}))
         ok(c.post(f"/api/projects/{pid}/review/approve", json={}))
 
@@ -242,7 +242,7 @@ def prepare(c) -> dict:
     approve_review(ctx["crescent"])
     review = ok(c.get(f"/api/projects/{ctx['marina']}/review"))  # every item checked, approval still open
     ok(c.put(f"/api/projects/{ctx['marina']}/review",
-             json={"checklist": [{**i, "status": "checked"} for i in review["checklist"]], "note": ""}))
+             json={"checklist": [{**i, "status": "checked", "note": "Sample engineer confirmed this fictional review basis."} for i in review["checklist"]], "note": ""}))
     review = ok(c.get(f"/api/projects/{ctx['eastquay']}/review"))  # half-way: some items checked, one flagged
     items = review["checklist"]
     for i, item in enumerate(items):

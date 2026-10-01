@@ -23,9 +23,9 @@ import {
   toast,
 } from "@/ui";
 import { usePapers, useSignatories, type Quote, type StampPlacement, type StampSettings, type TemplateInfo } from "../api";
-import { PaperSchematic } from "../components";
-import { languageLabel, paperModeLabel, parseAmount, templateDefaults, templateName, termChanges, termStatus } from "../lib";
+import { languageLabel, paperModeLabel, parseAmount, templateDefaults, templateEnabled, templateName, termChanges, termStatus } from "../lib";
 import type { AreaProps } from "./QuotationArea";
+import { RenderedPages } from "./RenderedPages";
 
 const mm = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
 
@@ -81,7 +81,8 @@ export function DocumentPanel({
   const sigs = useSignatories();
   const [stampOpen, setStampOpen] = useState(false);
   const template = templates?.find((t) => t.key === d.template_key);
-  const hasArabic = template ? template.languages.includes("ar") : true;
+  const languages = (template?.languages ?? ["en", "ar"]).filter((language) => templateEnabled(template, language));
+  const currentDisabled = Boolean(template && !templateEnabled(template, d.language));
   const templateChanged = saved.template_key !== d.template_key || saved.language !== d.language;
 
   const applyDefaults = () => {
@@ -105,8 +106,8 @@ export function DocumentPanel({
   };
 
   const templateOptions = (templates ?? [])
-    .filter((t) => t.key === d.template_key || t.settings?.[d.language]?.enabled !== false)
-    .map((t) => ({ value: t.key, label: `${t.label.en}${t.languages.includes("ar") ? "" : " (English only)"}` }));
+    .filter((t) => templateEnabled(t, d.language) || t.key === d.template_key)
+    .map((t) => ({ value: t.key, label: `${t.label.en}${!templateEnabled(t, d.language) ? " · switched off (saved draft)" : t.languages.includes("ar") ? "" : " (English only)"}`, disabled: !templateEnabled(t, d.language) }));
 
   const paperList = papers.data?.items ?? [];
   const defaultPaperId = papers.data?.default ?? null;
@@ -132,6 +133,7 @@ export function DocumentPanel({
         }
       />
       <PanelBody className="space-y-5">
+        {currentDisabled ? <Banner tone="review" title="This saved quotation uses a switched-off template">Its historical wording is kept. Choose an enabled template for new work, or <Link to="/quotations/setup/templates" className="font-medium underline underline-offset-4">change the template setting</Link>.</Banner> : null}
         {templateChanged && !readOnly ? (
           <Banner
             tone="review"
@@ -174,11 +176,11 @@ export function DocumentPanel({
                   label="Quotation language"
                   value={d.language}
                   onChange={(v) => draft.setChoice({ language: v })}
-                  options={[{ value: "en", label: "English" }, ...(hasArabic ? [{ value: "ar", label: "Arabic" }] : [])]}
+                  options={languages.map((language) => ({ value: language, label: languageLabel(language) }))}
                 />
               )}
               <p className="text-sm text-ink-3">
-                {hasArabic ? "Headings and template wording follow the language; lines and terms keep their text." : "This template has no Arabic version."}
+                Headings and template wording follow the language; lines and terms keep their text. Switched-off language versions cannot be chosen.
               </p>
             </div>
             {!readOnly && !templateChanged ? (
@@ -190,9 +192,11 @@ export function DocumentPanel({
 
           {/* Paper */}
           <div className="space-y-2">
+            <Link to="/quotations/setup/papers" className="text-sm font-medium text-brand-ink underline-offset-4 hover:underline">Manage papers and workspace default</Link>
             {papers.isError ? (
               <Field label="Paper">
                 <p className="text-sm text-block">The installed papers could not be read.</p>
+                <Button variant="secondary" size="sm" onClick={() => papers.refetch()}>Retry papers</Button>
               </Field>
             ) : paperList.length === 0 && !papers.isLoading ? (
               <Field label="Paper">
@@ -252,7 +256,7 @@ export function DocumentPanel({
                 onChange={(e) => e.target.value && draft.setChoice({ signatory_id: e.target.value })}
               />
             </Field>
-            {sigs.isError ? <p className="text-sm text-block">The signatories could not be read.</p> : null}
+            {sigs.isError ? <><p className="text-sm text-block">The signatories could not be read.</p><Button variant="secondary" size="sm" onClick={() => sigs.refetch()}>Retry signatories</Button></> : null}
             {sig ? (
               sig.has_signature_image ? (
                 <Chip tone="brand" size="sm" icon={<Signature aria-hidden />}>
@@ -268,11 +272,9 @@ export function DocumentPanel({
               {sig && !sig.has_signature_image ? "The approved PDF leaves the signature space blank. " : ""}
               Drafts never carry the signature.
             </p>
-            {sig && !sig.has_signature_image ? (
-              <Link to="/quotations/setup/signatories" className="text-sm font-medium text-brand-ink underline-offset-4 hover:underline">
-                Import a signature
-              </Link>
-            ) : null}
+            <Link to="/quotations/setup/signatories" className="text-sm font-medium text-brand-ink underline-offset-4 hover:underline">
+              {sig && !sig.has_signature_image ? "Import a signature" : "Manage signatories and signatures"}
+            </Link>
           </div>
 
           {/* Stamp */}
@@ -293,11 +295,11 @@ export function DocumentPanel({
         </div>
       </PanelBody>
       <StampDialog
+        q={q}
         open={stampOpen}
         onOpenChange={setStampOpen}
         value={stamp}
         readOnly={readOnly}
-        paperMode={paper?.mode}
         onApply={(s) => {
           draft.setField("stamp", s);
           setStampOpen(false);
@@ -318,24 +320,25 @@ interface PageRow {
 }
 
 function StampDialog({
+  q,
   open,
   onOpenChange,
   value,
   readOnly,
-  paperMode,
   onApply,
 }: {
+  q: Quote;
   open: boolean;
   onOpenChange: (o: boolean) => void;
   value: StampSettings;
   readOnly: boolean;
-  paperMode?: string;
   onApply: (s: StampSettings) => void;
 }) {
   const [show, setShow] = useState(true);
   const [def, setDef] = useState({ x: "", y: "", w: "" });
   const [pages, setPages] = useState<PageRow[]>([]);
   const [newPage, setNewPage] = useState("");
+  const [previewPage, setPreviewPage] = useState(1);
   const current = useRef(value);
   current.current = value;
 
@@ -352,6 +355,7 @@ function StampDialog({
         .map(([page, o]) => ({ page, show: o.show === undefined ? value.show !== false : o.show !== false, x: mm(o.x_mm), y: mm(o.y_mm), w: mm(o.width_mm) })),
     );
     setNewPage("");
+    setPreviewPage(1);
   }, [open]);
 
   const placement = (x: string, y: string, w: string): StampPlacement => {
@@ -376,8 +380,8 @@ function StampDialog({
   };
 
   const addPage = () => {
-    const n = Math.trunc(Number(newPage));
-    if (!n || n < 1 || n > 999 || pages.some((p) => p.page === String(n))) return;
+    const n = Number(newPage);
+    if (!Number.isInteger(n) || n < 1 || n > 999 || pages.some((p) => p.page === String(n))) return;
     setPages([...pages, { page: String(n), show: !show, x: "", y: "", w: "" }].sort((a, b) => Number(a.page) - Number(b.page)));
     setNewPage("");
   };
@@ -385,10 +389,17 @@ function StampDialog({
   const px = parseAmount(def.x);
   const py = parseAmount(def.y);
   const pw = parseAmount(def.w);
-  const preview = px !== null && py !== null ? { x: px, y: py, width: pw ?? 36, show } : null;
+  const pageSettings = pages.find((r) => Number(r.page) === previewPage);
+  const guideX = parseAmount(pageSettings?.x) ?? px;
+  const guideY = parseAmount(pageSettings?.y) ?? py;
+  const guideWidth = parseAmount(pageSettings?.w) ?? pw ?? 36;
+  const guideShow = pageSettings?.show ?? show;
+  const guide = guideShow && guideX !== null && guideY !== null ? { x: guideX, y: guideY, width: Math.min(58, Math.max(18, guideWidth)), label: "Requested stamp position" } : null;
   const widthOff = pw !== null && (pw < 18 || pw > 58);
+  const invalid = [def, ...pages].some((position) => [position.x, position.y, position.w].some((v) => v.trim() !== "" && parseAmount(v) === null));
+  const pageCanAdd = Number.isInteger(Number(newPage)) && Number(newPage) >= 1 && Number(newPage) <= 999 && !pages.some((p) => p.page === newPage);
   const numberField = (label: string, v: string, set: (v: string) => void, id: string) => (
-    <Field label={label} htmlFor={id}>
+    <Field label={label} htmlFor={id} error={v.trim() !== "" && parseAmount(v) === null ? "Enter a number or leave empty." : undefined}>
       <Input id={id} inputMode="decimal" value={v} disabled={readOnly} placeholder="Paper default" onChange={(e) => set(e.target.value)} />
     </Field>
   );
@@ -410,16 +421,12 @@ function StampDialog({
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={apply}>Apply to this quotation</Button>
+            <Button onClick={apply} disabled={invalid}>Apply to this quotation</Button>
           </>
         )
       }
     >
-      <div className="grid gap-6 sm:grid-cols-[10rem_1fr]">
-        <div className="mx-auto w-36 sm:w-full">
-          <PaperSchematic mode={paperMode} stamp={preview} label="Page layout with the stamp position" />
-          <p className="mt-2 text-xs text-ink-3">{preview ? "Custom position on every page" : "The paper's default position applies"}</p>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-5">
           <Switch checked={show} disabled={readOnly} onChange={setShow} label="Stamp every page" description="Pages listed below can differ." />
           <div>
@@ -492,12 +499,17 @@ function StampDialog({
                     }}
                   />
                 </Field>
-                <Button variant="secondary" onClick={addPage} disabled={!newPage}>
+                <Button variant="secondary" onClick={addPage} disabled={!pageCanAdd}>
                   Add page
                 </Button>
               </div>
             ) : null}
           </div>
+        </div>
+        <div className="min-w-0 space-y-3">
+          <p className="text-sm font-medium text-ink">Actual saved PDF</p>
+          <RenderedPages q={q} enabled={open} guide={guide} onPageChange={setPreviewPage} />
+          <p className="text-sm text-ink-3">The dashed line marks the requested top edge. Apply and save to keep your edits. The renderer fits the stamp inside the printable area; drafts carry no stamp. Check the approved PDF for its final position.</p>
         </div>
       </div>
     </Dialog>

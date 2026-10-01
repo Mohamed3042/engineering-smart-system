@@ -3,6 +3,7 @@
  * and the query hooks / mutation helper every screen in this folder shares.
  */
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { api } from "@/api/client";
 import type {
   Activity,
@@ -136,11 +137,16 @@ export interface BoqRow {
 
 /* ------------------------------------------------------------------ polling */
 
-/**
- * Background jobs (attachment fetch, extraction, link download) report no status of their own;
- * after starting one the project is polled for a while so new files and states show up.
- */
+/** The server remains authoritative for jobs that outlast the initial request. */
 const busyUntil = new Map<string, number>();
+
+export interface ProjectWork {
+  attachments: boolean;
+  downloads: string[];
+  extracting: boolean;
+  analyzing: boolean;
+  busy: boolean;
+}
 
 export function markBusy(projectId: string, ms = 45_000) {
   busyUntil.set(projectId, Date.now() + ms);
@@ -164,11 +170,32 @@ export function useProjectList(params: { include_archived?: boolean } = {}) {
 }
 
 export function useProject(id: string | undefined) {
+  const work = useProjectWork(id);
+  const qc = useQueryClient();
+  const previouslyBusy = useRef(false);
+  useEffect(() => {
+    if (!work.data) return;
+    if (previouslyBusy.current && !work.data.busy) {
+      void qc.invalidateQueries({ queryKey: ["project", id] });
+      void qc.invalidateQueries({ queryKey: ["file"] });
+    }
+    previouslyBusy.current = work.data.busy;
+  }, [work.data, id, qc]);
   return useQuery({
     queryKey: ["project", id],
     queryFn: () => api.get<ProjectDetail>(`/projects/${encodeURIComponent(id ?? "")}`),
     enabled: !!id,
-    refetchInterval: (q) => (id && needsPolling(id, q.state.data) ? 2500 : false),
+    // Continue checking while this project is open, including the final result after a job stops.
+    refetchInterval: (q) => (id && (work.data?.busy || needsPolling(id, q.state.data)) ? 2500 : 15_000),
+  });
+}
+
+export function useProjectWork(id: string | undefined) {
+  return useQuery({
+    queryKey: ["project-work", id],
+    queryFn: () => api.get<ProjectWork>(`/projects/${encodeURIComponent(id ?? "")}/work`),
+    enabled: !!id,
+    refetchInterval: (q) => q.state.data?.busy || (id && (busyUntil.get(id) ?? 0) > Date.now()) ? 2500 : 15_000,
   });
 }
 
@@ -180,10 +207,16 @@ export function useProjectQuotations(projectId: string) {
 }
 
 export function useFile(id: string | undefined) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: ["file", id],
     queryFn: () => api.get<ProjectFile>(`/files/${encodeURIComponent(id ?? "")}`),
     enabled: !!id,
+    refetchInterval: (q) => {
+      const f = q.state.data;
+      const work = f ? qc.getQueryData<ProjectWork>(["project-work", f.project_id]) : undefined;
+      return work?.busy || f?.status === "downloading" ? 2500 : 15_000;
+    },
   });
 }
 
@@ -193,6 +226,7 @@ export function useFileText(id: string | undefined, enabled = true) {
     queryFn: () => api.get<{ text: string }>(`/files/${encodeURIComponent(id ?? "")}/text`),
     enabled: !!id && enabled,
     staleTime: 60_000,
+    refetchInterval: (q) => !q.state.data?.text.trim() ? 15_000 : false,
   });
 }
 
@@ -221,7 +255,7 @@ export function useTeam(enabled = true) {
 
 /** Keys to refresh after a change to one project. */
 export function projectKeys(projectId?: string, extra: QueryKey[] = []): QueryKey[] {
-  return [...(projectId ? [["project", projectId] as QueryKey] : []), ["projects"], ["dashboard"], ["notifications"], ...extra];
+  return [...(projectId ? [["project", projectId] as QueryKey, ["project-work", projectId] as QueryKey] : []), ["projects"], ["dashboard"], ["notifications"], ...extra];
 }
 
 export interface ProjectMutationOptions<TVars, TResult> {

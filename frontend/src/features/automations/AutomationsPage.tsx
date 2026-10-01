@@ -2,7 +2,8 @@
  * Automations (mockup 36): the workflows that prepare the work. A workflow never sends anything
  * or approves engineering; steps marked "Needs approval" stop the run until a person continues it.
  */
-import { Workflow } from "lucide-react";
+import { Plus, Workflow } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useCurrentUser } from "@/api/session";
 import { pluralize } from "@/lib/format";
@@ -11,6 +12,7 @@ import { Button, EmptyState, ListRow, LoadingRows, Page, PageHeader, Panel, Quer
 import { useAutomations, type AutomationRow } from "./api";
 import { isAdmin, triggerInfo } from "./lib";
 import { EnabledSwitch, gateLabels, LastRun, NeedsApproval, stop } from "./parts";
+import { WorkflowEditor } from "./WorkflowEditor";
 
 function Desktop({ rows, canEdit }: { rows: AutomationRow[]; canEdit: boolean }) {
   const navigate = useNavigate();
@@ -80,7 +82,7 @@ function Phone({ rows, canEdit }: { rows: AutomationRow[]; canEdit: boolean }) {
             key={a.id}
             to={automationHref(a.id)}
             title={a.name}
-            subtitle={trigger.label}
+            subtitle={<span>{trigger.label}{trigger.hint ? <span className="mt-1 block text-sm text-ink-3">{trigger.hint}</span> : null}</span>}
             footer={
               <div className="flex items-center justify-between gap-3">
                 <EnabledSwitch automation={a} canEdit={canEdit} />
@@ -108,10 +110,13 @@ function Phone({ rows, canEdit }: { rows: AutomationRow[]; canEdit: boolean }) {
 export function AutomationsPage() {
   const q = useAutomations();
   const canEdit = isAdmin(useCurrentUser()?.role);
+  const [creating, setCreating] = useState(false);
+  const navigate = useNavigate();
   return (
     <Page>
-      <PageHeader title="Automations" meta="Automation prepares the work. People approve engineering and sending." />
-      {!canEdit ? <p className="mb-3 text-sm text-ink-3">Only admins can switch a workflow on or off.</p> : null}
+      <PageHeader title="Automations" meta="Automation prepares the work. People approve engineering and sending." actions={canEdit && !creating ? <Button icon={<Plus />} onClick={() => setCreating(true)}>New workflow</Button> : undefined} />
+      {!canEdit ? <p className="mb-3 text-sm text-ink-3">Only admins can create or change workflows.</p> : null}
+      {creating ? <div className="mb-6"><WorkflowEditor onCancel={() => setCreating(false)} onSaved={(id) => { setCreating(false); navigate(automationHref(id)); }} /></div> : null}
       <QueryState
         query={q}
         loading={

@@ -109,7 +109,7 @@ def test_dashboard_changes_and_review_gate(client):
     assert review["checklist"]
     r = client.post(f"/api/projects/{pid}/review/approve", json={})
     assert r.status_code == 409 and r.json()["detail"]["code"] == "checklist_open"
-    checked = [{**i, "status": "checked"} for i in review["checklist"]]
+    checked = [{**i, "status": "checked", "note": "Test engineer recorded the fictional review basis."} for i in review["checklist"]]
     client.put(f"/api/projects/{pid}/review", json={"checklist": checked, "note": "Loads confirmed"})
     r = client.post(f"/api/projects/{pid}/review/approve", json={})
     assert r.status_code == 200 and r.json()["decision"] == "approved"
@@ -126,7 +126,7 @@ def test_quotation_price_and_send_gates(client):
     r = client.post(f"/api/quotations/{q['id']}/approve", json={})
     assert r.status_code == 409 and r.json()["detail"]["code"] == "review_required"
     review = client.get(f"/api/projects/{pid}/review").json()
-    client.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked"} for i in review["checklist"]]})
+    client.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked", "note": "Test engineer recorded the fictional review basis."} for i in review["checklist"]]})
     assert client.post(f"/api/projects/{pid}/review/approve", json={}).status_code == 200
     r = client.post(f"/api/quotations/{q['id']}/approve", json={})
     assert r.status_code == 409 and r.json()["detail"]["code"] == "prices_missing"
@@ -156,7 +156,7 @@ def test_requested_terms_wait_for_a_person_and_block_approval(client):
     change = next(c for c in q["data"]["term_changes"] if c["key"] == "validity")
     assert change["status"] == "pending" and change["to"] == "120 days." and change["enquiry_id"]
     review = client.get(f"/api/projects/{pid}/review").json()
-    client.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked"} for i in review["checklist"]]})
+    client.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked", "note": "Test engineer recorded the fictional review basis."} for i in review["checklist"]]})
     client.post(f"/api/projects/{pid}/review/approve", json={})
     client.put(f"/api/quotations/{q['id']}", json={"data": {"items": [{**i, "unit_price": 10} for i in q["data"]["items"]]}})
     assert [b["code"] for b in client.get(f"/api/quotations/{q['id']}").json()["approval_blockers"]] == ["terms_pending"]
@@ -228,7 +228,7 @@ def test_new_revision_reopens_review_and_blocks_quotation(client):
     pid = projects["Harbor Offices"]["id"]
     q = client.post("/api/quotations", json={"project_id": pid}).json()
     review = client.get(f"/api/projects/{pid}/review").json()
-    client.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked"} for i in review["checklist"]]})
+    client.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked", "note": "Test engineer recorded the fictional review basis."} for i in review["checklist"]]})
     assert client.post(f"/api/projects/{pid}/review/approve", json={}).status_code == 200
 
     with session_scope() as s:  # a technical revision arrives by mail

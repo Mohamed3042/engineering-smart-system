@@ -175,6 +175,7 @@ def create_quotation(session: Session, ws: Workspace, project: Project, *, enqui
 
         know = {**knowledge_context(session, ws),
                 "lessons": memory_context(session, ws, task="draft_quotation", service_family=project.service_family,
+                                          work_type=project.work_type,
                                           customer_id=customer.id if customer else None)}
         draft = tasks.draft_quotation(choice.engine, pdict, template_key, know)
         for key in ("subject", "intro"):

@@ -73,6 +73,121 @@ def test_a_new_project_can_be_opened_from_a_message(client):
     assert client.post("/api/emails/demo-v1/link", json={}).status_code == 400
 
 
+def test_filing_mail_selects_an_enquiry_and_preserves_its_downloaded_files(client):
+    from ess.db import session_scope
+    from ess.models import Enquiry, ProjectFile
+
+    projects = _projects(client)
+    target = projects["Harbor Offices"]
+    original = client.get("/api/emails/demo-m1").json()["email"]
+    with session_scope() as s:
+        enquiry = Enquiry(workspace_id=_ws_id(), project_id=target["id"], ref="E-manual-choice")
+        s.add(enquiry)
+        s.flush()
+        chosen_id = enquiry.id
+        file = ProjectFile(workspace_id=_ws_id(), project_id=original["project_id"],
+                           enquiry_id=original["enquiry_id"], email_id="demo-m1", name="verified-source.pdf",
+                           status="ready", path="files/original/verified-source.pdf", sha256="preserved",
+                           extraction_status="extracted", extraction={"text": "source evidence"})
+        s.add(file)
+        s.flush()
+        file_id = file.id
+    response = client.post("/api/emails/demo-m1/link", json={"project_id": target["id"], "enquiry_id": chosen_id})
+    assert response.status_code == 200, response.text
+    assert response.json()["email"]["enquiry_id"] == chosen_id
+    with session_scope() as s:
+        moved = s.get(ProjectFile, file_id)
+        assert (moved.project_id, moved.enquiry_id) == (target["id"], chosen_id)
+        assert moved.status == "ready" and moved.sha256 == "preserved"
+        assert moved.path == "files/original/verified-source.pdf" and moved.extraction_status == "extracted"
+        old = s.get(Enquiry, original["enquiry_id"])
+        assert "demo-m1" not in old.email_ids
+        assert original["thread_id"] not in old.thread_ids
+    # A second choice in the same project must detach the earlier enquiry too.
+    response = client.post("/api/emails/demo-m1/link", json={"project_id": target["id"]})
+    assert response.status_code == 200, response.text
+    with session_scope() as s:
+        assert "demo-m1" not in s.get(Enquiry, chosen_id).email_ids
+
+
+def test_filing_mail_rejects_an_enquiry_from_another_project_without_changes(client):
+    from ess.db import session_scope
+    from ess.models import Enquiry
+
+    projects = _projects(client)
+    with session_scope() as s:
+        enquiry = Enquiry(workspace_id=_ws_id(), project_id=projects["Harbor Offices"]["id"], ref="E-wrong-project")
+        s.add(enquiry)
+        s.flush()
+        enquiry_id = enquiry.id
+    response = client.post("/api/emails/demo-v1/link", json={"project_id": projects["Marina Tower A"]["id"],
+                                                          "enquiry_id": enquiry_id})
+    assert response.status_code == 400
+    assert client.get("/api/emails/demo-v1").json()["email"]["project_id"] is None
+
+
+def test_not_applicable_checklist_items_need_a_reason_to_approve(client):
+    project_id = _projects(client)["Harbor Offices"]["id"]
+    review = client.get(f"/api/projects/{project_id}/review").json()
+    items = [{**item, "status": "checked", "note": "Fictional review basis recorded by the test engineer."}
+             for item in review["checklist"]]
+    items[0] = {**items[0], "status": "na", "note": ""}
+    saved = client.put(f"/api/projects/{project_id}/review", json={"checklist": items})
+    assert saved.status_code == 200 and saved.json()["checklist"][0]["status"] == "na"
+    assert client.post(f"/api/projects/{project_id}/review/approve", json={}).status_code == 409
+    items[0]["note"] = "Owner confirmed this check is outside the fictional service-only scope."
+    client.put(f"/api/projects/{project_id}/review", json={"checklist": items})
+    assert client.post(f"/api/projects/{project_id}/review/approve", json={}).status_code == 200
+
+
+def test_checked_drawing_without_revision_needs_an_explicit_basis(client):
+    project_id = _projects(client)["Harbor Offices"]["id"]
+    review = client.get(f"/api/projects/{project_id}/review").json()
+    items = [{**item, "status": "checked", "note": ""} for item in review["checklist"]]
+    client.put(f"/api/projects/{project_id}/review", json={"checklist": items})
+    assert client.post(f"/api/projects/{project_id}/review/approve", json={}).status_code == 409
+    drawings = next(item for item in items if item["key"] == "drawings")
+    drawings["note"] = "Fictional maintenance-only scope: engineer confirmed no revised drawing is required."
+    client.put(f"/api/projects/{project_id}/review", json={"checklist": items})
+    assert client.post(f"/api/projects/{project_id}/review/approve", json={}).status_code == 200
+
+
+@pytest.mark.parametrize("remove_all", [True, False])
+def test_removing_required_checks_cannot_bypass_technical_approval(client, remove_all):
+    project_id = _projects(client)["Harbor Offices"]["id"]
+    review = client.get(f"/api/projects/{project_id}/review").json()
+    complete = [{**item, "status": "checked", "note": "Fictional engineer review basis."}
+                for item in review["checklist"]]
+    incomplete = [] if remove_all else complete[1:]
+    assert client.put(f"/api/projects/{project_id}/review", json={"checklist": incomplete}).status_code == 200
+    blocked = client.post(f"/api/projects/{project_id}/review/approve", json={})
+    assert blocked.status_code == 409 and blocked.json()["detail"]["code"] == "checklist_open"
+    assert client.get(f"/api/projects/{project_id}/review").json()["decision"] is None
+    assert client.put(f"/api/projects/{project_id}/review", json={"checklist": complete}).status_code == 200
+    assert client.post(f"/api/projects/{project_id}/review/approve", json={}).status_code == 200
+
+
+def test_new_workspace_check_is_required_even_for_an_existing_review(client):
+    from ess.db import session_scope
+    from ess.workspace import get_active_workspace
+
+    project_id = _projects(client)["Harbor Offices"]["id"]
+    review = client.get(f"/api/projects/{project_id}/review").json()
+    complete = [{**item, "status": "checked", "note": "Fictional engineer review basis."}
+                for item in review["checklist"]]
+    with session_scope() as s:
+        ws = get_active_workspace(s)
+        ws.settings = {**ws.settings, "review_checklist": [*ws.settings["review_checklist"],
+                                                          {"key": "access", "label": "Site access"}]}
+        s.add(ws)
+    client.put(f"/api/projects/{project_id}/review", json={"checklist": complete})
+    blocked = client.post(f"/api/projects/{project_id}/review/approve", json={})
+    assert blocked.status_code == 409 and "Site access" in blocked.json()["detail"]["message"]
+    complete.append({"key": "access", "label": "Site access", "status": "checked", "note": "Access confirmed."})
+    client.put(f"/api/projects/{project_id}/review", json={"checklist": complete})
+    assert client.post(f"/api/projects/{project_id}/review/approve", json={}).status_code == 200
+
+
 def test_unlinked_intent_and_work_type_filters(client):
     unlinked = client.get("/api/emails", params={"unlinked": True, "include_hidden": True}).json()
     assert {e["id"] for e in unlinked["items"]} >= {"demo-v1"}

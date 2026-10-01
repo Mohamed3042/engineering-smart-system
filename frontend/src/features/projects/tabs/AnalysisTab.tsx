@@ -13,6 +13,7 @@ import type { StatusInfo } from "@/lib/labels";
 import { fileHref } from "@/lib/routes";
 import {
   Button,
+  CollapsibleSection,
   EmptyState,
   EvidenceQuote,
   KeyValue,
@@ -27,7 +28,7 @@ import {
   THead,
   TR,
 } from "@/ui";
-import { markBusy, useProjectMutation, type ProjectAnalysis, type ProjectDetail } from "../api";
+import { markBusy, useProjectMutation, useProjectWork, type ProjectAnalysis, type ProjectDetail } from "../api";
 import { DrawingFindings, drawingPages, QtyValue } from "../fileParts";
 import { displayValue, firstEvidence, withSource } from "../lib";
 import { Bidi } from "../parts";
@@ -38,8 +39,8 @@ export function AnalysisTab({ detail }: TabProps) {
     <div className="space-y-6">
       <AnalysisStatus detail={detail} />
       <div className="grid gap-6 lg:grid-cols-2">
-        <SummaryPanel detail={detail} />
-        <QuestionsPanel detail={detail} />
+        <div className="order-2 lg:order-1"><SummaryPanel detail={detail} /></div>
+        <div className="order-1 lg:order-2"><QuestionsPanel detail={detail} /></div>
       </div>
       <RequirementsPanel detail={detail} />
       <ScopePanel detail={detail} />
@@ -62,8 +63,10 @@ function engineText(engine?: string): string | null {
 
 function AnalysisStatus({ detail }: TabProps) {
   const p = detail.project;
+  const work = useProjectWork(p.id);
   const a = (p.analysis ?? {}) as ProjectAnalysis;
-  const running = a.status === "running";
+  const running = a.status === "running" || !!work.data?.analyzing;
+  const extracting = !!work.data?.extracting;
   const done = a.status === "done";
   const ready = detail.files.filter((f) => f.status === "ready");
   const unread = ready.filter((f) => f.extraction_status === "pending");
@@ -144,11 +147,13 @@ function AnalysisStatus({ detail }: TabProps) {
               {unread.length} downloaded {unread.length === 1 ? "file has" : "files have"} not been read yet.
             </p>
           ) : null}
+          {extracting ? <p className="mt-2 text-sm text-ink-2" role="status">Reading files. This view keeps checking while extraction runs.</p> : null}
+          {work.isError ? <p className="mt-2 text-sm text-review">Background status unavailable. <Button size="sm" variant="link" onClick={() => work.refetch()}>Retry status</Button></p> : null}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row md:shrink-0">
           {unread.length ? (
-            <Button variant="secondary" icon={<FileSearch />} loading={extract.isPending} onClick={() => extract.mutate()}>
-              Extract files
+            <Button variant="secondary" icon={<FileSearch />} loading={extract.isPending} disabled={extracting} onClick={() => extract.mutate()}>
+              {extracting ? "Reading files" : "Extract files"}
             </Button>
           ) : null}
           <Button
@@ -171,16 +176,13 @@ function AnalysisStatus({ detail }: TabProps) {
 function SummaryPanel({ detail }: TabProps) {
   const s = detail.project.summary?.trim();
   return (
-    <Panel>
-      <PanelHeader title="Summary" />
-      <PanelBody>
+    <CollapsibleSection title="Analysis summary" summary={detail.project.name}>
         {s ? (
           <Bidi text={s} as="p" className="max-w-[70ch] leading-relaxed text-ink-2" />
         ) : (
           <p className="text-ink-3">No summary yet. The analysis writes a short summary of what the customer asks for.</p>
         )}
-      </PanelBody>
-    </Panel>
+    </CollapsibleSection>
   );
 }
 
