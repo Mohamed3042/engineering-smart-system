@@ -43,6 +43,12 @@ def is_running(key: str) -> bool:
     return fut is not None and not fut.done()
 
 
+def running_keys(prefix: str = "") -> list[str]:
+    """Keys of jobs still running (optionally only those starting with ``prefix``)."""
+    with _lock:
+        return [k for k, fut in _running.items() if k.startswith(prefix) and not fut.done()]
+
+
 def wait(key: str, timeout: float | None = None) -> Any:
     fut = _running.get(key)
     return fut.result(timeout=timeout) if fut else None

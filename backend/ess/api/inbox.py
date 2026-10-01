@@ -8,7 +8,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlmodel import Session, col, func, or_, select
 
 from ..db import get_session
-from ..models import Approval, Category, Customer, Email, Project, TeamMember, Workspace, utcnow
+from ..models import (Approval, Category, Customer, Email, Enquiry, Project, ProjectFile, ProjectLink, TeamMember,
+                      Workspace, utcnow)
 from ..workspace import log_activity
 from .deps import get_or_404, require_role, user_dep, ws_dep
 
@@ -83,7 +84,8 @@ def set_visibility(data: dict = Body(...), session: Session = Depends(get_sessio
 @router.get("/emails")
 def list_emails(group: Optional[str] = None, category: Optional[str] = None, state: Optional[str] = None,
                 q: Optional[str] = None, project_id: Optional[str] = None, customer_id: Optional[str] = None,
-                thread_id: Optional[str] = None, include_hidden: bool = False, sort: str = "newest",
+                thread_id: Optional[str] = None, intent: Optional[str] = None, work_type: Optional[str] = None,
+                unlinked: bool = False, include_hidden: bool = False, sort: str = "newest",
                 page: int = 1, page_size: int = 50, session: Session = Depends(get_session),
                 ws: Workspace = Depends(ws_dep)) -> dict:
     cats = {c.key: c for c in _categories(session, ws)}
@@ -108,6 +110,13 @@ def list_emails(group: Optional[str] = None, category: Optional[str] = None, sta
         query = query.where(Email.customer_id == customer_id)
     if thread_id:
         query = query.where(Email.thread_id == thread_id)
+    if intent:
+        query = query.where(col(Email.intent).in_(intent.split(",")))
+    if work_type:  # the work type belongs to the project a message is linked to
+        query = query.where(col(Email.project_id).in_(
+            select(Project.id).where(Project.workspace_id == ws.id, col(Project.work_type).in_(work_type.split(",")))))
+    if unlinked:
+        query = query.where(Email.project_id == None, Email.direction == "inbound")  # noqa: E711
     if q:
         like = f"%{q}%"
         query = query.where(or_(col(Email.subject).ilike(like), col(Email.from_email).ilike(like),
@@ -124,7 +133,8 @@ def list_emails(group: Optional[str] = None, category: Optional[str] = None, sta
         d = r.model_dump(exclude={"body_text"})
         p = projects.get(r.project_id or "")
         c = customers.get(r.customer_id or "")
-        d["project"] = {"id": p.id, "name": p.name, "service_family": p.service_family} if p else None
+        d["project"] = {"id": p.id, "name": p.name, "service_family": p.service_family,
+                        "work_type": p.work_type} if p else None
         d["customer"] = {"id": c.id, "name": c.name} if c else None
         d["category_label"] = cats[r.category].label if r.category in cats else r.category
         items.append(d)
@@ -164,8 +174,16 @@ def get_email(email_id: str, session: Session = Depends(get_session), ws: Worksp
     project = session.get(Project, email.project_id) if email.project_id else None
     customer = session.get(Customer, email.customer_id) if email.customer_id else None
     cat = session.get(Category, f"{ws.id}:{email.category}")
+    files = session.exec(select(ProjectFile).where(ProjectFile.workspace_id == ws.id,
+                                                   ProjectFile.email_id == email.id)).all()
+    links = session.exec(select(ProjectLink).where(ProjectLink.workspace_id == ws.id,
+                                                   ProjectLink.email_id == email.id)).all()
+    enquiry = session.get(Enquiry, email.enquiry_id) if email.enquiry_id else None
     return {
         "email": email,
+        "files": files,
+        "links": links,
+        "enquiry": enquiry,
         "thread": [{"id": t.id, "from_name": t.from_name, "from_email": t.from_email, "date": t.date,
                     "subject": t.subject, "direction": t.direction, "snippet": t.snippet, "body_text": t.body_text,
                     "attachments": t.attachments} for t in thread],
@@ -205,6 +223,86 @@ def update_email(email_id: str, data: dict = Body(...), session: Session = Depen
     session.add(email)
     session.commit()
     return email
+
+
+@router.post("/emails/{email_id}/link")
+def link_email(email_id: str, data: dict = Body(...), session: Session = Depends(get_session),
+               ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> dict:
+    """A person files a message under a project when automatic linking found none (or the wrong one).
+
+    Body: {"project_id": "..."} for an existing project, or {"create": {"name", "service_family",
+    "work_type", "request_kind", "tender_no", "due_date", "location"}} to open a new project from the
+    message. The whole thread follows; the sender's enquiry, attachments and shared links come along."""
+    from datetime import date as _date
+
+    from ..pipeline.scan import clean_subject, link_email_to_project
+    from ..pipeline.state import refresh_project_state
+
+    email = get_or_404(session, Email, email_id, ws)
+    if data.get("project_id"):
+        project = get_or_404(session, Project, data["project_id"], ws)
+        if project.archived_at:
+            raise HTTPException(409, {"code": "archived", "message": "That project is archived. Restore it first."})
+        created = False
+    elif isinstance(data.get("create"), dict):
+        spec = data["create"]
+        name = (spec.get("name") or clean_subject(email.subject) or "").strip()
+        if not name:
+            raise HTTPException(400, {"code": "name_required", "message": "Give the new project a name."})
+        cats = {c.key: c for c in _categories(session, ws)}
+        family = spec.get("service_family") or (email.category if cats.get(email.category) and
+                                                cats[email.category].group == "work" else "other_work")
+        count = len(session.exec(select(Project.id).where(Project.workspace_id == ws.id)).all())
+        project = Project(workspace_id=ws.id, ref=f"P-{email.thread_id}", code=f"P-{count + 1:04d}", name=name,
+                          service_family=family, work_type=spec.get("work_type") or "supply_installation",
+                          request_kind=spec.get("request_kind") or "direct_rfq", tender_no=spec.get("tender_no"),
+                          location=spec.get("location"), source="manual", priority=email.priority)
+        if spec.get("due_date"):
+            project.due_date = _date.fromisoformat(str(spec["due_date"])[:10])
+        session.add(project)
+        session.flush()
+        created = True
+    else:
+        raise HTTPException(400, {"code": "target_required", "message": "Choose a project or create a new one."})
+
+    previous = session.get(Project, email.project_id) if email.project_id and email.project_id != project.id else None
+    thread = session.exec(select(Email).where(Email.workspace_id == ws.id, Email.thread_id == email.thread_id)).all()
+    for msg in sorted(thread, key=lambda m: m.date or utcnow()):
+        if msg.id != email.id and msg.project_id and msg.project_id != (previous.id if previous else None):
+            continue  # a reply already filed elsewhere stays where a person or the scan put it
+        if previous is not None and msg.enquiry_id:
+            old = session.get(Enquiry, msg.enquiry_id)
+            if old is not None:
+                old.email_ids = [i for i in (old.email_ids or []) if i != msg.id]
+                session.add(old)
+        if msg.direction != "inbound":
+            msg.project_id = project.id
+            session.add(msg)
+            continue
+        link_email_to_project(session, ws, msg, project=project)
+        session.add(msg)
+    cats = {c.key: c for c in _categories(session, ws)}
+    if cats.get(email.category) is None or cats[email.category].group != "work":
+        # filing a message under a project says it is work: learn it for this sender
+        target = project.service_family if project.service_family in cats else None
+        if target:
+            _correct_category(session, ws, email, target, user)
+    if created and project.due_date:
+        enquiry = session.get(Enquiry, email.enquiry_id) if email.enquiry_id else None
+        if enquiry is not None and enquiry.due_date is None:
+            enquiry.due_date = project.due_date
+            session.add(enquiry)
+    log_activity(session, ws.id, "email_linked",
+                 f"{'New project from mail' if created else 'Mail filed under project'}: {project.name}",
+                 detail=email.subject[:120], actor=user.name, project_id=project.id, email_id=email.id)
+    session.flush()
+    refresh_project_state(session, project)
+    if previous is not None:
+        refresh_project_state(session, previous)
+    session.commit()
+    session.refresh(email)
+    return {"email": email, "project": project,
+            "enquiry": session.get(Enquiry, email.enquiry_id) if email.enquiry_id else None, "created": created}
 
 
 @router.post("/emails/bulk")

@@ -18,7 +18,7 @@
 <img class="page-stamp" src="{{ chrome.stamp.src }}" alt="Company stamp" style="left:{{ chrome.stamp.x }}mm;top:{{ chrome.stamp.y }}mm;width:{{ chrome.stamp.width }}mm{% if chrome.stamp.hidden %};display:none{% endif %}">
 {%- endif %}
 {%- if chrome.draft %}
-<div class="draft-mark" aria-hidden="true"><span class="d1">DRAFT</span><span class="d2"> – pending engineer approval</span>{% if rtl %}<span class="d3">مسودة – بانتظار اعتماد المهندس</span>{% endif %}</div>
+<div class="draft-mark" aria-hidden="true"><span class="d1">DRAFT</span><span class="d2"> – not approved</span>{% if rtl %}<span class="d3">مسودة – غير معتمدة</span>{% endif %}</div>
 {%- endif %}
 <div class="page-no"></div>
 <div class="content"></div>

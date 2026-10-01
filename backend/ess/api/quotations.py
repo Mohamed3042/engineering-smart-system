@@ -6,7 +6,7 @@ import io
 from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlmodel import Session, col, select
 
 from .. import jobs
@@ -94,6 +94,10 @@ def edit_quotation(quotation_id: str, data: dict = Body(...), session: Session =
     if q.status in ("approved", "sent"):
         raise HTTPException(409, {"code": "frozen", "message": "Approved quotations are frozen. Create a revision."})
     patch = {k: v for k, v in (data.get("data") or {}).items() if k in EDITABLE}
+    if (data.get("template_key") and data["template_key"] != q.template_key) or (
+            data.get("language") and data["language"] != q.language):
+        drafting.require_enabled_template(session, ws, data.get("template_key") or q.template_key,
+                                          data.get("language") or q.language)
     before = dict(q.data)
     merged = {**q.data, **patch}
     for item in merged.get("items") or []:
@@ -189,13 +193,54 @@ def render(quotation_id: str, session: Session = Depends(get_session), ws: Works
 @router.get("/quotations/{quotation_id}/pdf")
 def pdf(quotation_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)):
     q = get_or_404(session, Quotation, quotation_id, ws)
-    if not q.pdf_path or not (get_settings().data_dir / q.pdf_path).exists():
-        session.commit()
-        jobs._call(drafting.render_pdf, quotation_id)
-        session.refresh(q)
-    path = get_settings().data_dir / q.pdf_path
+    path = _current_pdf(session, q)
     return FileResponse(path, media_type="application/pdf", filename=path.name,
                         headers={"Content-Disposition": f'inline; filename="{path.name}"'})
+
+
+def _current_pdf(session: Session, q: Quotation):
+    if not q.pdf_path or not (get_settings().data_dir / q.pdf_path).exists():
+        session.commit()
+        jobs._call(drafting.render_pdf, q.id)
+        session.refresh(q)
+    return get_settings().data_dir / q.pdf_path
+
+
+@router.get("/quotations/{quotation_id}/pages")
+def quotation_pages(quotation_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
+    """Page count of the current PDF (rendered first when stale), for page previews in the editor."""
+    import pypdfium2 as pdfium
+
+    q = get_or_404(session, Quotation, quotation_id, ws)
+    path = _current_pdf(session, q)
+    doc = pdfium.PdfDocument(str(path))
+    try:
+        return {"count": len(doc), "rendered_at": q.pdf_rendered_at}
+    finally:
+        doc.close()
+
+
+@router.get("/quotations/{quotation_id}/pages/{page}.png")
+def quotation_page(quotation_id: str, page: int, dpi: int = 80, session: Session = Depends(get_session),
+                   ws: Workspace = Depends(ws_dep)):
+    """One page of the current PDF as an image: shows where the stamp and photos really land."""
+    import io
+
+    import pypdfium2 as pdfium
+
+    q = get_or_404(session, Quotation, quotation_id, ws)
+    path = _current_pdf(session, q)
+    doc = pdfium.PdfDocument(str(path))
+    try:
+        if page < 1 or page > len(doc):
+            raise HTTPException(404, {"code": "no_page", "message": f"The PDF has {len(doc)} page(s)"})
+        image = doc[page - 1].render(scale=min(max(dpi, 40), 200) / 72).to_pil()
+        buf = io.BytesIO()
+        image.save(buf, "PNG")
+        return Response(content=buf.getvalue(), media_type="image/png",
+                        headers={"Cache-Control": "no-store", "X-Page-Count": str(len(doc))})
+    finally:
+        doc.close()
 
 
 @router.post("/quotations/{quotation_id}/submit")

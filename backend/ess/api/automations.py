@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlmodel import Session, col, select
 
 from .. import jobs
-from ..automations.runner import STEPS, resume_run, start_run
+from ..automations.runner import STEP_CATALOG, STEPS, resume_run, start_run, trigger_status
 from ..db import get_session
 from ..models import Approval, Automation, AutomationRun, ScanJob, TeamMember, Workspace, utcnow
 from ..pipeline.connect import active_connection
@@ -23,8 +23,13 @@ def list_automations(session: Session = Depends(get_session), ws: Workspace = De
     for a in rows:
         last = session.exec(select(AutomationRun).where(AutomationRun.automation_id == a.id)
                             .order_by(col(AutomationRun.started_at).desc())).first()
-        out.append({**a.model_dump(), "last_run": last})
+        out.append({**a.model_dump(), "last_run": last, "trigger_status": trigger_status(session, ws, a),
+                    "built_in": a.key in BUILT_IN_KEYS})
     return out
+
+
+BUILT_IN_KEYS = {"enquiry_intake", "change_watch", "customer_watch", "inbox_hygiene"}
+TRIGGERS = ("manual", "schedule", "new_email")
 
 
 @router.get("/automations/step-types")
@@ -32,32 +37,95 @@ def step_types() -> list[str]:
     return sorted(STEPS)
 
 
+@router.get("/automations/step-catalog")
+def step_catalog() -> list[dict]:
+    """Step types with plain labels, descriptions and settings, for the workflow editor."""
+    return STEP_CATALOG
+
+
+def _clean_steps(raw: list) -> list[dict]:
+    steps, keys = [], set()
+    for i, st in enumerate(raw):
+        if not isinstance(st, dict) or st.get("type") not in STEPS:
+            raise HTTPException(400, {"code": "bad_step", "message": f"Unknown step type {st.get('type') if isinstance(st, dict) else st}"})
+        key = str(st.get("key") or f"{st['type']}_{i + 1}")
+        while key in keys:
+            key = f"{key}_{i + 1}"
+        keys.add(key)
+        label = (st.get("label") or next((c["label"] for c in STEP_CATALOG if c["type"] == st["type"]), st["type"])).strip()
+        clean = {"key": key, "label": label, "type": st["type"], "enabled": bool(st.get("enabled", True)),
+                 "requires_approval": bool(st.get("requires_approval", False)),
+                 "config": st.get("config") if isinstance(st.get("config"), dict) else {}}
+        # the engineer-review gate cannot be switched off or skipped
+        if clean["type"] == "request_review":
+            clean.update(requires_approval=True, enabled=True)
+        steps.append(clean)
+    return steps
+
+
+def _apply_trigger(a: Automation, data: dict) -> None:
+    if "trigger" in data:
+        if data["trigger"] not in TRIGGERS:
+            raise HTTPException(400, {"code": "bad_trigger", "message": "Trigger must be manual, schedule or new_email"})
+        a.trigger = data["trigger"]
+    if "interval_minutes" in data:
+        a.interval_minutes = max(int(data["interval_minutes"]), 15) if data["interval_minutes"] else None
+    if a.trigger == "schedule" and not a.interval_minutes:
+        a.interval_minutes = 60
+
+
+@router.post("/automations")
+def create_automation(data: dict = Body(...), session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep),
+                      user: TeamMember = Depends(user_dep)) -> dict:
+    require_role(user, "admin", "Creating automations")
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, {"code": "name_required", "message": "Give the workflow a name."})
+    steps = _clean_steps(data.get("steps") or [])
+    if not steps:
+        raise HTTPException(400, {"code": "steps_required", "message": "Add at least one step."})
+    count = len(session.exec(select(Automation.id).where(Automation.workspace_id == ws.id)).all())
+    a = Automation(workspace_id=ws.id, key=f"custom_{count + 1}", name=name, description=data.get("description") or "",
+                   trigger="manual", steps=steps, enabled=bool(data.get("enabled", True)))
+    _apply_trigger(a, data)
+    session.add(a)
+    session.commit()
+    return {**a.model_dump(), "last_run": None, "trigger_status": trigger_status(session, ws, a), "built_in": False}
+
+
+@router.delete("/automations/{auto_id}")
+def delete_automation(auto_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep),
+                      user: TeamMember = Depends(user_dep)) -> dict:
+    require_role(user, "admin", "Deleting automations")
+    a = get_or_404(session, Automation, auto_id, ws)
+    if a.key in BUILT_IN_KEYS:
+        raise HTTPException(409, {"code": "built_in", "message": "Built-in workflows can be switched off, not deleted."})
+    session.delete(a)
+    session.commit()
+    return {"deleted": True}
+
+
 @router.get("/automations/{auto_id}")
 def get_automation(auto_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
     a = get_or_404(session, Automation, auto_id, ws)
     runs = session.exec(select(AutomationRun).where(AutomationRun.automation_id == a.id)
                         .order_by(col(AutomationRun.started_at).desc()).limit(30)).all()
-    return {"automation": a, "runs": runs}
+    return {"automation": a, "runs": runs, "trigger_status": trigger_status(session, ws, a),
+            "built_in": a.key in BUILT_IN_KEYS}
 
 
 @router.patch("/automations/{auto_id}")
 def edit_automation(auto_id: str, data: dict = Body(...), session: Session = Depends(get_session),
-                    ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> Automation:
+                    ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> dict:
     require_role(user, "admin", "Editing automations")
     a = get_or_404(session, Automation, auto_id, ws)
     if "enabled" in data:
         a.enabled = bool(data["enabled"])
-    if "interval_minutes" in data:
-        a.interval_minutes = max(int(data["interval_minutes"]), 15) if data["interval_minutes"] else None
+    _apply_trigger(a, data)
     if isinstance(data.get("steps"), list):
-        steps = []
-        for st in data["steps"]:
-            if st.get("type") not in STEPS:
-                raise HTTPException(400, {"code": "bad_step", "message": f"Unknown step type {st.get('type')}"})
-            # sending is never automatic: the review gate cannot be switched off
-            if st.get("type") == "request_review":
-                st = {**st, "requires_approval": True, "enabled": True}
-            steps.append(st)
+        steps = _clean_steps(data["steps"])
+        if not steps:
+            raise HTTPException(400, {"code": "steps_required", "message": "A workflow needs at least one step."})
         a.steps = steps
     for k in ("name", "description"):
         if k in data:
@@ -65,7 +133,7 @@ def edit_automation(auto_id: str, data: dict = Body(...), session: Session = Dep
     a.updated_at = utcnow()
     session.add(a)
     session.commit()
-    return a
+    return {**a.model_dump(), "trigger_status": trigger_status(session, ws, a), "built_in": a.key in BUILT_IN_KEYS}
 
 
 @router.post("/automations/{auto_id}/run")

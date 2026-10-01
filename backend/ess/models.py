@@ -376,6 +376,7 @@ class ProjectLink(SQLModel, table=True):
     kind: str = "other"
     host: str = ""
     # found | pending_approval | approved | downloading | downloaded | failed | expired | needs_login | blocked | rejected
+    # | resolved (files obtained another way — not a rejection)
     status: str = "found"
     note: str = ""
     error: Optional[str] = None

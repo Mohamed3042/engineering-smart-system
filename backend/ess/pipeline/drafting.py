@@ -75,6 +75,54 @@ def _existing_refs(session: Session, ws: Workspace) -> list[str]:
     return [q.reference for q in session.exec(select(Quotation).where(Quotation.workspace_id == ws.id)).all() if q.reference]
 
 
+# Order used when the preferred template is switched off in Quotation setup → Templates.
+TEMPLATE_FALLBACK_ORDER = ("tenders", "supply_installation", "annual_maintenance", "service_repair", "equipment_rental")
+
+
+def _template_label(key: str) -> str:
+    from ..quotation.templates import TEMPLATES
+
+    spec = TEMPLATES.get(key)
+    return (spec.label.get("en") if spec else None) or key.replace("_", " ").capitalize()
+
+
+def template_enabled(session: Session, ws: Workspace, key: str, language: Optional[str]) -> bool:
+    """A template is usable unless the company switched it off for that language."""
+    from ..models import TemplateSetting
+    from ..quotation.templates import TEMPLATES
+
+    spec = TEMPLATES.get(key)
+    if spec is None:
+        return False
+    row = session.get(TemplateSetting, f"{ws.id}:{key}:{spec.resolve_language(language)}")
+    return row is None or bool(row.enabled)
+
+
+def require_enabled_template(session: Session, ws: Workspace, key: str, language: Optional[str]) -> None:
+    """A person or an AI client chose this template explicitly: refuse a switched-off one."""
+    if not template_enabled(session, ws, key, language):
+        raise HTTPException(409, {"code": "template_disabled",
+                                  "message": f"The {_template_label(key)} template is switched off in Quotation setup → "
+                                             "Templates. Switch it on there or choose another template."})
+
+
+def enabled_template(session: Session, ws: Workspace, key: str, reason: str, language: Optional[str],
+                     project: Project) -> tuple[str, str]:
+    """The proposed template when it is switched on, otherwise the closest one that is (with the reason)."""
+    from ..quotation.templates import choose_template
+
+    if template_enabled(session, ws, key, language):
+        return key, reason
+    default_key, _ = choose_template(project.service_family, project.work_type, project.request_kind, language)
+    for alt in (default_key, *TEMPLATE_FALLBACK_ORDER):
+        if alt != key and template_enabled(session, ws, alt, language):
+            return alt, (f"{_template_label(key)} is switched off in Quotation setup, so {_template_label(alt)} "
+                         f"is used instead ({reason[0].lower() + reason[1:] if reason else 'default choice'})")
+    raise HTTPException(409, {"code": "no_template_enabled",
+                              "message": "Every quotation template is switched off. Switch one on in Quotation setup → "
+                                         "Templates."})
+
+
 def create_quotation(session: Session, ws: Workspace, project: Project, *, enquiry: Optional[Enquiry] = None,
                      template_key: Optional[str] = None, language: Optional[str] = None,
                      signatory: Optional[Signatory] = None, actor: str = "system") -> Quotation:
@@ -86,6 +134,7 @@ def create_quotation(session: Session, ws: Workspace, project: Project, *, enqui
 
     reason = "chosen by user"
     paper_id = None
+    explicit_template = template_key
     if not template_key:
         if enquiry is None:
             enquiry = session.exec(select(Enquiry).where(Enquiry.project_id == project.id,
@@ -100,6 +149,10 @@ def create_quotation(session: Session, ws: Workspace, project: Project, *, enqui
     language = language or (ws.settings or {}).get("quotations", {}).get("default_language") or "en"
     if not template_key:
         template_key, reason = choose_template(project.service_family, project.work_type, project.request_kind, language)
+    if explicit_template:
+        require_enabled_template(session, ws, template_key, language)
+    else:  # rules, learned preferences and defaults never pick a template the company switched off
+        template_key, reason = enabled_template(session, ws, template_key, reason, language, project)
     signatory = signatory or default_signatory(session, ws)
     sig = signatory_dict(signatory, ws)
     if enquiry is None:

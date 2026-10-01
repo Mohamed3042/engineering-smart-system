@@ -154,11 +154,15 @@ def _match_project(session: Session, ws: Workspace, email: Email, name: str, ten
     return best if score >= 88 else None
 
 
-def link_email_to_project(session: Session, ws: Workspace, email: Email) -> Optional[Project]:
+def link_email_to_project(session: Session, ws: Workspace, email: Email,
+                          project: Optional[Project] = None) -> Optional[Project]:
+    """Attach a message to a project and to its sender's enquiry. Without ``project`` the project is
+    matched by tender number or name, or created; with ``project`` a person chose it."""
     text = f"{email.subject}\n{email.body_text or ''}"
     name = clean_subject(email.subject)
     tenders = tender_numbers(text)
-    project = _match_project(session, ws, email, name, tenders)
+    chosen = project is not None
+    project = project or _match_project(session, ws, email, name, tenders)
     created = project is None
     if project is None:
         count = len(session.exec(select(Project.id).where(Project.workspace_id == ws.id)).all())
@@ -213,7 +217,7 @@ def link_email_to_project(session: Session, ws: Workspace, email: Email) -> Opti
     session.add(enquiry)
     email.project_id = project.id
     email.enquiry_id = enquiry.id
-    email.state = "linked" if not created else "needs_review"
+    email.state = "linked" if (chosen or not created) else "needs_review"
     for a in email.attachments or []:
         name_ = a.get("filename")
         if not name_ or session.exec(select(ProjectFile).where(ProjectFile.project_id == project.id,
@@ -272,7 +276,7 @@ def run_scan(job_id: str) -> dict:
         s.add(job)
         scope = dict(job.scope or {})
     log: list[str] = []
-    counts = {"threads": 0, "messages": 0, "new_messages": 0, "work": 0, "projects": 0}
+    counts = {"threads": 0, "messages": 0, "new_messages": 0, "new_inbound": 0, "work": 0, "projects": 0}
     try:
         with session_scope() as s:
             ws = s.get(Workspace, job.workspace_id)
@@ -301,6 +305,7 @@ def run_scan(job_id: str) -> dict:
                     if email.direction == "outbound":
                         email.category = email.category if email.category != "other" else "internal"
                         continue
+                    counts["new_inbound"] += int(is_new)
                     if is_new or email.category_source == "rules":
                         _classify(s, ws, email, categories)
                     if email.category in work_keys and email.category != "other_work" or (
@@ -331,6 +336,9 @@ def run_scan(job_id: str) -> dict:
             log_activity(s, ws.id, "scan", f"Mailbox scan finished: {counts['threads']} threads",
                          detail=f"{counts['work']} work messages, {counts['projects']} projects", severity="success")
         _auto_fetch(job_id)
+        from ..automations.runner import on_new_mail
+
+        on_new_mail(job.workspace_id, counts["new_inbound"])  # "new mail" workflows (background service only)
         return counts
     except Exception as exc:
         with session_scope() as s:

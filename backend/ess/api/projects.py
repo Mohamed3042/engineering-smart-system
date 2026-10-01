@@ -147,6 +147,22 @@ def project_detail(project_id: str, session: Session = Depends(get_session), ws:
     }
 
 
+@router.get("/projects/{project_id}/work")
+def project_work(project_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
+    """What is still running for this project, so screens keep waiting as long as the work lasts."""
+    p = get_or_404(session, Project, project_id, ws)
+    link_ids = {l.id for l in session.exec(select(ProjectLink).where(ProjectLink.project_id == p.id)).all()}
+    downloads = [k.split(":", 1)[1] for k in jobs.running_keys("link:") if k.split(":", 1)[1] in link_ids]
+    work = {
+        "attachments": bool(jobs.running_keys(f"attachments:{p.id}")),
+        "downloads": downloads,
+        "extracting": jobs.is_running(f"extract:{p.id}"),
+        "analyzing": jobs.is_running(f"analyze:{p.id}") or (p.analysis or {}).get("status") == "running",
+    }
+    work["busy"] = bool(work["attachments"] or work["downloads"] or work["extracting"] or work["analyzing"])
+    return work
+
+
 @router.get("/projects/{project_id}/evidence")
 def project_evidence(project_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
     """Every fact the system holds about the project, each with the sentence or drawing spot it came from."""
@@ -355,9 +371,48 @@ def retry_link(link_id: str, session: Session = Depends(get_session), ws: Worksp
 
 
 @router.post("/projects/{project_id}/fetch-attachments")
-def fetch_project_attachments(project_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
+def fetch_project_attachments(project_id: str, data: dict = Body(default={}), session: Session = Depends(get_session),
+                              ws: Workspace = Depends(ws_dep)) -> dict:
     get_or_404(session, Project, project_id, ws)
-    return {"started": jobs.submit(f"attachments:{project_id}", fetch_attachments, project_id)}
+    return {"started": jobs.submit(f"attachments:{project_id}", fetch_attachments, project_id,
+                                   retry_failed=bool(data.get("retry_failed")))}
+
+
+@router.post("/files/{file_id}/retry")
+def retry_file(file_id: str, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep),
+               user: TeamMember = Depends(user_dep)) -> dict:
+    """Try a failed download again: an e-mail attachment is fetched from the mailbox again, a file from a
+    shared link re-runs that link's download."""
+    f = get_or_404(session, ProjectFile, file_id, ws)
+    if f.source == "email_attachment":
+        f.status, f.error = "not_downloaded", None
+        session.add(f)
+        session.commit()
+        started = jobs.submit(f"attachments:{f.project_id}:{f.id}", fetch_attachments, f.project_id,
+                              retry_failed=True, file_ids=[f.id])
+        return {"started": started, "kind": "attachment"}
+    if f.link_id:
+        link = get_or_404(session, ProjectLink, f.link_id, ws)
+        if link.status == "rejected":
+            raise HTTPException(409, {"code": "rejected", "message": "This link was rejected. Approve it first."})
+        return {"started": jobs.submit(f"link:{link.id}", download_link_job, link.id, user.name), "kind": "link"}
+    raise HTTPException(409, {"code": "not_retryable", "message": "This file was uploaded by hand. Upload it again."})
+
+
+@router.post("/links/{link_id}/resolve")
+def resolve_link(link_id: str, data: dict = Body(default={}), session: Session = Depends(get_session),
+                 ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> ProjectLink:
+    """The files of this link were obtained another way (uploaded, re-sent): not a rejection."""
+    link = get_or_404(session, ProjectLink, link_id, ws)
+    link.status = "resolved"
+    link.note = (data.get("note") or "Files obtained another way").strip()[:500]
+    link.updated_at = utcnow()
+    session.add(link)
+    session.add(Approval(workspace_id=ws.id, action="resolve_link", target_type="link", target_id=link.id,
+                         decided_by=user.name, decision="approved", note=link.note))
+    refresh_project_state(session, session.get(Project, link.project_id))
+    session.commit()
+    return link
 
 
 @router.post("/projects/{project_id}/files")
@@ -405,7 +460,7 @@ def file_page(file_id: str, page: int, dpi: int = 110, session: Session = Depend
               ws: Workspace = Depends(ws_dep)):
     f = get_or_404(session, ProjectFile, file_id, ws)
     try:
-        return Response(content=file_page_png(f, page, dpi=min(max(dpi, 50), 220)), media_type="image/png")
+        return Response(content=file_page_png(f, page, dpi=min(max(dpi, 50), 300)), media_type="image/png")
     except FileNotFoundError:
         raise HTTPException(404, {"code": "missing", "message": "File not downloaded yet"})
     except Exception as exc:

@@ -182,8 +182,17 @@ def select_model(data: dict = Body(...), session: Session = Depends(get_session)
 
 @router.get("/policy")
 def get_policy(ws: Workspace = Depends(ws_dep)) -> dict:
+    from ..ai import policy as policy_mod
+
     pol = _policy(ws)
-    return pol.to_dict() if hasattr(pol, "to_dict") else dict(pol)
+    out = pol.to_dict() if hasattr(pol, "to_dict") else dict(pol)
+    # the hard floor the form must not go below (the server enforces it again on PUT)
+    out["floor"] = {"min_score": policy_mod.MIN_SCORE_FLOOR, "max_critical_failures": policy_mod.MAX_CRITICAL_FAILURES,
+                    "max_exam_age_days": policy_mod.MAX_EXAM_AGE_CEILING_DAYS,
+                    "min_context_tokens": policy_mod.MIN_CONTEXT_FLOOR,
+                    "mandatory_capabilities": sorted(policy_mod.MANDATORY_CAPABILITIES),
+                    "never_tiers": sorted(policy_mod.NEVER_TIERS)}
+    return out
 
 
 @router.put("/policy")
