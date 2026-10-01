@@ -32,8 +32,11 @@ company's services, names and regional vocabulary.
 ./run.sh            # creates backend/.venv, installs Chromium, starts http://127.0.0.1:8765
 ```
 
-On Windows run it from Git Bash; the environment's Python is then `backend/.venv/Scripts/python`
-instead of `backend/.venv/bin/python` in the commands below.
+**Windows:** double-click `Start.cmd`. The first start sets everything up (Python environment via
+uv, browser engine, interface build); then the app opens in its own window and the console that
+runs it says where. Close that console to stop. The port is chosen once and remembered in
+`data/port.txt`, so the address and the MCP endpoint stay the same. In the commands below the
+environment's Python is `backend/.venv/Scripts/python` instead of `backend/.venv/bin/python`.
 
 Then follow [docs/connections.md](docs/connections.md) to connect Gmail (Google sign-in, IMAP or MCP)
 and an AI engine (OpenAI / Anthropic / Google / Azure / OpenAI-compatible key, or an MCP client such as
