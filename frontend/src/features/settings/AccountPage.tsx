@@ -1,12 +1,41 @@
 import { Check, FlaskConical, Plus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { api } from "@/api/client";
 import { useCurrentUser, useSession, useWorkspace } from "@/api/session";
 import { roleLabel } from "@/lib/labels";
 import { Avatar, Button, Chip, ErrorState, Field, KeyValue, Panel, PanelBody, PanelHeader, Select, Skeleton, toast, toastError } from "@/ui";
 import { useActAs, useActivateWorkspace, useTeam } from "./api";
 import { RolePermissions } from "./RolesPanel";
 import { SettingsPage } from "./SettingsPage";
+import { version as interfaceVersion } from "../../../package.json";
+
+function AboutApp() {
+  const health = useQuery({
+    queryKey: ["app-health"],
+    queryFn: () => api.get<{ version?: string; build_commit?: string }>("/health"),
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const commit = health.data?.build_commit;
+  return (
+    <Panel>
+      <PanelHeader title="About" />
+      <PanelBody className="space-y-3">
+        <KeyValue
+          labelWidth="sm"
+          items={[
+            { label: "Interface", value: interfaceVersion },
+            { label: "Engine", value: health.isLoading ? "Checking…" : health.data?.version ?? "Unavailable" },
+            { label: "Build", value: health.isLoading ? "Checking…" : commit && commit !== "unknown" ? <span title={commit}>{commit.slice(0, 12)}</span> : "Unknown" },
+          ]}
+        />
+        {health.isError ? <ErrorState error={health.error} onRetry={() => health.refetch()} compact /> : null}
+      </PanelBody>
+    </Panel>
+  );
+}
 
 function UseAppAs() {
   const me = useCurrentUser();
@@ -161,6 +190,7 @@ export function AccountPage() {
       </Panel>
 
       <UseAppAs />
+      <AboutApp />
     </SettingsPage>
   );
 }

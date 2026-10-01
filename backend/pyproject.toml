@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "engineering-smart-system"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first email-to-quotation automation with a human engineer gate"
 requires-python = ">=3.11"
 dependencies = [
