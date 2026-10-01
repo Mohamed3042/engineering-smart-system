@@ -190,6 +190,7 @@ def extract_pdf(path: Path, *, max_pages: int = 2000) -> dict:
             warnings.append(f"only the first {max_pages} of {count} pages were read")
         use_pdfium = reader is None
         started = time.monotonic()
+        layout_skipped = 0
         for index in range(min(count, max_pages)):
             text = ""
             width = height = 0.0
@@ -235,6 +236,9 @@ def extract_pdf(path: Path, *, max_pages: int = 2000) -> dict:
                 }
             )
             if page is not None and re.search(r"\b(qty|quantity|amount|unit\s*rate|الكمية)\b", text, re.I):
+                if time.monotonic() - started > _SLOW_TOTAL_S:
+                    layout_skipped += 1
+                    continue
                 try:
                     layout = page.extract_text(extraction_mode="layout") or ""
                 except Exception:
@@ -243,6 +247,8 @@ def extract_pdf(path: Path, *, max_pages: int = 2000) -> dict:
                 if found:
                     boq_items += found
                     tables.append({"name": f"page {index + 1}", "page": index + 1, "rows": rows})
+        if layout_skipped:
+            warnings.append(f"BOQ table parsing skipped on {layout_skipped} page(s): time budget exceeded")
     finally:
         if pdfium_doc is not None:
             with _PDFIUM_LOCK:

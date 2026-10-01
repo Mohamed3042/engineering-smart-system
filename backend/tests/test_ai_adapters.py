@@ -17,6 +17,7 @@ from ess.ai.testing import exam_record
 SCHEMA = {"type": "object", "additionalProperties": False, "required": ["category"],
           "properties": {"category": {"type": "string", "enum": ["bmu", "wce"]}}}
 GOOD = {"category": "wce"}
+GOOD_TEXT = json.dumps(GOOD)
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
 
 
@@ -49,7 +50,7 @@ def http_response(status: int, headers: dict | None = None) -> httpx2.Response:
 
 # ---------------------------------------------------------------- OpenAI Responses API
 
-def openai_response(text=json.dumps(GOOD), status="completed", reason=None, refusal=None, model="gpt-5-2025-08-07"):
+def openai_response(text=GOOD_TEXT, status="completed", reason=None, refusal=None, model="gpt-5-2025-08-07"):
     content = [NS(type="refusal", refusal=refusal)] if refusal else [NS(type="output_text", text=text)]
     return NS(output_text="" if refusal else text, output=[NS(type="message", content=content)], status=status,
               incomplete_details=NS(reason=reason) if reason else None,
@@ -108,7 +109,7 @@ def test_openai_sdk_errors_are_retried_or_mapped():
 
 # ---------------------------------------------------------------- Chat Completions (Azure / gateways)
 
-def chat_response(text=json.dumps(GOOD), model="gpt-4.1-2025-04-14", finish="stop", refusal=None):
+def chat_response(text=GOOD_TEXT, model="gpt-4.1-2025-04-14", finish="stop", refusal=None):
     return NS(choices=[NS(message=NS(content=text, refusal=refusal), finish_reason=finish)],
               usage=NS(prompt_tokens=9, completion_tokens=4), model=model)
 
@@ -168,7 +169,7 @@ class FakeStream:
         return self.message
 
 
-def claude_message(text=json.dumps(GOOD), stop="end_turn", model="claude-opus-5-5", details=None):
+def claude_message(text=GOOD_TEXT, stop="end_turn", model="claude-opus-5-5", details=None):
     return NS(content=[NS(type="thinking", thinking=""), NS(type="text", text=text)], stop_reason=stop,
               stop_details=details, model=model,
               usage=NS(input_tokens=20, output_tokens=8, cache_read_input_tokens=5, cache_creation_input_tokens=0))
@@ -225,7 +226,7 @@ def test_anthropic_refusal_and_errors():
 
 # ---------------------------------------------------------------- Google Gemini
 
-def gemini_response(text=json.dumps(GOOD), finish="STOP", model="gemini-2.5-pro", block=None):
+def gemini_response(text=GOOD_TEXT, finish="STOP", model="gemini-2.5-pro", block=None):
     return NS(text=text, candidates=[NS(finish_reason=NS(name=finish))], model_version=model,
               usage_metadata=NS(prompt_token_count=30, candidates_token_count=10, thoughts_token_count=5),
               prompt_feedback=NS(block_reason=block) if block else None)

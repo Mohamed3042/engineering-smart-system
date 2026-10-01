@@ -107,6 +107,28 @@ def latest_exam(provider: str, model: str) -> dict[str, Any] | None:
     return history[-1] if history else None
 
 
+def exam_signing_key() -> bytes:
+    """Per-installation secret used to sign qualification records (created on first use, mode 600)."""
+    path = ai_dir() / ".exam-signing.key"
+    with _LOCK:
+        if not path.exists():
+            fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(os.urandom(32))
+        return path.read_bytes()
+
+
+def save_azure_deployments(mapping: dict[str, str]) -> None:
+    with _LOCK:
+        _write_json(ai_dir() / "azure_deployments.json", mapping)
+
+
+def load_azure_deployments() -> dict[str, str]:
+    with _LOCK:
+        data = _read_json(ai_dir() / "azure_deployments.json", {})
+    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
 def all_latest_exams() -> dict[str, dict[str, Any]]:
     with _LOCK:
         data = _read_json(ai_dir() / "qualifications.json", {})

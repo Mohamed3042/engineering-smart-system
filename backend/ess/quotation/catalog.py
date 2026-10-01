@@ -27,7 +27,17 @@ try:  # optional fuzzy ranking (a project dependency, but keep the module import
 except Exception:  # pragma: no cover
     fuzz = None
 
-QTY_UNITS = {"each": {"en": "No.", "ar": "عدد"}}  # a price "per each" is counted in numbers
+# A catalog unit is the *price* unit (per month, per day, per lot ...); the quantity is counted in
+# these units. Time and lot units count pieces: two scaffolds rented per month are "2 No.".
+QTY_UNITS = {
+    "set": {"en": "Set", "ar": "طقم"},
+    "metre": {"en": "m", "ar": "متر"},
+    "square_metre": {"en": "m²", "ar": "م²"},
+    "coil": {"en": "Coil", "ar": "لفة"},
+    "visit": {"en": "Visit", "ar": "زيارة"},
+    "project": {"en": "Lot", "ar": "مقطوعية"},
+}
+_PIECES = {"en": "No.", "ar": "عدد"}
 
 
 @dataclass(frozen=True)
@@ -187,7 +197,7 @@ def catalog_item(product: CatalogProduct, catalog: Catalog | None = None, *, lan
     unit_key = product.unit_key(transaction)
     lang = "ar" if language == "ar" else "en"
     price_unit = catalog.unit_label(unit_key, lang) if catalog else (unit_key or "")
-    qty_unit = QTY_UNITS.get(unit_key or "", {}).get(lang) or price_unit or None
+    qty_unit = QTY_UNITS.get(unit_key or "", _PIECES)[lang]
     return {
         "no": no, "description": name, "spec": spec or None, "qty": qty, "unit": qty_unit,
         "price_unit": price_unit or None, "unit_price": None, "total": None, "catalog_id": product.id,
@@ -218,17 +228,16 @@ def search_catalog(query: str = "", catalog: Catalog | Path | str | None = None,
         specs = [_normalize(s) for s in product.specification.values()]
         score = 0.0
         if tokens:
-            for token in tokens:
-                if any(token in n for n in names):
-                    score += 10
-                elif any(token in s for s in specs) or token in _normalize(product.id + " " + product.family):
-                    score += 4
-            if any(wanted in n for n in names):
-                score += 50
+            name_hits = sum(1 for token in tokens if any(token in n for n in names))
+            other_hits = sum(1 for token in tokens if not any(token in n for n in names)
+                             and (any(token in s for s in specs) or token in _normalize(product.id + " " + product.family)))
+            phrase = any(wanted in n for n in names) or any(wanted in s for s in specs)
+            # Relevant only when the name / an alias matches, or the whole phrase is in the spec.
+            if not phrase and (name_hits == 0 or name_hits + other_hits < (len(tokens) + 1) // 2):
+                continue
+            score = 10 * name_hits + 4 * other_hits + (50 if any(wanted in n for n in names) else 0)
             if fuzz is not None:
                 score += max(fuzz.partial_ratio(wanted, n) for n in names) / 10
-            if score < 10:
-                continue
         item = catalog_item(product, catalog, language=language, transaction=transaction)
         results.append({
             "product_id": product.id,

@@ -30,4 +30,4 @@ filterwarnings = ["ignore::DeprecationWarning"]
 include = ["ess*"]
 
 [tool.setuptools.package-data]
-ess = ["**/*.json", "**/*.yaml", "**/*.j2", "**/*.html", "**/*.css", "**/*.ttf", "**/*.otf", "**/*.svg", "**/*.txt", "**/*.md"]
+ess = ["**/*.json", "**/*.yaml", "**/*.j2", "**/*.html", "**/*.css", "**/*.js", "**/*.ttf", "**/*.otf", "**/*.woff2", "**/*.svg", "**/*.txt", "**/*.md"]

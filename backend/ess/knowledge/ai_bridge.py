@@ -24,6 +24,7 @@ class AITaskUnavailable(RuntimeError):
 _PARAM_ALIASES = {
     "ai": "engine", "llm": "engine", "client": "engine", "ai_engine": "engine",
     "docs": "documents", "corpus": "documents", "samples": "documents", "sources": "documents",
+    "corpus_excerpts": "documents", "excerpts_list": "documents", "results_list": "search_results",
     "texts": "documents", "excerpts": "documents", "corpus_docs": "documents",
     "deterministic": "hints", "known": "hints", "draft": "hints", "drafts": "hints", "items": "hints",
     "existing": "hints", "seed": "hints", "candidates": "hints", "findings": "hints", "draft_items": "hints",

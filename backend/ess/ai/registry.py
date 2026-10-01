@@ -211,6 +211,44 @@ def classify_unknown(provider: str, model_id: str, remote_info: dict | None = No
 
 
 # --------------------------------------------------------------------------------------------
+# Azure deployments: arbitrary names that stand for an underlying model
+# --------------------------------------------------------------------------------------------
+
+_AZURE_DEPLOYMENTS: dict[str, str] = {}
+_AZURE_LOADED = False
+
+
+def register_azure_deployments(mapping: dict[str, str], *, persist: bool = True) -> None:
+    """Remember which model each Azure deployment serves (filled by the deployments listing), so a
+    deployment called e.g. "prod-chat" is evaluated as the model behind it."""
+    clean = {str(k).lower(): str(v) for k, v in (mapping or {}).items() if k and v}
+    _AZURE_DEPLOYMENTS.update(clean)
+    if persist and clean:
+        try:
+            from .store import save_azure_deployments
+
+            save_azure_deployments(dict(_AZURE_DEPLOYMENTS))
+        except Exception:  # persistence is a convenience; the in-memory map still applies
+            pass
+
+
+def azure_underlying_model(deployment: str | None) -> str | None:
+    global _AZURE_LOADED
+    if not deployment:
+        return None
+    if not _AZURE_LOADED:
+        _AZURE_LOADED = True
+        try:
+            from .store import load_azure_deployments
+
+            for k, v in load_azure_deployments().items():
+                _AZURE_DEPLOYMENTS.setdefault(str(k).lower(), str(v))
+        except Exception:
+            pass
+    return _AZURE_DEPLOYMENTS.get(deployment.lower())
+
+
+# --------------------------------------------------------------------------------------------
 # Catalogue
 # --------------------------------------------------------------------------------------------
 
@@ -271,9 +309,21 @@ class Registry:
         if provider not in PROVIDERS:
             raise ValueError(f"unknown provider {provider!r}; expected one of {', '.join(PROVIDERS)}")
         spec = self.get(provider, model_id)
+        if spec is None and provider == "azure_openai":
+            underlying = azure_underlying_model(model_id)
+            if underlying and underlying.lower() != model_id.lower():
+                base = self.spec_for(provider, underlying, remote_info)
+                return replace(base, model_id=model_id, canonical_id=base.canonical_id or base.model_id,
+                               notes=f"{base.notes} Azure deployment '{model_id}' of {underlying}.".strip())
         if spec is not None and spec.tier != "refused" and hard_refusal(model_id, provider):
             spec = None  # e.g. "openai/gpt-5:free": the refusal rule wins over the curated base model
         return spec or classify_unknown(provider, model_id, remote_info)
+
+    def served_model_expected(self, provider: str, model_id: str, extra: dict | None = None) -> str:
+        """The model name the API should report for ``model_id`` (Azure: the deployment's model)."""
+        if provider == "azure_openai":
+            return str((extra or {}).get("model") or azure_underlying_model(model_id) or model_id)
+        return model_id
 
     def same_model(self, provider: str, requested: str, served: str | None) -> bool:
         """True when ``served`` (what the API says answered) is the requested model or one of its

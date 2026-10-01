@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 from .engine import ProviderHTTPError, ProviderRequest, ProviderResponse
 from .exam_cases import EXAM_CASES, EXAM_VERSION
-from .policy import TASKS
+from .policy import TASKS, sign_exam
 
 
 def _case_for(req: ProviderRequest):
@@ -143,15 +143,16 @@ def http_error(status: int | None, message: str = "error", **kwargs: Any) -> Pro
 def exam_record(provider: str, model: str, *, score: float = 1.0, passed: bool | None = None,
                 critical_failures: list[dict] | None = None, tasks: list[str] | None = None,
                 days_old: float = 1.0, exam_version: str | None = None, failed_cases: dict[str, int] | None = None,
-                served_models: list[str] | None = None) -> dict:
-    """A qualification record as ``run_qualification`` would save it."""
+                served_models: list[str] | None = None, signed: bool = True) -> dict:
+    """A qualification record as ``run_qualification`` would save it (signed with this installation's key)."""
     covered = list(tasks or TASKS)
     failed_cases = failed_cases or {}
     task_results = {t: {"cases": 2, "passed": 2 - failed_cases.get(t, 0), "score": score} for t in covered}
     crit = list(critical_failures or [])
     ran = datetime.now(timezone.utc) - timedelta(days=days_old)
-    return {"provider": provider, "model": model, "score": score,
-            "passed": (score >= 0.9 and not crit) if passed is None else passed,
-            "critical_failures": crit, "cases": [], "ran_at": ran.isoformat(),
-            "exam_version": exam_version or EXAM_VERSION, "tasks": covered, "task_results": task_results,
-            "served_models": served_models or [], "mode": "api"}
+    record = {"provider": provider, "model": model, "score": score,
+              "passed": (score >= 0.9 and not crit) if passed is None else passed,
+              "critical_failures": crit, "cases": [], "ran_at": ran.isoformat(),
+              "exam_version": exam_version or EXAM_VERSION, "tasks": covered, "task_results": task_results,
+              "served_models": served_models or [], "mode": "api"}
+    return sign_exam(record) if signed else record

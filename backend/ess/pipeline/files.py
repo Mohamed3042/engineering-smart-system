@@ -226,7 +226,30 @@ def extract_file(session: Session, f: ProjectFile) -> ProjectFile:
         "meta": doc.meta if isinstance(doc.meta, dict) else {},
     }
     f.updated_at = utcnow()
+    _register_children(session, f, list(getattr(doc, "children", None) or []))
     return f
+
+
+def _register_children(session: Session, parent: ProjectFile, children: list) -> None:
+    """Files found inside a ZIP or an e-mail become project files too (then get read like any other)."""
+    data_dir = get_settings().data_dir.resolve()
+    for child in children:
+        cpath = Path(child.path if hasattr(child, "path") else child["path"]).resolve()
+        if data_dir not in cpath.parents or not cpath.is_file():
+            continue
+        rel = str(cpath.relative_to(data_dir))
+        if session.exec(select(ProjectFile).where(ProjectFile.project_id == parent.project_id,
+                                                  ProjectFile.path == rel)).first():
+            continue
+        data = cpath.read_bytes()
+        session.add(ProjectFile(workspace_id=parent.workspace_id, project_id=parent.project_id,
+                                enquiry_id=parent.enquiry_id, name=cpath.name,
+                                doc_kind=getattr(child, "doc_kind", None) or "other",
+                                source=parent.source, source_url=parent.source_url, email_id=parent.email_id,
+                                link_id=parent.link_id, path=rel, size=len(data),
+                                sha256=hashlib.sha256(data).hexdigest(),
+                                mime=mimetypes.guess_type(cpath.name)[0] or "", status="ready",
+                                summary=f"Inside {parent.name}"))
 
 
 def file_text(f: ProjectFile) -> str:
@@ -238,17 +261,21 @@ def file_text(f: ProjectFile) -> str:
 def extract_project_files(project_id: str) -> dict:
     done, errors = 0, []
     with session_scope() as s:
-        files = s.exec(select(ProjectFile).where(ProjectFile.project_id == project_id, ProjectFile.status == "ready")).all()
-        for f in files:
-            if (f.extraction or {}).get("text_path"):
-                continue
-            try:
-                extract_file(s, f)
-                done += 1
-            except Exception as exc:
-                f.error = f"extract: {exc}"[:500]
-                errors.append(f.name)
-            s.add(f)
+        for _round in range(4):  # archives can contain archives
+            files = s.exec(select(ProjectFile).where(ProjectFile.project_id == project_id,
+                                                     ProjectFile.status == "ready")).all()
+            todo = [f for f in files if not (f.extraction or {}).get("text_path") and f.name not in errors]
+            if not todo:
+                break
+            for f in todo:
+                try:
+                    extract_file(s, f)
+                    done += 1
+                except Exception as exc:
+                    f.error = f"extract: {exc}"[:500]
+                    errors.append(f.name)
+                s.add(f)
+            s.flush()
         project = s.get(Project, project_id)
         if project:
             refresh_project_state(s, project)

@@ -281,7 +281,7 @@ class McpMailSource:
                 return new_api(self.url, http_client=http_client), http_client
             except (ImportError, TypeError):
                 pass
-        legacy = getattr(sh, "streamablehttp_client")
+        legacy = sh.streamablehttp_client
         return legacy(self.url, headers=self.headers or None, timeout=self.timeout_s), None
 
     async def _sdk_session(self, stack: AsyncExitStack) -> Any:

@@ -140,7 +140,15 @@ def oauth_start(conn_id: str, request: Request, session: Session = Depends(get_s
     if not client_config:
         raise HTTPException(409, {"code": "client_config_missing",
                                   "message": "Upload the Google OAuth client JSON first (Settings → Connections → Gmail)."})
-    url = gmail_auth_url(client_config, _redirect_uri(request), state=conn.id)
+    import secrets as pysecrets
+
+    verifier = pysecrets.token_urlsafe(64)[:96]
+    state_row = session.get(AppState, f"oauth:{conn.id}") or AppState(key=f"oauth:{conn.id}")
+    state_row.value = {"code_verifier": verifier, "at": utcnow().isoformat()}
+    session.add(state_row)
+    session.commit()
+    url = gmail_auth_url(client_config, _redirect_uri(request), state=conn.id, code_verifier=verifier,
+                         login_hint=conn.account or (conn.config or {}).get("account"))
     return {"auth_url": url, "redirect_uri": _redirect_uri(request)}
 
 
@@ -158,7 +166,11 @@ def oauth_callback(request: Request, code: Optional[str] = None, state: Optional
         session.commit()
         return RedirectResponse("/settings/connections?gmail=error")
     client_config = get_secret(secret_name(conn, "client_config"))
-    token = gmail_exchange_code(client_config, _redirect_uri(request), code)
+    state_row = session.get(AppState, f"oauth:{conn.id}")
+    verifier = (state_row.value or {}).get("code_verifier") if state_row else None
+    token = gmail_exchange_code(client_config, _redirect_uri(request), code, code_verifier=verifier)
+    if state_row is not None:
+        session.delete(state_row)
     set_secret(secret_name(conn, "token"), token)
     conn.secret_names = sorted(set(conn.secret_names or []) | {secret_name(conn, "token")})
     try:

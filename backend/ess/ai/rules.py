@@ -320,7 +320,7 @@ class RuleClassifier:
             for pat, s, e in self._scan(text, self._patterns, consume=True):
                 scores[pat.target] += pat.weight * fw
                 hits[pat.target].append((pat.weight * fw, _quote_window(text, s, e), source_of[fname]))
-            for pat, s, e in self._scan(text, self._negatives, consume=False):
+            for pat, _s, _e in self._scan(text, self._negatives, consume=False):
                 scores[pat.target] -= pat.weight * fw
             for pat, s, e in self._scan(text, self._signals, consume=False):
                 signals[pat.target] = signals.get(pat.target, 0.0) + pat.weight * fw
@@ -362,7 +362,9 @@ class RuleClassifier:
         if request >= 2 and work_best > 0:  # a real request (not just quoted history) favours the work category
             best_work = max(work_scores, key=lambda k: scores[k])
             scores[best_work] += min(request, 8) * 0.5
-        own = bool(domain) and any(domain == d or domain.endswith("." + d) for d in self.own_domains)
+        own_domains = self.own_domains + tuple(str(d).lower().lstrip("@") for d in email.get("own_domains") or ()
+                                               if d)
+        own = bool(domain) and any(domain == d or domain.endswith("." + d) for d in own_domains)
         forwarded = bool(re.match(r"^\s*(fw|fwd|tr)\s*:", subject, re.IGNORECASE))
         if own and "internal" in scores and not (forwarded and strong_work):
             # colleagues talk about BMUs all day: our own domain decides, unless it forwards a request

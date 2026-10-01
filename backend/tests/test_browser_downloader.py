@@ -89,6 +89,22 @@ async def test_max_bytes_is_enforced(sites, tmp_path, path):
     assert not result.files and not _leftovers(tmp_path)
 
 
+async def test_timeouts_allow_progress_but_not_stalls(sites, tmp_path, monkeypatch):
+    import ess.browser.downloader as dl
+
+    monkeypatch.setattr(dl, "STALL_S", 1.0)
+    slow = await download_link(f"{sites.base}/files/slow", "direct_file", tmp_path / "slow", timeout_s=0.5)
+    assert slow.status == "ok", slow.log  # data kept flowing past timeout_s
+    assert slow.files[0].size == len(b"%PDF-1.4\n") + 8 * 1024
+
+    stalled = await download_link(f"{sites.base}/files/stall", "direct_file", tmp_path / "stall", timeout_s=0.5)
+    assert stalled.status == "failed" and "stalled" in stalled.error
+    assert not list((tmp_path / "stall").rglob("*.part"))
+
+    hang = await download_link(f"{sites.base}/files/hang", "direct_file", tmp_path / "hang", timeout_s=0.5)
+    assert hang.status == "failed" and "timed out" in hang.error
+
+
 async def test_allowed_hosts(sites, tmp_path):
     hits_before = len(sites.hits)
     result = await download_link(f"{sites.base}/files/report.pdf", "direct_file", tmp_path, allowed_hosts=["example.com"])

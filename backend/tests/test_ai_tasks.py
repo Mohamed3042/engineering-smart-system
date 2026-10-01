@@ -10,13 +10,13 @@ from ess.ai.engine import AIEngine
 from ess.ai.errors import InvalidOutput, RefusedByPolicy
 from ess.ai.exam_cases import (BMU_SPEC, BMU_THREAD, EMAIL_BMU, EMAIL_VENDOR, PROJECT_PRICE_TRAP,
                                drawing_image_png, golden_answer)
-
-SPEC_FILES = [{"name": "MCT_Spec_Section_14_91_00.pdf", "text": BMU_SPEC}]
 from ess.ai.external import (EXTERNAL_RULES, accept_external_result, check_external_model, prepare_task,
                              require_external_model)
 from ess.ai.guards import PRICE_PLACEHOLDER
 from ess.ai.policy import DEFAULT_POLICY
 from ess.ai.testing import ScriptedTransport, exam_record
+
+SPEC_FILES = [{"name": "MCT_Spec_Section_14_91_00.pdf", "text": BMU_SPEC}]
 
 
 def engine_with(answer: dict, provider="anthropic", model="claude-opus-5-5") -> AIEngine:

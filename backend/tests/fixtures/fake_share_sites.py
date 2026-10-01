@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -121,6 +122,21 @@ class _Handler(BaseHTTPRequestHandler):
                 self.wfile.write(b"\x00" * 65536)
             return
         if path == "/files/noname":
+            return self._send(200, PDF_BYTES, "application/pdf")
+        if path in ("/files/slow", "/files/stall"):  # steady trickle vs. a stream that stops sending
+            self.send_response(200)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", f'attachment; filename="{path.rsplit("/", 1)[-1]}.pdf"')
+            self.end_headers()
+            self.wfile.write(b"%PDF-1.4\n")
+            self.wfile.flush()
+            for _ in range(8 if path == "/files/slow" else 1):
+                time.sleep(0.25 if path == "/files/slow" else 4.0)
+                self.wfile.write(b"0" * 1024)
+                self.wfile.flush()
+            return
+        if path == "/files/hang":
+            time.sleep(4.0)
             return self._send(200, PDF_BYTES, "application/pdf")
         # Google Drive
         if path == "/uc":

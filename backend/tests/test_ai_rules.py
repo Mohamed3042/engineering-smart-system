@@ -168,6 +168,14 @@ def test_restricted_category_list_and_merged_keywords(tmp_path):
     assert only.classify(mail("Invoice 22", "Please pay the invoice"))["category"] == "other"
 
 
+def test_own_domains_can_come_with_the_email_payload():
+    rc = RuleClassifier()  # the pipeline passes ws.own_domains inside the payload
+    email = mail("Site visit tomorrow – BMU", "Team, site visit for the BMU tomorrow.", "colleague@medmack.com",
+                 own_domains=["medmack.com"])
+    assert rc.classify(email)["category"] == "internal"
+    assert rc.classify({**email, "own_domains": []})["category"] == "bmu"
+
+
 def test_default_categories_cover_the_snapshot_table():
     keys = {c["key"] for c in DEFAULT_CATEGORIES}
     assert keys == {"bmu", "wce", "cradle", "hoist", "crane", "access_rental", "scaffolding", "space_frame",

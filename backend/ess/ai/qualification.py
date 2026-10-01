@@ -8,6 +8,7 @@ task code (prompts + guards) on the engine's model and scores it deterministical
 * exam score = mean case score; the exam passes with score ≥ the policy's ``min_score`` (never
   below 0.90) and **zero** critical failures. Invalid JSON after the repair retry or a refusal is a
   critical failure of that case.
+* the record is signed (HMAC, per-installation key): hand-made records are ignored by the policy.
 
 The model may answer the exam before it is qualified (the engine allows exactly these synthetic
 prompts), but a refused model cannot even take it. Auth, quota, network and unknown-model errors
@@ -25,7 +26,7 @@ from typing import Any, Callable
 from .engine import exam_session
 from .errors import InvalidOutput, ModelDeclined, RefusedByPolicy
 from .exam_cases import CASE_PASS_SCORE, EXAM_CASES, EXAM_VERSION, ExamCase, select_cases
-from .policy import DEFAULT_POLICY, Policy, evaluate_model
+from .policy import DEFAULT_POLICY, Policy, evaluate_model, sign_exam
 from .registry import get_spec
 from .tasks import finalize
 
@@ -75,14 +76,14 @@ def _assemble(provider: str, model: str, cases: list[dict], policy: Policy, *, m
         tr["score"] += c["score"]
     for tr in task_results.values():
         tr["score"] = round(tr["score"] / tr["cases"], 4)
-    return {
+    return sign_exam({
         "provider": provider, "model": model, "score": score,
         "passed": bool(cases) and score >= pol.min_score and not critical,
         "critical_failures": critical, "cases": cases, "ran_at": _now_iso(),
         "exam_version": EXAM_VERSION, "tasks": sorted(task_results), "task_results": task_results,
         "threshold": pol.min_score, "mode": mode, "served_models": served_models, "usage": usage or {},
         "duration_s": round(time.monotonic() - started, 2),
-    }
+    })
 
 
 def run_qualification(engine: Any, tasks: list[str] | None = None, *, policy: Policy | None = None,

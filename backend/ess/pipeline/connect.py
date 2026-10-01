@@ -122,6 +122,8 @@ def engine_for(session: Session, ws: Workspace, task: str, *, required: bool = F
         return None
     from ..ai.engine import AIEngine
 
+    state = session.get(AIModelState, f"{ws.id}:{conn.provider}:{model}")
     engine = AIEngine(provider=conn.provider, model=model, api_key=get_secret(secret_name(conn, "api_key")),
-                      base_url=(conn.config or {}).get("base_url"), extra=(conn.config or {}).get("extra") or {})
+                      base_url=(conn.config or {}).get("base_url"), extra=(conn.config or {}).get("extra") or {},
+                      policy=_policy(ws), exam=(state.exam or None) if state else None)
     return EngineChoice(engine=engine, connection=conn, model=model, status=status, reasons=reasons)

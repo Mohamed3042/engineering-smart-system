@@ -11,7 +11,8 @@ A model is **eligible** for a task only when *all* of these hold:
    business discovery, customer research) accept **frontier** models only; ``classify_email``
    accepts frontier or standard.
 4. It passed the qualification exam on this workspace: score ≥ 0.90, zero critical failures, every
-   case of that task passed, exam younger than 30 days and taken with the current exam suite.
+   case of that task passed, exam younger than 30 days, taken with the current exam suite and
+   signed by this installation's exam runner (hand-made "passed" records are ignored).
 
 The numbers above are the **hard floor**. A workspace policy (``Policy``) may only tighten it –
 add blocked patterns/providers, raise ``min_score``, shorten the exam validity, require more
@@ -26,6 +27,9 @@ the **full** exam with score ≥ 0.95. Light and refused models can never be pro
 from __future__ import annotations
 
 import fnmatch
+import hashlib
+import hmac
+import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -252,6 +256,13 @@ class Policy:
 DEFAULT_POLICY = Policy()
 
 
+def enforce_floor(policy: Policy | dict[str, Any]) -> Policy:
+    """The policy clamped to the hard floor (what will actually be enforced) - store this, so the
+    settings screen never displays a weakened value that is silently ignored."""
+    pol = policy if isinstance(policy, Policy) else Policy.from_dict(policy)
+    return pol.effective()
+
+
 @dataclass
 class EligibilityResult:
     status: str  # eligible | refused | needs_evaluation | failed_evaluation
@@ -272,6 +283,39 @@ class EligibilityResult:
         return {"status": self.status, "reasons": list(self.reasons), "warnings": list(self.warnings),
                 "provider": self.provider, "model": self.model, "task": self.task, "tier": self.tier,
                 "allowed_tasks": list(self.allowed_tasks), "exam": self.exam}
+
+
+# ------------------------------------------------------------------ exam records are signed
+
+SIGNED_EXAM_FIELDS = ("provider", "model", "score", "passed", "ran_at", "exam_version", "tasks", "task_results",
+                      "served_models", "mode")
+
+
+def _exam_payload(exam: dict) -> bytes:
+    view = {k: exam.get(k) for k in SIGNED_EXAM_FIELDS}
+    view["critical_failures"] = len(exam.get("critical_failures") or [])
+    return json.dumps(view, sort_keys=True, ensure_ascii=True, separators=(",", ":"), default=str).encode("utf-8")
+
+
+def sign_exam(exam: dict) -> dict:
+    """Sign a record produced by the exam runner (in place). Only ess.ai.qualification calls this."""
+    from .store import exam_signing_key
+
+    exam["signature"] = hmac.new(exam_signing_key(), _exam_payload(exam), hashlib.sha256).hexdigest()
+    return exam
+
+
+def exam_signature_valid(exam: dict) -> bool:
+    sig = exam.get("signature")
+    if not isinstance(sig, str) or not sig:
+        return False
+    try:
+        from .store import exam_signing_key
+
+        expected = hmac.new(exam_signing_key(), _exam_payload(exam), hashlib.sha256).hexdigest()
+    except Exception:  # unreadable key: fail closed
+        return False
+    return hmac.compare_digest(sig, expected)
 
 
 # ------------------------------------------------------------------ exam checks
@@ -304,6 +348,9 @@ def exam_state(spec: ModelSpec, exam: dict | None, policy: Policy, *, now: datet
     if exam.get("provider") != spec.provider or exam.get("model") != spec.model_id:
         return "missing", [f"the exam on record belongs to {exam.get('provider')}:{exam.get('model')}, "
                            f"not {spec.provider}:{spec.model_id}"]
+    if not exam_signature_valid(exam):
+        return "missing", ["the exam record was not produced by this installation's exam runner (missing or "
+                           "invalid signature); run the qualification exam here"]
     version = exam_version or _current_exam_version()
     if exam.get("exam_version") != version:
         return "stale", [f"the exam suite changed ({exam.get('exam_version')} → {version}); re-run the exam"]

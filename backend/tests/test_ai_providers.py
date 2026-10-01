@@ -59,9 +59,13 @@ def test_azure_deployments_carry_the_underlying_model():
     assert {(d["deployment"], d["model"]) for d in details} == {("prod-gpt5", "gpt-5"), ("cheap", "gpt-4o-mini")}
     assert respx.calls[0].request.headers["api-key"] == "az-key"
     rows = available_models("azure_openai", "az-key", "https://res.openai.azure.com", policy=DEFAULT_POLICY, exams={})
-    by_model = {r["model_id"]: r for r in rows}
-    assert by_model["gpt-5"]["deployment"] == "prod-gpt5" and by_model["gpt-5"]["eligibility"]["status"] == "needs_evaluation"
-    assert by_model["gpt-4o-mini"]["eligibility"]["status"] == "refused"
+    by_deployment = {r["model_id"]: r for r in rows}  # deployments are what the engine calls
+    prod = by_deployment["prod-gpt5"]
+    assert prod["canonical_id"] == "gpt-5" and prod["tier"] == "frontier" and prod["deployment"] == "prod-gpt5"
+    assert prod["eligibility"]["status"] == "needs_evaluation"
+    assert by_deployment["cheap"]["eligibility"]["status"] == "refused"  # gpt-4o-mini behind a friendly name
+    from ess.ai import store
+    assert store.load_azure_deployments()["prod-gpt5"] == "gpt-5"  # remembered for later engine runs
 
 
 @respx.mock

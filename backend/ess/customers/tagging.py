@@ -299,7 +299,9 @@ def classify_customer(domain: str | None = None, company_name: str | None = None
                 seen_kinds.add(("government", "energy"))
                 add("government", 3.0 * factor, f"state-owned energy company '{surface}'")
                 subtypes["oil_gas_industrial"] += 1
+        kinds_here: set[str] = set()
         for key, surface in _hits(_NAME_INDEX, text):
+            kinds_here.add(key)
             if key == "_generic_form":
                 if ("_generic", text) in seen_kinds:
                     continue
@@ -313,6 +315,8 @@ def classify_customer(domain: str | None = None, company_name: str | None = None
             add(key, _NAME_CUES[key][0] * factor, f"name '{surface}'")
         for key, _surface in _hits(_SUBTYPE_INDEX, text):
             subtypes[key] += 1
+        if "subcontractor" in kinds_here and kinds_here & {"main_contractor", "_generic_form"}:
+            add("subcontractor", 1.5 * factor, "specialist trade in a contractor's name")
     for sig in signature_texts or []:
         if not sig:
             continue
@@ -604,9 +608,9 @@ def tag_customer(customer: Any, emails: Sequence[Any] | None, projects: Sequence
     if beh["tender"]:
         tags.append(_tag("Tender participant", "behaviour", "tender_participant", 0.55 + 0.1 * len(beh["tender"]),
                          beh["tender"]))
-    enquiries = {str(_get(p, "ref", "id", "name")) for p in projs} | threads
-    if len(enquiries) >= 2:
-        tags.append(_tag("Repeat enquirer", "behaviour", "repeat_enquirer", 0.5 + 0.1 * len(enquiries),
+    n_enquiries = max(len({str(_get(p, "ref", "id", "name")) for p in projs}), len(threads))
+    if n_enquiries >= 2:
+        tags.append(_tag("Repeat enquirer", "behaviour", "repeat_enquirer", 0.5 + 0.1 * n_enquiries,
                          beh["rfq"] or [_ev(str(_get(p, "name", default="")), "project", _get(p, "ref", "id"))
                                         for p in projs]))
     if beh["reminder"]:
@@ -625,7 +629,7 @@ def tag_customer(customer: Any, emails: Sequence[Any] | None, projects: Sequence
                 dates.append(w)
     if dates:
         first, last = min(dates), max(dates)
-        if now - first <= timedelta(days=90) and len(enquiries) <= 1:
+        if now - first <= timedelta(days=90) and n_enquiries <= 1:
             tags.append(_tag("New customer", "relationship", "new", 0.8,
                              [{"quote": f"first contact {first.date().isoformat()}", "source": "mail"}]))
         if now - last <= timedelta(days=90):

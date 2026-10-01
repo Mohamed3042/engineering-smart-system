@@ -120,7 +120,7 @@ def list_remote_model_details(provider: str, api_key: str | None, base_url: str 
                         continue
                     caps = m.get("capabilities") if isinstance(m.get("capabilities"), dict) else {}
 
-                    def supported(name: str) -> bool | None:
+                    def supported(name: str, caps: dict = caps) -> bool | None:
                         node = caps.get(name)
                         return bool(node.get("supported")) if isinstance(node, dict) and "supported" in node else None
 
@@ -169,6 +169,9 @@ def list_remote_model_details(provider: str, api_key: str | None, base_url: str 
                 if isinstance(d, dict) and d.get("id"):
                     out.append({"id": d["id"], "deployment": d["id"], "model": d.get("model"),
                                 "status": d.get("status")})
+            from .registry import register_azure_deployments
+
+            register_azure_deployments({d["id"]: d["model"] for d in out if d.get("model")})
             return out
 
         raise AIError(f"unknown provider {provider!r}", provider=provider)
@@ -203,9 +206,8 @@ def available_models(provider: str, api_key: str | None, base_url: str | None = 
     registry = load_registry()
     details = list_remote_model_details(provider, api_key, base_url, extra, client=client)
     specs, remote_by_key = [], {}
-    for d in details:
-        model_id = d.get("model") if provider == "azure_openai" and d.get("model") else d["id"]
-        spec = registry.spec_for(provider, model_id, remote_info=d)
+    for d in details:  # Azure: d["id"] is the deployment; the registry resolves the model behind it
+        spec = registry.spec_for(provider, d["id"], remote_info=d)
         specs.append(spec)
         remote_by_key[spec.key] = d
     rows = eligibility_table(specs, policy, exams)

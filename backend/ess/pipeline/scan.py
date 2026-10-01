@@ -51,11 +51,21 @@ def clean_subject(subject: str) -> str:
     return s[:120] or (subject or "Untitled enquiry")[:120]
 
 
-def tender_numbers(text: str) -> set[str]:
-    found = set()
+def canonical_tender(value: str) -> str:
+    """'RFP-2143588', 'KOC-2143588', 'Tender No. RFP 2143588.' → '2143588' (one tender, many spellings)."""
+    v = re.sub(r"\s+", "", value or "").upper().strip(".,;:)(")
+    m = re.fullmatch(r"(?:RFP|KOC|RFQ)[-/]?(\d{5,})", v)
+    return m.group(1) if m else v
+
+
+def tender_numbers(text: str) -> list[str]:
+    """Tender numbers in order of appearance, most specific patterns first, canonical spelling."""
+    found: list[str] = []
     for rx in TENDER_PATTERNS:
         for m in rx.finditer(text or ""):
-            found.add(re.sub(r"\s+", "", m.group(1)).upper())
+            value = canonical_tender(m.group(1))
+            if len(value) >= 4 and value not in found:
+                found.append(value)
     return found
 
 
@@ -118,7 +128,7 @@ def _classify(session: Session, ws: Workspace, email: Email, categories: list[Ca
         email.category_source = source
 
 
-def _match_project(session: Session, ws: Workspace, email: Email, name: str, tenders: set[str]) -> Optional[Project]:
+def _match_project(session: Session, ws: Workspace, email: Email, name: str, tenders: list[str]) -> Optional[Project]:
     projects = session.exec(select(Project).where(Project.workspace_id == ws.id, Project.archived_at == None)).all()  # noqa: E711
     # 1. same thread already linked
     linked = session.exec(select(Email).where(Email.thread_id == email.thread_id, Email.project_id != None)).first()  # noqa: E711
@@ -126,7 +136,7 @@ def _match_project(session: Session, ws: Workspace, email: Email, name: str, ten
         return session.get(Project, linked.project_id)
     # 2. same tender number
     for p in projects:
-        if p.tender_no and any(t in re.sub(r"\s+", "", p.tender_no).upper() for t in tenders):
+        if p.tender_no and canonical_tender(p.tender_no) in tenders:
             return p
     # 3. similar name
     best, score = None, 0.0
@@ -146,7 +156,7 @@ def link_email_to_project(session: Session, ws: Workspace, email: Email) -> Opti
     if project is None:
         count = len(session.exec(select(Project.id).where(Project.workspace_id == ws.id)).all())
         project = Project(workspace_id=ws.id, ref=f"P-{email.thread_id}", code=f"P-{count + 1:04d}", name=name,
-                          service_family=email.category, tender_no=next(iter(tenders), None), source="pipeline",
+                          service_family=email.category, tender_no=tenders[0] if tenders else None, source="pipeline",
                           priority=email.priority)
         session.add(project)
         session.flush()

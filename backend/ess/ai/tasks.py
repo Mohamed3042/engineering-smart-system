@@ -250,7 +250,7 @@ def prepare_classify_email(email: dict, categories: list[dict] | None = None,
                    "from": from_field, "attachments": attachments,
                    "headers": f"List-Unsubscribe: {email['list_unsubscribe']}" if email.get("list_unsubscribe") else ""}
     sources = {k: v for k, v in raw_sources.items() if v.strip()} or {"body": ""}
-    own = knowledge.get("own_domains") or []
+    own = list(dict.fromkeys([*(knowledge.get("own_domains") or []), *(email.get("own_domains") or [])]))
     schema = _obj({
         "category": {"type": "string", "enum": keys},
         "confidence": _CONF,

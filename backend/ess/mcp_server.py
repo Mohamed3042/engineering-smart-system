@@ -102,6 +102,47 @@ def _server():
             return decl
 
     @server.tool()
+    def get_qualification_exam(include_drawing: bool = True) -> list[dict]:
+        """The qualification exam (invented cases). Answer each case with one JSON object that matches
+        its schema, then call submit_qualification_answers. Critical work needs a passed exam."""
+        from .ai.qualification import exam_requests
+
+        return exam_requests(vision=include_drawing)
+
+    @server.tool()
+    def submit_qualification_answers(answers: dict, include_drawing: bool = True) -> dict:
+        """Score your exam answers ({case_id: answer}) with the same deterministic checks as API models."""
+        from .ai.qualification import score_external_exam
+        from .api.ai import upsert_model_state
+        from .pipeline.connect import _policy, model_eligibility
+
+        with session_scope() as s:
+            ws = get_active_workspace(s)
+            state = s.get(AppState, f"mcp:engine:{ws.id}")
+            decl = state.value if state and state.value else None
+            if not decl:
+                raise ToolError("Call declare_engine(provider, model_id) first.")
+            try:
+                result = score_external_exam(decl["provider"], decl["model_id"], answers, vision=include_drawing,
+                                             policy=_policy(ws))
+            except Exception as exc:
+                raise ToolError(str(exc))
+            upsert_model_state(s, ws, decl["provider"], decl["model_id"], source="mcp", exam=result)
+            s.flush()
+            tasks = {}
+            for task in sorted(set(CRITICAL.values())):
+                status, reasons = model_eligibility(s, ws, decl["provider"], decl["model_id"], task)
+                tasks[task] = {"status": status, "reasons": reasons}
+            state.value = {**decl, "tasks": tasks}
+            s.add(state)
+            log_activity(s, ws.id, "model_exam", f"{decl['model_id']} (MCP): "
+                         f"{'passed' if result.get('passed') else 'failed'} qualification",
+                         detail=f"score {result.get('score')}",
+                         severity="success" if result.get("passed") else "warning")
+            return {"passed": result.get("passed"), "score": result.get("score"),
+                    "critical_failures": result.get("critical_failures"), "tasks": tasks}
+
+    @server.tool()
     def list_work(kind: str = "needs_analysis", limit: int = 20) -> list[dict]:
         """Work queue. kind: unclassified | needs_analysis | needs_draft | open_changes | needs_research."""
         with session_scope() as s:

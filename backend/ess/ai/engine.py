@@ -34,6 +34,7 @@ import base64
 import contextlib
 import contextvars
 import copy
+import dataclasses
 import hashlib
 import json
 import logging
@@ -47,7 +48,7 @@ from typing import Any, Callable, Iterator
 from .errors import (AIError, AuthError, InputTooLarge, InvalidOutput, ModelDeclined, ModelNotFound,
                      ProviderError, QuotaError, RefusedByPolicy)
 from .guards import validate_schema
-from .policy import TASKS, EligibilityResult, Policy, evaluate_model
+from .policy import EligibilityResult, Policy, evaluate_model
 from .registry import PROVIDERS, load_registry
 
 log = logging.getLogger(__name__)
@@ -74,6 +75,12 @@ _PROVIDER_SCHEMA_DROP = frozenset({
 })
 _SCHEMA_ERROR_RE = re.compile(r"json[_ ]?schema|response_format|output_config|response_schema|"
                               r"response_json_schema|structured output|schema", re.IGNORECASE)
+_UNSUPPORTED_RE = re.compile(r"unsupported|not supported|does not support|unknown parameter|unrecognized|"
+                             r"extra inputs are not permitted|not allowed|not permitted|invalid parameter",
+                             re.IGNORECASE)
+_PARAM_RES = (("temperature", re.compile(r"temperature|sampling", re.IGNORECASE)),
+              ("thinking", re.compile(r"thinking", re.IGNORECASE)),
+              ("effort", re.compile(r"effort|reasoning", re.IGNORECASE)))
 _RETRYABLE_STATUS = frozenset({408, 409, 425, 500, 502, 503, 504, 520, 522, 524, 529})
 
 # Exam mode: set only by ess.ai.qualification while it runs its synthetic cases.
@@ -137,6 +144,22 @@ class ProviderHTTPError(Exception):
 
 class _SchemaRejected(Exception):
     pass
+
+
+class _ParamRejected(Exception):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self.name = name
+
+
+def _rejected_param(message: str) -> str | None:
+    """Which optional parameter an endpoint refused ("temperature is not supported with this model")."""
+    if not _UNSUPPORTED_RE.search(message):
+        return None
+    for name, rx in _PARAM_RES:
+        if rx.search(message):
+            return name
+    return None
 
 
 Transport = Callable[[ProviderRequest], ProviderResponse]
@@ -210,8 +233,9 @@ def _http_error_from(exc: BaseException) -> ProviderHTTPError | None:
     if isinstance(body, dict):
         inner = body.get("error") if isinstance(body.get("error"), dict) else body
         err_code = inner.get("code") or inner.get("type")
-    if err_code is None and isinstance(getattr(exc, "status", None), str):
-        err_code = getattr(exc, "status")  # google: RESOURCE_EXHAUSTED, PERMISSION_DENIED, …
+    status_text = getattr(exc, "status", None)
+    if err_code is None and isinstance(status_text, str):
+        err_code = status_text  # google: RESOURCE_EXHAUSTED, PERMISSION_DENIED, …
     retry_after = None
     headers = getattr(getattr(exc, "response", None), "headers", None)
     if headers is not None:
@@ -491,8 +515,15 @@ class AIEngine:
         self._lock = threading.Lock()
         self.usage: dict[str, int] = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "retries": 0,
                                       "repairs": 0, "failures": 0}
-        self.spec = load_registry().spec_for(provider, self.model)
+        registry = load_registry()
+        declared = str(self.extra.get("model") or "") if provider == "azure_openai" else ""
+        if declared and declared.lower() != self.model.lower():  # Azure deployment + declared model
+            base = registry.spec_for(provider, declared)
+            self.spec = dataclasses.replace(base, model_id=self.model, canonical_id=base.canonical_id or base.model_id)
+        else:
+            self.spec = registry.spec_for(provider, self.model)
         self._native_schema = True
+        self._dropped_params: set[str] = set()  # parameters the endpoint rejected (temperature, effort, thinking)
         self._adapter: _Adapter | None = None
         if transport is None:
             if provider in ("azure_openai", "openai_compatible") and not base_url:
@@ -696,26 +727,42 @@ class AIEngine:
                        images: list[tuple[bytes, str]], max_tokens: int, temperature: float | None,
                        effort: str | None) -> ProviderRequest:
         hints = self._hints()
+        dropped = self._dropped_params
+        if "thinking" in dropped:
+            hints["thinking"] = "omit"
+        if "effort" in dropped:
+            hints["effort"] = False
+            hints["reasoning"] = False
         json_mode = not self._native_schema
         headroom = int(hints.get("headroom") or 0)
+        use_temperature = hints.get("sampling") and temperature is not None and "temperature" not in dropped
         return ProviderRequest(
             provider=self.provider, model=self._api_model(), system=self._system_prompt(system, schema, json_mode),
             user=user, schema=None if json_mode else pschema, schema_name=name, images=images,
             max_tokens=min(int(max_tokens) + headroom, MAX_OUTPUT_TOKENS),
-            temperature=temperature if hints.get("sampling") and temperature is not None else None,
-            effort=effort or self.extra.get("effort"), json_mode=json_mode, hints=hints)
+            temperature=temperature if use_temperature else None,
+            effort=None if "effort" in dropped else (effort or self.extra.get("effort")), json_mode=json_mode,
+            hints=hints)
 
     def _attempt(self, system: str, user: str, schema: dict, pschema: dict, name: str,
                  images: list[tuple[bytes, str]], max_tokens: int, temperature: float | None,
                  effort: str | None) -> tuple[str, dict | None, list[str], str]:
-        req = self._build_request(system, user, schema, pschema, name, images, max_tokens, temperature, effort)
-        try:
-            resp = self._call(req)
-        except _SchemaRejected:
-            log.warning("%s:%s rejected the native JSON schema; falling back to JSON mode", self.provider, self.model)
-            self._native_schema = False
+        resp: ProviderResponse | None = None
+        for _ in range(5):  # at most: schema fallback + temperature + effort + thinking dropped, then success
             req = self._build_request(system, user, schema, pschema, name, images, max_tokens, temperature, effort)
-            resp = self._call(req)
+            try:
+                resp = self._call(req)
+                break
+            except _SchemaRejected:
+                log.warning("%s:%s rejected the native JSON schema; using JSON mode", self.provider, self.model)
+                self._native_schema = False
+            except _ParamRejected as rejected:
+                log.warning("%s:%s rejected parameter %r; retrying without it", self.provider, self.model,
+                            rejected.name)
+                self._dropped_params.add(rejected.name)
+        if resp is None:
+            raise ProviderError(f"{self.provider} kept rejecting the request parameters", provider=self.provider,
+                                model=self.model)
         self._check_served(resp.served_model)
         if resp.finish_reason in ("refusal", "content_filter"):
             with self._lock:
@@ -756,9 +803,12 @@ class AIEngine:
             if ("context" in low and ("length" in low or "window" in low or "limit" in low)) or "too long" in low \
                     or "maximum context" in low or "too many tokens" in low:
                 return InputTooLarge(f"input too long for {self.model}: {msg}", **ctx), False, False
-            if "model" in low and any(k in low for k in ("not found", "does not exist", "unknown model",
-                                                          "not supported", "invalid model")):
+            if code == "model_not_found" or ("model" in low and any(k in low for k in (
+                    "not found", "does not exist", "unknown model", "invalid model", "no such model"))):
                 return ModelNotFound(f"{self.provider} rejected model '{self._api_model()}': {msg}", **ctx), False, False
+            param = _rejected_param(msg)
+            if param and param not in self._dropped_params:
+                raise _ParamRejected(param)
             if _SCHEMA_ERROR_RE.search(low):
                 return ProviderError(f"{self.provider} rejected the JSON schema: {msg}", **ctx), False, True
         return ProviderError(f"{self.provider} request failed (HTTP {s}): {msg}", **ctx), False, False
@@ -803,8 +853,9 @@ class AIEngine:
     def _check_served(self, served: str | None) -> None:
         if not served:
             return
-        expected = self.model
-        if not load_registry().same_model(self.provider, expected, served):
+        registry = load_registry()
+        expected = registry.served_model_expected(self.provider, self.model, self.extra)
+        if not registry.same_model(self.provider, expected, served):
             raise RefusedByPolicy(
                 f"{self.provider} answered with '{served}' instead of '{expected}'; an answer from a model that "
                 "was not qualified is discarded", reasons=[f"served model {served} differs from {expected}"],

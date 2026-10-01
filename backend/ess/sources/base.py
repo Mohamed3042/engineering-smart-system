@@ -458,7 +458,7 @@ def html_to_text(html: str | None) -> str:
         tag.insert_after(NavigableString("\n"))
 
     raw = soup.get_text()
-    raw = raw.replace("\xa0", " ").replace("​", "").replace("\r", "")
+    raw = raw.replace("\xa0", " ").replace("\u200b", "").replace("\r", "")
     lines: list[str] = []
     depth = 0
     for line in raw.split("\n"):

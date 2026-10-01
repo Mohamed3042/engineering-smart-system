@@ -163,13 +163,20 @@ async def render_pdf(q_id: str) -> str:
         data = {**q.data, "status": q.status, "reference": q.reference, "language": q.language,
                 "template_key": q.template_key}
         wsd = {"company_name": ws.company_name or ws.name, "name": ws.name}
+        sign_drafts = bool((ws.settings or {}).get("quotations", {}).get("sign_drafts", False))
         out = pdf_path_for(q)
     import inspect
 
     kwargs = {}
     if data.get("paper_id") and "paper_id" in inspect.signature(LetterheadAssets.load).parameters:
         kwargs["paper_id"] = data["paper_id"]
-    assets = LetterheadAssets.load(get_settings().private_dir, wsd["company_name"], sigd["initials"], **kwargs)
+    final = data.get("status") in ("approved", "sent")
+    initials = sigd["initials"]
+    if not final and not sign_drafts:
+        # A draft never carries the real signature or stamp: a forwarded draft cannot pass as an offer.
+        initials = None
+        data["stamp"] = {**(data.get("stamp") or {}), "show": False}
+    assets = LetterheadAssets.load(get_settings().private_dir, wsd["company_name"], initials, **kwargs)
     await render_quotation_pdf(data, wsd, sigd, assets, out)
     with session_scope() as s:
         q = s.get(Quotation, q_id)

@@ -1573,6 +1573,7 @@ def _mine_identity(docs: list[_Doc], reg: _Registry) -> None:
 _AI_LIST_KINDS = {"service_families": "service_family", "services": "service_family", "families": "service_family",
                   "work_types": "work_type", "terms": "term", "vocabulary": "term", "standards": "standard",
                   "conventions": "convention"}
+_AI_KIND_ALIASES = {"product": "term", "brand": "term", "family": "service_family", "service": "service_family"}
 
 
 def _ai_items(result: Any) -> list[dict]:
@@ -1629,9 +1630,21 @@ def _ai_refine(docs: list[_Doc], reg: _Registry, engine: Any, region_terms: Mapp
     hints = [{"kind": a.kind, "key": a.key, "label": a.label or a.key,
               "synonyms": [s for s, _ in a.surfaces.most_common(5)]}
              for a in reg.items.values() if a.kind in ("service_family", "work_type", "standard")][:60]
+    legal = reg.find("identity", "legal_name")
+    knowledge = {"company_name": legal.label if legal else None, "deterministic_findings": hints,
+                 "note": "Findings mined deterministically from the same corpus; confirm, name or extend them."}
+    compact_terms = []
+    budget_terms = 5500
+    for c in region_terms.get("concepts") or []:
+        entry = {"concept": c["key"], "category": c.get("category") or None,
+                 "terms": [f"{t['term']} ({t['region']})" for t in c.get("terms") or []][:10]}
+        budget_terms -= len(str(entry))
+        if budget_terms < 0:
+            break
+        compact_terms.append(entry)
     try:
         result = call_ai_task("discover_business", engine, {"documents": payload_docs, "hints": hints,
-                                                            "region_terms": region_terms})
+                                                            "region_terms": compact_terms, "knowledge": knowledge})
     except AITaskUnavailable as exc:
         log.info("AI refinement skipped: %s", exc)
         report["error"] = str(exc)
@@ -1643,7 +1656,7 @@ def _ai_refine(docs: list[_Doc], reg: _Registry, engine: Any, region_terms: Mapp
     report["used"] = True
     by_id = {d.sid: d for d in docs}
     for item in _ai_items(result):
-        kind = item.get("kind")
+        kind = _AI_KIND_ALIASES.get(str(item.get("kind") or ""), item.get("kind"))
         label = str(item.get("label") or item.get("name") or "").strip()
         if kind not in KINDS or not label:
             report["dropped"] += 1
@@ -1670,7 +1683,7 @@ def _ai_refine(docs: list[_Doc], reg: _Registry, engine: Any, region_terms: Mapp
         acc.origins.add("ai")
         if item.get("description") and not acc.description:
             acc.description = str(item["description"])[:500]
-        for syn in item.get("synonyms") or item.get("aliases") or []:
+        for syn in item.get("synonyms") or item.get("aliases") or item.get("variants") or []:
             if isinstance(syn, str) and syn not in acc.extra_synonyms:
                 acc.extra_synonyms.append(syn)
         if item.get("region") and not acc.region:

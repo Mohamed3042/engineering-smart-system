@@ -365,13 +365,85 @@ def _save_private_image(sub: str, name: str, data: bytes) -> str:
     return str(dest)
 
 
+@router.post("/signatories/{sig_id}/signature/detect")
+async def detect_signature_route(sig_id: str, file: UploadFile = File(...), session: Session = Depends(get_session),
+                                 ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> dict:
+    """Step 1 of 'import signature from a signed letter': show where the signature and stamp were found."""
+    from ..quotation.signature_import import detect_signature
+
+    require_role(user, "admin", "Importing signatures")
+    get_or_404(session, Signatory, sig_id, ws)
+    return detect_signature(await file.read()).to_dict()
+
+
 @router.post("/signatories/{sig_id}/signature")
-async def upload_signature(sig_id: str, file: UploadFile = File(...), session: Session = Depends(get_session),
+async def upload_signature(sig_id: str, file: UploadFile = File(...), mode: str = "detect",
+                           x: Optional[float] = None, y: Optional[float] = None, w: Optional[float] = None,
+                           h: Optional[float] = None, session: Session = Depends(get_session),
                            ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> dict:
+    """mode=detect cuts the blue-ink signature out of a photo/scan (a drawn box x,y,w,h wins);
+    mode=raw stores a clean transparent PNG as it is."""
+    from ..quotation.signature_import import SignatureNotFound, extract_signature
+
     require_role(user, "admin", "Uploading signatures")
     sig = get_or_404(session, Signatory, sig_id, ws)
-    _save_private_image("signatures", f"{sig.initials.upper()}.png", await file.read())
-    return {"ok": True}
+    data = await file.read()
+    if mode == "raw":
+        _save_private_image("signatures", f"{sig.initials.upper()}.png", data)
+        return {"ok": True, "mode": "raw"}
+    box = (x, y, w, h) if None not in (x, y, w, h) else None
+    try:
+        png = extract_signature(data, crop_box=box)
+    except SignatureNotFound as exc:
+        raise HTTPException(422, {"code": "signature_not_found", "message": str(exc)})
+    dest = get_settings().private_dir / "signatures"
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / f"{sig.initials.upper()}.png").write_bytes(png)
+    return {"ok": True, "mode": "detect", "bytes": len(png)}
+
+
+@router.get("/papers")
+def papers(ws: Workspace = Depends(ws_dep)) -> dict:
+    """Installed company papers (letterheads); the default follows workspace settings."""
+    from ..quotation.papers import default_paper_id, list_papers
+
+    rows = list_papers(get_settings().private_dir)
+    chosen = (ws.settings or {}).get("quotations", {}).get("default_paper_id") or default_paper_id(rows)
+    return {"items": [p.to_dict() for p in rows], "default": chosen}
+
+
+@router.get("/catalog")
+def catalog(q: str = "", language: str = "en", transaction: Optional[str] = None, limit: int = 20,
+            ws: Workspace = Depends(ws_dep)) -> dict:
+    """Catalog prefill: description/spec/unit; the dated last-known price is guidance only."""
+    from ..quotation.catalog import load_catalog, search_catalog
+
+    cat = load_catalog(get_settings().private_dir)
+    return {"items": search_catalog(q, cat, language=language, transaction=transaction, limit=min(limit, 100))}
+
+
+@router.post("/quotations/{quotation_id}/photos")
+async def add_photo(quotation_id: str, file: UploadFile = File(...), caption: str = "", placement: str = "annex",
+                    session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
+    from ..quotation.photos import normalize_photo
+
+    q = get_or_404(session, Quotation, quotation_id, ws)
+    if q.status in ("approved", "sent"):
+        raise HTTPException(409, {"code": "frozen", "message": "Approved quotations are frozen. Create a revision."})
+    try:
+        photo = normalize_photo(await file.read())
+    except ValueError as exc:
+        raise HTTPException(400, {"code": "bad_image", "message": str(exc)})
+    folder = get_settings().quotations_dir / q.id / "photos"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"photo-{len(list(folder.glob('*.jpg'))) + 1}.jpg"
+    path.write_bytes(photo.jpeg)
+    data = dict(q.data)
+    data["photos"] = [*(data.get("photos") or []), {"path": str(path), "caption": caption, "placement": placement}]
+    q.data, q.pdf_path, q.updated_at = data, None, utcnow()
+    session.add(q)
+    session.commit()
+    return drafting.as_public(q)
 
 
 @router.get("/letterhead")

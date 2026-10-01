@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import date, datetime
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 __all__ = [
     "RELEVANT_PATTERNS",

@@ -70,6 +70,8 @@ _MAX_FOLDER_DEPTH = 3
 _MAX_FOLDER_FILES = 300
 _MAX_PAGE_LINKS = 12
 CLICK_WAIT_S = 30  # how long a clicked Download control may take to start the file
+STALL_S = 60  # an active transfer may outlive timeout_s while data keeps arriving; this long without data aborts it
+HARD_CAP_FACTOR = 20  # ... but never longer than timeout_s * HARD_CAP_FACTOR (min. 1 hour)
 _FILE_EXT_RE = re.compile(
     r"\.(pdf|dwg|dxf|dwf|rvt|ifc|zip|rar|7z|xlsx?|xlsm|csv|docx?|pptx?|jpe?g|png|tiff?|heic|msg|eml|skp|nwd|step|stp)$",
     re.I,
@@ -205,6 +207,9 @@ class _Run:
     deadline: float
     external_browser: Any = None
     started: float = field(default_factory=time.monotonic)
+    last_progress: float = field(default_factory=time.monotonic)
+    active_transfers: int = 0  # >0 while an HTTP file stream is being written
+    browser_downloads: int = 0  # >0 while the browser is saving a file
     log: list[str] = field(default_factory=list)
     files: list[DownloadedFile] = field(default_factory=list)
     skipped: list[dict] = field(default_factory=list)
@@ -461,11 +466,13 @@ async def _save_stream(run: _Run, response: httpx.Response, url: str, name_hint:
     digest = hashlib.sha256()
     size = 0
     head = b""
+    run.active_transfers += 1
     try:
         with open(tmp, "wb") as fh:
-            async for chunk in response.aiter_bytes(1 << 16):
+            async for chunk in response.aiter_bytes():  # as data arrives, so progress is visible
                 if not chunk:
                     continue
+                run.last_progress = time.monotonic()
                 if len(head) < 64:
                     head = (head + chunk)[:64]
                     exe = sniff_executable(head)
@@ -486,6 +493,7 @@ async def _save_stream(run: _Run, response: httpx.Response, url: str, name_hint:
         final = unique_path(target_dir, name)
         os.replace(tmp, final)
     finally:
+        run.active_transfers -= 1
         if tmp.exists():
             tmp.unlink()
     run.total_bytes += size
@@ -503,6 +511,14 @@ async def _save_stream(run: _Run, response: httpx.Response, url: str, name_hint:
     return saved
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 async def _save_download(run: _Run, download: Any, subdir: str = "") -> DownloadedFile | None:
     """Persist a Playwright download with the same checks as streamed files."""
     name = sanitize_filename(download.suggested_filename or name_from_url(download.url) or "download")
@@ -517,7 +533,12 @@ async def _save_download(run: _Run, download: Any, subdir: str = "") -> Download
     except _Stop:
         await download.cancel()
         raise
-    tmp_path = await download.path()
+    run.browser_downloads += 1  # the browser reports no progress: only the hard cap applies meanwhile
+    try:
+        tmp_path = await download.path()
+    finally:
+        run.browser_downloads -= 1
+        run.last_progress = time.monotonic()
     if tmp_path is None:
         raise _Stop("failed", f"browser download failed: {await download.failure()}")
     size = os.path.getsize(tmp_path)
@@ -535,16 +556,13 @@ async def _save_download(run: _Run, download: Any, subdir: str = "") -> Download
     target_dir.mkdir(parents=True, exist_ok=True)
     final = unique_path(target_dir, with_extension(name, None, head))
     await download.save_as(str(final))
-    digest = hashlib.sha256()
-    with open(final, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            digest.update(chunk)
+    sha256 = await asyncio.to_thread(_sha256_file, final)  # up to max_bytes: keep the event loop free
     run.total_bytes += size
     saved = DownloadedFile(
         path=str(final),
         name=final.name,
         size=size,
-        sha256=digest.hexdigest(),
+        sha256=sha256,
         mime=sniff_mime(head, final.name),
         source_url=download.url,
         rel_path=final.relative_to(run.dest).as_posix(),
@@ -1066,6 +1084,40 @@ _STRATEGIES = {
 
 
 # --------------------------------------------------------------------------- public API
+async def _supervise(run: _Run, coro: Any, timeout_s: float) -> None:
+    """Run a strategy under the time rules: ``timeout_s`` bounds page work and waiting; a file
+    that is still receiving data may finish (unless it stalls for ``STALL_S``); nothing runs
+    past the hard cap."""
+    task = asyncio.ensure_future(coro)
+    hard_cap = run.started + max(timeout_s * HARD_CAP_FACTOR, 3600.0)
+    try:
+        while True:
+            done, _pending = await asyncio.wait({task}, timeout=0.25)
+            if done:
+                task.result()  # re-raises _Stop and friends
+                return
+            now = time.monotonic()
+            reason = None
+            if now > hard_cap:
+                reason = f"gave up after {now - run.started:.0f}s (hard limit)"
+            elif run.browser_downloads:
+                pass  # the browser gives no progress information; only the hard cap applies
+            elif run.active_transfers:
+                if now - run.last_progress > STALL_S:
+                    reason = f"the transfer stalled (no data for {STALL_S:.0f}s)"
+            elif now > run.deadline:
+                reason = f"timed out after {timeout_s:.0f}s"
+            if reason:
+                raise _Stop("failed", reason)
+    finally:
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):  # the cancellation itself, or an error while unwinding
+                pass
+
+
 async def download_link(
     url: str,
     kind: str | None,
@@ -1080,7 +1132,11 @@ async def download_link(
 ) -> DownloadResult:
     """Fetch every file behind ``url`` into ``dest_dir``. Never raises for download problems:
     the outcome is in ``status``/``error``/``log``. Pass ``browser`` to reuse a Playwright
-    browser across many links."""
+    browser across many links.
+
+    ``timeout_s`` bounds opening pages and waiting; a file that is still receiving data may
+    finish after it (aborted when no data arrives for ``STALL_S``), up to a hard cap of
+    ``max(timeout_s * HARD_CAP_FACTOR, 1 h)``."""
     url = unwrap_url((url or "").strip())
     kind = kind or classify_link(url)
     dest = Path(dest_dir).resolve()
@@ -1104,11 +1160,9 @@ async def download_link(
         if not url.lower().startswith(("http://", "https://")):
             raise _Stop("unsupported", "only http(s) links can be downloaded")
         run.check_url(url)
-        await asyncio.wait_for(strategy(run), timeout=float(timeout_s))
+        await _supervise(run, strategy(run), float(timeout_s))
     except _Stop as stop:
         status, error = stop.status, stop.error
-    except asyncio.TimeoutError:
-        status, error = "failed", f"timed out after {timeout_s:.0f}s"
     except Exception as exc:  # never let one bad link crash the pipeline
         status, error = "failed", f"{type(exc).__name__}: {str(exc).splitlines()[0] if str(exc) else ''}"
     finally:

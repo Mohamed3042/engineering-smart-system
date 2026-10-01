@@ -49,6 +49,8 @@ _ARABIC_RANGE = "U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FEFF
 _FONT_SENTINEL = "/*ess-fonts*/"
 _THREE_DECIMALS = {"KWD", "KD", "BHD", "OMR", "JOD", "IQD", "LYD", "TND"}
 _NUMERIC_COLUMNS = {"no", "qty", "unit_price", "total"}
+_OFFLINE_ARGS = ["--disable-background-networking", "--disable-component-update", "--disable-domain-reliability",
+                 "--disable-sync", "--no-pings", "--disable-features=OptimizationHints,MediaRouter,Translate"]
 
 LATIN_FONTS = '"ESS Arabic", "Times New Roman", Tinos, "Liberation Serif", Times, serif'
 RTL_FONTS = '"ESS Arabic", Arial, "Liberation Sans", Arimo, Helvetica, sans-serif'
@@ -61,7 +63,7 @@ LABELS: dict[str, dict[str, str]] = {
         "letter_project": "Project Name : ", "letter_tender": "Tender No. : ",
         "exclusions": "Exclusions", "notes": "Notes:", "page": "Page", "of": "of",
         "continued": "continued", "quotation": "Quotation", "email": "Email:", "phone": "Tel:",
-        "annex": "Product Reference Annex", "photo": "Product reference",
+        "annex": "Product Reference Annex", "photo": "Product reference", "included": "Included",
     },
     "ar": {
         "to": "السادة", "attn": "عناية", "project": "المشروع", "date": "التاريخ", "ref": "المرجع", "from": "من",
@@ -70,7 +72,7 @@ LABELS: dict[str, dict[str, str]] = {
         "letter_project": "المشروع : ", "letter_tender": "رقم المناقصة : ",
         "exclusions": "الاستثناءات", "notes": "ملاحظات:", "page": "صفحة", "of": "من",
         "continued": "تابع", "quotation": "عرض سعر", "email": "البريد الإلكتروني:", "phone": "هاتف:",
-        "annex": "ملحق الصور المرجعية للمنتج", "photo": "صورة مرجعية",
+        "annex": "ملحق الصور المرجعية للمنتج", "photo": "صورة مرجعية", "included": "مشمول",
     },
 }
 
@@ -186,22 +188,14 @@ def _font_css() -> str:
 
 @lru_cache(maxsize=None)
 def _environment() -> Environment:
-    env = Environment(
-        loader=FileSystemLoader(str(HTML_DIR)),
-        autoescape=True,
-        undefined=StrictUndefined,
-        trim_blocks=False,
-        lstrip_blocks=False,
-        keep_trailing_newline=False,
-    )
-    return env
+    return Environment(loader=FileSystemLoader(str(HTML_DIR)), autoescape=True, undefined=StrictUndefined)
 
 
 def _mm(value: float) -> str:
     return f"{round(float(value), 2):g}mm"
 
 
-def _root_css(assets: LetterheadAssets, rtl: bool) -> Markup:
+def _root_css(assets: LetterheadAssets) -> Markup:
     g = assets.geometry
     paper = assets.paper if re.fullmatch(r"#[0-9A-F]{6}", assets.paper) else "#FFFFFF"
     white = paper in {"#FFFFFF", "#FEFEFE", "#FDFDFD"}
@@ -258,7 +252,8 @@ def _columns(copy: TemplateCopy, items: list[Mapping[str, Any]]) -> list[Column]
     return columns
 
 
-def _table(copy: TemplateCopy, spec: TemplateSpec, quotation: Mapping[str, Any], cur: str) -> dict[str, Any] | None:
+def _table(copy: TemplateCopy, spec: TemplateSpec, quotation: Mapping[str, Any], cur: str,
+           labels: Mapping[str, str]) -> dict[str, Any] | None:
     items = [item for item in (quotation.get("items") or []) if isinstance(item, Mapping)]
     currency = _text(quotation.get("currency")) or "KWD"
     columns = _columns(copy, items)
@@ -274,15 +269,16 @@ def _table(copy: TemplateCopy, spec: TemplateSpec, quotation: Mapping[str, Any],
         qty = format_qty(item.get("qty"))
         if "unit" not in keys and unit and qty:
             qty = f"{qty} {unit}"
+        included = bool(item.get("included"))  # priced inside another row ("Included")
         values = {
             "no": _text(item.get("no")) or str(index),
             "description": description,
             "spec": spec_text,
             "qty": qty,
             "unit": unit,
-            "unit_price": format_amount(item.get("unit_price"), currency),
+            "unit_price": format_amount(item.get("unit_price"), currency) or (labels["included"] if included else ""),
             "price_unit": _text(item.get("price_unit")) or default_unit,
-            "total": format_amount(item.get("total"), currency),
+            "total": format_amount(item.get("total"), currency) or (labels["included"] if included else ""),
         }
         row = []
         for col in columns:
@@ -298,7 +294,8 @@ def _table(copy: TemplateCopy, spec: TemplateSpec, quotation: Mapping[str, Any],
 
     total = None
     if quotation.get("show_total", spec.show_total) and copy.total_label and "total" in keys:
-        totals = [_number(item.get("total")) for item in items]
+        totals = [_number(item.get("total")) for item in items
+                  if not (item.get("included") and _number(item.get("total")) is None)]
         value = ""
         if totals and all(t is not None for t in totals):  # never a partial sum
             value = format_amount(sum(totals, Decimal(0)), currency)
@@ -511,7 +508,7 @@ def build_context(quotation: Mapping[str, Any], workspace: Mapping[str, Any] | N
         "subject": subject,
         "salutation": copy.salutation,
         "intro": intro,
-        "table": _table(copy, spec, quotation, cur),
+        "table": _table(copy, spec, quotation, cur, labels),
         "conditions": _conditions(copy, spec, quotation, cur, labels),
         "closing": {
             "lines": list(copy.closing),
@@ -541,7 +538,7 @@ def render_quotation_html(quotation: Mapping[str, Any], workspace: Mapping[str, 
     html = _environment().get_template("quotation.html.j2").render(
         **context,
         font_css=Markup(_FONT_SENTINEL),
-        root_css=_root_css(assets, context["rtl"]),
+        root_css=_root_css(assets),
         css=Markup(_static("quotation.css")),
         js=Markup(_static("paginate.js")),
     )
@@ -588,7 +585,9 @@ async def render_quotation_pdf(quotation: Mapping[str, Any], workspace: Mapping[
         data = await _print(browser)
     else:
         async with async_playwright() as playwright:
-            chromium = await launch_chromium(playwright)
+            # Rendering needs no network at all: route the browser's own background traffic
+            # (component updates, connectivity checks) into a dead end on this machine.
+            chromium = await launch_chromium(playwright, proxy={"server": "http://127.0.0.1:9"}, args=_OFFLINE_ARGS)
             try:
                 data = await _print(chromium)
             finally:

@@ -11,7 +11,7 @@ from ess.ai.errors import (AuthError, InputTooLarge, InvalidOutput, ModelDecline
                            ProviderError, QuotaError, RefusedByPolicy)
 from ess.ai.policy import (CRITICAL_TASKS, DEFAULT_POLICY, MIN_CONTEXT_FLOOR, MIN_SCORE_FLOOR, TASKS, Policy,
                            eligibility_table, evaluate_model)
-from ess.ai.registry import (Capabilities, ModelSpec, classify_unknown, get_spec, load_registry, parse_registry)
+from ess.ai.registry import Capabilities, classify_unknown, get_spec, load_registry, parse_registry
 from ess.ai.testing import ScriptedTransport, exam_record, http_error
 
 SCHEMA = {"type": "object", "additionalProperties": False, "required": ["category", "confidence"],
@@ -146,6 +146,41 @@ def test_snapshot_change_after_qualification_requires_requalification():
                    transport=ScriptedTransport([GOOD], served_model="gpt-5-2026-03-01"))
     with pytest.raises(RefusedByPolicy, match="re-run the qualification"):
         eng.complete_json("sys", "user", SCHEMA, task="classify_email")
+
+
+def test_azure_deployment_is_evaluated_as_the_model_behind_it():
+    from ess.ai.registry import register_azure_deployments
+
+    register_azure_deployments({"chat-main": "gpt-5", "chat-cheap": "gpt-4o-mini"}, persist=False)
+    eng = AIEngine("azure_openai", "chat-main", api_key="k", base_url="https://res.openai.azure.com",
+                   policy=DEFAULT_POLICY, exam=exam_record("azure_openai", "chat-main"),
+                   transport=ScriptedTransport([GOOD], served_model="gpt-5-2025-08-07"))
+    assert eng.spec.tier == "frontier" and eng.spec.canonical_id == "gpt-5" and eng._api_model() == "chat-main"
+    assert eng.complete_json("sys", "user", SCHEMA, task="extract_request") == GOOD
+    with pytest.raises(RefusedByPolicy):
+        AIEngine("azure_openai", "chat-cheap", api_key="k", base_url="https://res.openai.azure.com",
+                 policy=DEFAULT_POLICY, exam=exam_record("azure_openai", "chat-cheap"), transport=ScriptedTransport([]))
+    declared = AIEngine("azure_openai", "team-deploy", api_key="k", base_url="https://res.openai.azure.com",
+                        extra={"model": "o3"}, policy=DEFAULT_POLICY, exam=exam_record("azure_openai", "team-deploy"),
+                        transport=ScriptedTransport([GOOD], served_model="gpt-4o-mini"))
+    assert declared.spec.canonical_id == "o3"
+    with pytest.raises(RefusedByPolicy, match="instead of"):  # the deployment does not serve what it claims
+        declared.complete_json("sys", "user", SCHEMA, task="classify_email")
+
+
+def test_rejected_optional_parameter_is_dropped_and_retried():
+    eng = engine("openai", "gpt-4.1", items=[
+        http_error(400, "Unsupported value: 'temperature' does not support 0 with this model."), GOOD, GOOD])
+    assert eng.complete_json("sys", "user", SCHEMA, task="classify_email", temperature=0) == GOOD
+    first, second = eng._transport.requests
+    assert first.temperature == 0 and second.temperature is None
+    eng.complete_json("sys", "user", SCHEMA, task="classify_email", temperature=0)
+    assert eng._transport.requests[-1].temperature is None  # remembered for this engine
+    eng2 = engine("anthropic", "claude-opus-4-8", items=[
+        http_error(400, "thinking.type.adaptive is not supported for this model"), GOOD])
+    eng2.complete_json("sys", "user", SCHEMA, task="classify_email", effort="high")
+    assert eng2._transport.requests[0].hints["thinking"] == "adaptive"
+    assert eng2._transport.requests[1].hints["thinking"] == "omit"
 
 
 def test_images_must_be_png_or_jpeg_and_small():
@@ -394,6 +429,23 @@ def test_exam_validity_rules():
     assert evaluate_model(s, DEFAULT_POLICY, failed_drawing, "analyze_drawing").status == "needs_evaluation"
 
 
+def test_hand_made_or_tampered_exam_records_are_ignored():
+    s = spec("anthropic", "claude-opus-5-5")
+    assert evaluate_model(s, DEFAULT_POLICY, exam_record("anthropic", "claude-opus-5-5"), "draft_quotation").status == "eligible"
+    unsigned = exam_record("anthropic", "claude-opus-5-5", signed=False)
+    res = evaluate_model(s, DEFAULT_POLICY, unsigned, "draft_quotation")
+    assert res.status == "needs_evaluation" and "signature" in res.reasons[0]
+    tampered = exam_record("anthropic", "claude-opus-5-5", score=0.5, passed=False)
+    tampered.update(score=1.0, passed=True)
+    assert evaluate_model(s, DEFAULT_POLICY, tampered, "draft_quotation").status == "needs_evaluation"
+    foreign = exam_record("anthropic", "claude-opus-5-5")
+    foreign["signature"] = "0" * 64  # signed elsewhere / forged
+    assert evaluate_model(s, DEFAULT_POLICY, foreign).status == "needs_evaluation"
+    stored = json.loads(json.dumps(exam_record("anthropic", "claude-opus-5-5")))  # DB/JSON round-trip keeps it valid
+    stored["cases"] = [{"trimmed": True}]  # details may be trimmed for storage
+    assert evaluate_model(s, DEFAULT_POLICY, stored, "draft_quotation").status == "eligible"
+
+
 def test_capability_requirements():
     base = spec("anthropic", "claude-opus-5-5")
     from dataclasses import replace
@@ -408,6 +460,17 @@ def test_capability_requirements():
     assert evaluate_model(blind, DEFAULT_POLICY, record, "extract_request").status == "eligible"
     deprecated = replace(base, deprecated=True)
     assert evaluate_model(deprecated, DEFAULT_POLICY, record).status == "refused"
+
+
+def test_enforce_floor_returns_what_will_actually_be_enforced():
+    from ess.ai.policy import enforce_floor
+
+    clamped = enforce_floor({"min_score": 0.4, "allowed_tiers": {"draft_quotation": ["light"]},
+                             "blocked_patterns": ["*-preview"]})
+    assert clamped.min_score == MIN_SCORE_FLOOR and clamped.allowed_tiers["draft_quotation"] == []
+    assert clamped.blocked_patterns == ["*-preview"] and clamped.violations() == []
+    stored = DEFAULT_POLICY.to_dict()  # what the workspace settings keep
+    assert Policy.from_dict(stored, strict=True).effective().to_dict() == stored
 
 
 def test_policy_json_roundtrip():

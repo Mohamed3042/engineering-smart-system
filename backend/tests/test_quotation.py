@@ -347,6 +347,11 @@ def test_null_prices_print_as_empty_cells_and_no_partial_total(real_assets):
     html = render_quotation_html(quotation(items=priced), WORKSPACE, SIGNATORY, real_assets)
     assert "3,000.000" in visible(html)  # 2,500 + 500, KWD with three decimals
 
+    included = copy.deepcopy(items)
+    included[1]["included"] = True  # priced inside another row: prints "Included", total still computable
+    html = render_quotation_html(quotation(items=included), WORKSPACE, SIGNATORY, real_assets)
+    assert cells("unit_price") == ["1,250.000", "Included"] and cells("total")[2] == "2,500.000"
+
 
 def test_draft_watermark_only_until_approved(real_assets):
     assert 'class="draft-mark"' in render_quotation_html(quotation(status="draft"), WORKSPACE, SIGNATORY, real_assets)

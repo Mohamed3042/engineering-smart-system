@@ -132,10 +132,12 @@ def run_exam(ws_id: str, conn_id: str, model_id: str) -> dict:
         tier = getattr(spec, "tier", "standard")
         if tier == "refused":
             raise ValueError(f"{model_id} is refused by policy and cannot be examined")
+        policy = _policy(ws)
         engine = AIEngine(provider=conn.provider, model=model_id, api_key=get_secret(secret_name(conn, "api_key")),
-                          base_url=(conn.config or {}).get("base_url"), extra=(conn.config or {}).get("extra") or {})
+                          base_url=(conn.config or {}).get("base_url"), extra=(conn.config or {}).get("extra") or {},
+                          policy=policy, exam=None)
     try:
-        exam = run_qualification(engine)
+        exam = run_qualification(engine, policy=policy)
     except Exception as exc:
         exam = {"model": model_id, "provider": conn.provider, "score": 0.0, "passed": False,
                 "critical_failures": [f"exam could not run: {exc}"], "cases": [], "ran_at": utcnow().isoformat()}
