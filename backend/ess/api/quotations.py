@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import io
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
@@ -533,6 +534,20 @@ async def add_photo(quotation_id: str, file: UploadFile = File(...), caption: st
     session.add(q)
     session.commit()
     return drafting.as_public(q)
+
+
+@router.get("/quotations/{quotation_id}/photos/{index}")
+def photo_image(quotation_id: str, index: int, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)):
+    """A reference photo of this quotation (thumbnail source for the editor)."""
+    q = get_or_404(session, Quotation, quotation_id, ws)
+    photos = (q.data or {}).get("photos") or []
+    if index < 0 or index >= len(photos):
+        raise HTTPException(404, {"code": "no_photo", "message": "No such photo"})
+    path = Path(str(photos[index].get("path") or "")).resolve()
+    root = get_settings().quotations_dir.resolve()
+    if root not in path.parents or not path.is_file():
+        raise HTTPException(404, {"code": "no_photo", "message": "The photo file is missing"})
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/letterhead")

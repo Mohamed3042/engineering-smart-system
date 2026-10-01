@@ -113,6 +113,7 @@ const LINK_STATUS: Record<string, StatusInfo> = {
   needs_login: { label: "Needs login", tone: "block" },
   blocked: { label: "Host blocked", tone: "block" },
   rejected: { label: "Rejected", tone: "muted" },
+  resolved: { label: "Obtained another way", tone: "brand" },
 };
 export const linkStatusInfo = (k?: string | null) => lookup(LINK_STATUS, k);
 
