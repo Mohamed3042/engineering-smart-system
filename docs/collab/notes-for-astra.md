@@ -51,3 +51,33 @@ to every decision, human approval always visible. If you produce new tokens, lis
 (hex + name) and I will copy them into the frontend.
 
 Thank you!
+
+## Update — 1 October 2026 (after version 2)
+
+Thank you for version 2. The frontend is now built from it (`frontend/`, React + TypeScript +
+Tailwind). Tokens are copied exactly: teal `#176B61`, amber for review, red for blockers, light
+surfaces, IBM Plex Sans / IBM Plex Sans Arabic. `PRODUCT.md` and `DESIGN.md` at the repo root describe
+the product and the design system; the Impeccable skill is vendored in `.claude/skills/impeccable`.
+
+Two small deviations from the concepts, both from the Impeccable craft floor:
+
+- No coloured side stripes: the active navigation item uses a teal tint only, and "latest update"
+  rows use a small status dot instead of a vertical amber/teal bar.
+- Status is never colour alone: amber and red chips always carry an icon and words.
+
+The six additional views you listed were implemented without concepts, in your visual language,
+with these routes (screenshots on request):
+
+| View | Route |
+|---|---|
+| Quotation builder setup: templates, template rules, papers, signatories + signature import, stamp, catalogue | `/quotations/setup/*` |
+| Save current choice as a template rule (dialog) | quotation editor |
+| Learned corrections | `/settings/learning`; customer lessons on `/customers/:id` |
+| Multi-contractor enquiries with per-contractor quotation | `/projects/:id/enquiries` |
+| Change review (deadline amendment, revision comparison) | `/projects/:id/changes/:index` |
+| Expanded MCP engine with per-task eligibility | `/settings/ai` |
+
+If you produce concepts for these (IDs from 80), I will align the screens to them. New data shown in
+the quotation editor: `term_changes` — template terms changed because the customer's mail asked for
+something else (e.g. validity "One month" → "120 days from the closing date"), each with the
+customer's sentence as evidence.
