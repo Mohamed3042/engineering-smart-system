@@ -30,6 +30,12 @@ const STATUS_COPY: Record<string, { title: string; tone: "brand" | "review" | "b
   refused: { title: "Refused by policy", tone: "block" },
 };
 
+const SELECT_BLOCKED: Record<string, string> = {
+  needs_evaluation: "It cannot be selected until it passes the qualification exam.",
+  failed_evaluation: "It cannot be selected: it did not pass the exam. You can run the exam again.",
+  refused: "It cannot be selected: the workspace rules refuse it, and the rules cannot be lowered.",
+};
+
 /** Everything about one model: why it has its status, what it may do, its exam, and the next action. */
 export function ModelDetails({
   model,
@@ -150,17 +156,16 @@ export function ModelDetails({
           </div>
         </div>
       ) : connectionId ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {model.status === "eligible" ? (
-            <Button
-              disabled={!canManage || inUse}
-              loading={select.isPending}
-              onClick={() => (onlySorting ? setConfirmSorting(true) : doSelect())}
-              className="w-full sm:w-auto"
-            >
-              {inUse ? "In use" : "Use this model"}
-            </Button>
-          ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          {/* always shown: a model that cannot be selected says why, right here */}
+          <Button
+            disabled={!canManage || inUse || model.status !== "eligible"}
+            loading={select.isPending}
+            onClick={() => (onlySorting ? setConfirmSorting(true) : doSelect())}
+            className="w-full sm:w-auto"
+          >
+            {inUse ? "In use" : "Use this model"}
+          </Button>
           {model.status !== "refused" ? (
             <Button
               variant={model.status === "eligible" ? "secondary" : "primary"}
@@ -173,7 +178,8 @@ export function ModelDetails({
               {hasExam ? "Run the exam again" : "Run qualification exam"}
             </Button>
           ) : null}
-          {!canManage ? <p className="text-sm text-ink-3">{MANAGE_HINT}</p> : null}
+          {model.status !== "eligible" ? <p className="w-full text-sm text-ink-3">{SELECT_BLOCKED[model.status] ?? "It cannot be selected yet."}</p> : null}
+          {!canManage ? <p className="w-full text-sm text-ink-3">{MANAGE_HINT}</p> : null}
         </div>
       ) : readOnlyNote ? (
         <p className="text-sm text-ink-3">{readOnlyNote}</p>

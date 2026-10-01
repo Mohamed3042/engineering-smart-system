@@ -110,6 +110,54 @@ export function useTestConnection() {
   });
 }
 
+/**
+ * Starts Google sign-in for a Gmail connection. The browser leaves for Google and comes back to
+ * /settings/connections?gmail=connected|error (the backend's fixed return address).
+ */
+export function useGoogleSignIn() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { auth_url } = await connectionApi.oauthStart(id);
+      window.location.assign(auth_url);
+    },
+  });
+}
+
+/** Make a saved connection the one in use for its kind (the others of that kind are switched off). */
+export function useActivateConnection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ conn, all }: { conn: ConnectionRow; all: ConnectionRow[] }) => activateConnection(conn, all),
+    onSettled: () => invalidateConnections(qc, { models: true }),
+  });
+}
+
+/** Makes MCP the AI engine: reuses a saved MCP connection or adds one (the API key stays stored but unused). */
+export function useEnableMcp(connections: ConnectionRow[]) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const existing = connections.find((c) => c.kind === "ai" && c.method === "mcp");
+      if (existing) await activateConnection(existing, connections);
+      else await connectionApi.create({ kind: "ai", method: "mcp", provider: "mcp", name: "MCP client" });
+    },
+    onSettled: () => invalidateConnections(qc, { models: true }),
+  });
+}
+
+/** One line about what a successful test found ("Signed in as … · 12,408 messages"). */
+export function testSummary(res: TestResult): string {
+  if (!res.ok) return res.error ?? "The test failed.";
+  const bits: string[] = [];
+  if (res.account) bits.push(`Signed in as ${res.account}`);
+  if (typeof res.messages_total === "number") bits.push(`${res.messages_total.toLocaleString("en-GB")} messages in the mailbox`);
+  else if (typeof res.inbox_messages === "number") bits.push(`${res.inbox_messages.toLocaleString("en-GB")} messages in the inbox`);
+  if (res.tools?.length) bits.push(`${res.tools.length} mail tools found`);
+  if (typeof res.results === "number") bits.push(`${res.results} results for a test search`);
+  if (typeof res.models === "number") bits.push(`${res.models} models available`);
+  return bits.join(" · ") || res.message || "The service answered.";
+}
+
 export function useRemoveConnection() {
   const qc = useQueryClient();
   return useMutation({

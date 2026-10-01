@@ -59,6 +59,7 @@ export interface NewKnowledge {
   synonyms?: string[];
   region?: string | null;
   language?: string | null;
+  value?: unknown;
 }
 
 export function useAddKnowledge() {

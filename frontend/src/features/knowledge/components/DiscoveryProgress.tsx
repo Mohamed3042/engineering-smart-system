@@ -102,6 +102,9 @@ export function DiscoveryProgress({
   web,
   canRun,
   doneAction,
+  onStart,
+  startBusy,
+  startDisabled,
   title = "Business learning",
   className,
 }: {
@@ -111,6 +114,10 @@ export function DiscoveryProgress({
   canRun: boolean;
   /** Shown when learning has finished (e.g. "Review findings"). */
   doneAction?: ReactNode;
+  /** Replaces the default start (learning only), e.g. a screen that scans the mailbox first. */
+  onStart?: () => void;
+  startBusy?: boolean;
+  startDisabled?: boolean;
   title?: string;
   className?: string;
 }) {
@@ -133,7 +140,7 @@ export function DiscoveryProgress({
   const doneCount = applicable.filter((i) => i.state === "done").length;
   const runningCount = applicable.filter((i) => i.state === "running").length;
   const pct = finished ? 1 : applicable.length ? (doneCount + runningCount * 0.4) / applicable.length : 0;
-  const run = () => start.mutate({ folders, web });
+  const run = onStart ?? (() => start.mutate({ folders, web }));
   const found = foundSummary(identity);
 
   return (
@@ -153,7 +160,8 @@ export function DiscoveryProgress({
               variant={phase === "never" ? "primary" : "secondary"}
               size="sm"
               icon={phase === "never" ? <Sparkles /> : <RefreshCw />}
-              loading={start.isPending}
+              loading={startBusy ?? start.isPending}
+              disabled={startDisabled}
               onClick={run}
             >
               {phase === "never" ? "Start learning" : "Run learning again"}
@@ -177,7 +185,7 @@ export function DiscoveryProgress({
             title="No progress for 30 minutes"
             actions={
               canRun ? (
-                <Button size="sm" variant="secondary" icon={<RefreshCw />} loading={start.isPending} onClick={run}>
+                <Button size="sm" variant="secondary" icon={<RefreshCw />} loading={startBusy ?? start.isPending} disabled={startDisabled} onClick={run}>
                   Run again
                 </Button>
               ) : null

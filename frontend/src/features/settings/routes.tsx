@@ -1,9 +1,11 @@
 import type { RouteObject } from "react-router";
-import { Placeholder } from "@/app/Placeholder";
+import { AccountPage } from "./AccountPage";
+import { TeamPage } from "./TeamPage";
+import { WorkspacePage } from "./WorkspacePage";
 
 /** Children of /settings */
 export const workspaceSettingsRoutes: RouteObject[] = [
-  { path: "workspace", element: <Placeholder title="Workspace" /> },
-  { path: "team", element: <Placeholder title="Team & permissions" /> },
-  { path: "account", element: <Placeholder title="Your account" /> },
+  { path: "workspace", element: <WorkspacePage /> },
+  { path: "team", element: <TeamPage /> },
+  { path: "account", element: <AccountPage /> },
 ];

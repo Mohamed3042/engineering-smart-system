@@ -1,9 +1,9 @@
-import { Check, CircleDashed, CircleX, LoaderCircle } from "lucide-react";
+import { Check, CircleDashed, CircleX, KeyRound, LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatDateTime } from "@/lib/format";
 import { modelStatusInfo } from "@/lib/labels";
 import { cn } from "@/lib/cn";
-import { Banner, EmptyState, ErrorState, KeyValue, Skeleton, StatusChip } from "@/ui";
+import { Banner, Chip, EmptyState, ErrorState, KeyValue, Skeleton, StatusChip } from "@/ui";
 import { useAiModels, useMcpInfo } from "../api";
 import { criticalCount, examRunError } from "../exam";
 import type { AiStatus, TaskVerdict } from "../types";
@@ -60,7 +60,12 @@ export function McpEndpoint() {
   return (
     <div className="space-y-5">
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-ink">MCP endpoint</p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <p className="text-sm font-medium text-ink">MCP endpoint</p>
+          <Chip size="sm" tone={d.token_required ? "brand" : "neutral"} icon={<KeyRound aria-hidden />}>
+            {d.token_required ? "Token required" : "No token"}
+          </Chip>
+        </div>
         <CopyField value={d.url} label="MCP endpoint address" />
         <p className="text-sm text-ink-3">
           {d.token_required

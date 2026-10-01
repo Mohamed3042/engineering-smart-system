@@ -1,11 +1,12 @@
 import { CircleCheck, CircleX } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { Banner, Chip, CollapsibleSection, KeyValue, StatusChip } from "@/ui";
+import { Banner, Chip, KeyValue, StatusChip } from "@/ui";
 import { criticalCount, examRunError } from "../exam";
 import { examRunIssue } from "../issues";
 import type { CriticalFailure, ExamRecord } from "../types";
 import { pct, TASKS, taskLabel } from "../vocab";
+import { Disclosure } from "./bits";
 
 function validUntil(ranAt: string | undefined, days: number): Date | null {
   if (!ranAt) return null;
@@ -114,7 +115,7 @@ export function ExamSummary({
       ) : null}
 
       {showCases && cases.length ? (
-        <CollapsibleSection title="Exam cases" summary={`${cases.length} invented cases`}>
+        <Disclosure title="Exam cases" summary={`${cases.length} invented cases`}>
           <div className="space-y-4">
             {TASKS.filter((t) => cases.some((c) => c.task === t.key)).map((t) => (
               <div key={t.key}>
@@ -157,7 +158,7 @@ export function ExamSummary({
               </p>
             ) : null}
           </div>
-        </CollapsibleSection>
+        </Disclosure>
       ) : null}
       {exam.exam_version ? (
         <p className="text-xs text-ink-3">

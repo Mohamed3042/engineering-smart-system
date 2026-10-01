@@ -22,6 +22,8 @@ interface ConnLike {
   provider: string;
   status: string;
   last_error: string | null;
+  /** Which secrets are stored (never their values). */
+  secrets?: Record<string, { set: boolean } | undefined>;
 }
 
 const NETWORK =
@@ -57,7 +59,8 @@ export function connectionIssue(c: ConnLike): Issue | null {
   const name = serviceName(c);
 
   if (c.status === "needs_auth" || NOT_AUTHORISED.test(err)) {
-    if (CLIENT_CONFIG.test(err)) {
+    const noClientFile = c.kind === "mail" && c.method === "oauth" && !!c.secrets && !c.secrets.client_config?.set;
+    if (CLIENT_CONFIG.test(err) || noClientFile) {
       return {
         title: "Upload the Google client file",
         body: "Google sign-in needs the OAuth client file from your Google Cloud project before you can sign in.",
@@ -75,6 +78,17 @@ export function connectionIssue(c: ConnLike): Issue | null {
     };
   }
   if (c.status !== "error") return null;
+
+  // the client file is there but Google never handed over access (sign-in cancelled or refused)
+  if (c.kind === "mail" && c.method === "oauth" && c.secrets?.client_config?.set && !c.secrets.token?.set) {
+    return {
+      title: "Google sign-in did not finish",
+      body: "Google did not give access, so nothing is read yet.",
+      steps: ["Sign in with the Google account of this mailbox.", "Allow read access when Google asks."],
+      actions: ["reconnect"],
+      tone: "review",
+    };
+  }
 
   if (MCP_DOWN.test(err)) {
     return {

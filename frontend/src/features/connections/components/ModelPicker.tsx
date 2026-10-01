@@ -140,6 +140,7 @@ export function ModelPicker({
   onSelected,
   readOnlyNote,
   highlight,
+  compact,
 }: {
   /** Active API connection (enables exam and selection). */
   connectionId: string | null;
@@ -149,6 +150,8 @@ export function ModelPicker({
   readOnlyNote?: string;
   /** Mark a model as in use (e.g. the one an MCP client declared). */
   highlight?: { provider: string; model_id: string } | null;
+  /** A narrow container (the setup wizard): one column, details in a side sheet instead of beside the list. */
+  compact?: boolean;
 }) {
   const runs = useExamRuns();
   const running = Object.keys(runs).length > 0;
@@ -156,7 +159,7 @@ export function ModelPicker({
   const policy = useAiPolicy();
   const refresh = useRefreshModels();
   const canManage = useCanManage();
-  const isDesktop = useIsDesktop();
+  const isDesktop = useIsDesktop() && !compact;
   useExamWatcher(models.data?.items);
 
   const [query, setQuery] = useState("");

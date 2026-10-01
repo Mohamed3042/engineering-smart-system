@@ -1,4 +1,5 @@
-import { ArrowLeft, Check, Copy, Eye, EyeOff, Lock } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Copy, Eye, EyeOff, Lock } from "lucide-react";
+import { Collapsible } from "radix-ui";
 import { forwardRef, useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { Link } from "react-router";
 import { cn } from "@/lib/cn";
@@ -174,5 +175,22 @@ export function IconTile({ children, tone = "neutral" }: { children: ReactNode; 
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * A heading that opens and closes its content, without a frame. Use it inside a panel or dialog, where the
+ * framed CollapsibleSection would make a card inside a card.
+ */
+export function Disclosure({ title, summary, defaultOpen, children }: { title: ReactNode; summary?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
+  return (
+    <Collapsible.Root defaultOpen={defaultOpen}>
+      <Collapsible.Trigger className="group flex min-h-10 w-full items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-brand">
+        <ChevronDown className="size-4 shrink-0 text-ink-3 transition-transform duration-200 group-data-[state=closed]:-rotate-90" aria-hidden />
+        <span className="font-medium text-ink">{title}</span>
+        {summary ? <span className="min-w-0 truncate text-sm font-normal text-ink-3">{summary}</span> : null}
+      </Collapsible.Trigger>
+      <Collapsible.Content className="pb-1 pl-6 pt-2">{children}</Collapsible.Content>
+    </Collapsible.Root>
   );
 }

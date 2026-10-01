@@ -300,3 +300,20 @@ export const LESSON_SCOPES: Record<string, string> = {
   domain: "Mail domain",
   service_family: "Service family",
 };
+
+/** New synonym list after the owner edited the tags: entries that stay keep their stored form (text or {term, …}). */
+export function mergeSynonyms(original: unknown[] | null | undefined, tags: string[]): unknown[] {
+  const text = (s: unknown) => (typeof s === "string" ? s : String((s as { term?: string } | null)?.term ?? s));
+  const byText = new Map((original ?? []).map((s) => [text(s).toLowerCase(), s]));
+  return tags.map((t) => byText.get(t.toLowerCase()) ?? t);
+}
+
+/** Owner decisions on a finding, in the words the screens use. */
+export const STATUS_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "suggested", label: "To review" },
+  { value: "owner_confirmed", label: "Confirmed" },
+  { value: "rejected", label: "Rejected" },
+] as const;
+
+export type StatusFilter = (typeof STATUS_FILTERS)[number]["value"];

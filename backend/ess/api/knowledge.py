@@ -44,6 +44,7 @@ def add_item(data: dict = Body(...), session: Session = Depends(get_session), ws
     item = KnowledgeItem(workspace_id=ws.id, kind=data["kind"], key=key, label=data["label"],
                          label_ar=data.get("label_ar") or "", description=data.get("description") or "",
                          synonyms=data.get("synonyms") or [], region=data.get("region"), language=data.get("language"),
+                         value=data.get("value"),
                          claim_basis="owner", status="owner_confirmed", source="user", confidence=1.0,
                          evidence=[{"quote": f"Added by {user.name}", "source_type": "owner", "weight": 1.0}])
     session.add(item)
