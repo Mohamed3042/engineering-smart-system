@@ -156,7 +156,7 @@ def create_quotation(session: Session, ws: Workspace, project: Project, *, enqui
         enquiry.quotation_id = q.id
         session.add(enquiry)
     log_activity(session, ws.id, "quotation_drafted", f"Quotation {q.reference} drafted",
-                 detail=f"{template_key} ({reason})", project_id=project.id, quotation_id=q.id, actor=actor)
+                 detail=reason, project_id=project.id, quotation_id=q.id, actor=actor)
     refresh_project_state(session, project)
     return q
 

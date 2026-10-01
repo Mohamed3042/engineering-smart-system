@@ -571,10 +571,18 @@ _SERVICE = re.compile(r"(^|_)(repair|repairs|service|servicing|inspection|inspec
 _MAINTENANCE = re.compile(r"(^|_)maintenance(_|$)")
 
 _REASONS = {
-    "annual_maintenance": "O&M / annual maintenance",
+    "annual_maintenance": "maintenance (annual or O&M)",
     "equipment_rental": "rental",
-    "service_repair": "repair / service / inspection",
+    "service_repair": "repair, service or inspection",
 }
+_LANGUAGE_NAMES = {"en": "English", "ar": "Arabic", "ru": "Russian"}
+_WORK_PHRASES = {"supply_installation": "supply and installation", "equipment_rental": "equipment rental",
+                 "service_repair": "service and repair", "inspection_certification": "inspection and certification"}
+
+
+def _plain(value: str | None) -> str:
+    """'supply_installation' -> 'supply installation' (reasons are read by people, not code)."""
+    return " ".join(str(value or "").replace("_", " ").split())
 
 # docs/snapshot-format.md work types, which name the purpose explicitly.
 _WORK_TYPES = {
@@ -615,27 +623,26 @@ def choose_template(service_family: str | None, work_type: str | None, request_k
     key: str | None = None
     reason = ""
     if _TENDER.search(rk):
-        key, reason = "tenders", f"Tender RFQ from a contractor (request kind '{request_kind}')"
+        key, reason = "tenders", "A contractor's tender enquiry"
     elif rk == "o_and_m" or _ANNUAL.search(rk) or _purpose_of(wt) == "annual_maintenance":
-        field_name, raw = ("work type", work_type) if _purpose_of(wt) == "annual_maintenance" else ("request kind", request_kind)
-        key, reason = "annual_maintenance", f"O&M / annual maintenance ({field_name} '{raw}')"
+        key, reason = "annual_maintenance", "Maintenance work (annual or O&M)"
     elif wt in _WORK_TYPES:
-        key, reason = _WORK_TYPES[wt], f"Work type '{work_type}'"
+        key, reason = _WORK_TYPES[wt], f"{_WORK_PHRASES.get(wt, _plain(work_type)).capitalize()} work"
     else:
         for field_name, value, raw in (("work type", wt, work_type), ("request kind", rk, request_kind),
                                        ("service family", sf, service_family)):
             purpose = _purpose_of(value)
             if purpose:
-                key, reason = purpose, f"{_REASONS[purpose].capitalize()} ({field_name} '{raw}')"
+                key, reason = purpose, f"The {field_name} mentions {_REASONS[purpose]} ({_plain(raw)})"
                 break
     if key is None:
         key = "supply_installation"
-        reason = "No tender, maintenance, rental or repair signal"
+        reason = "No sign of a tender, maintenance, rental or repair"
     spec = TEMPLATES[key]
     wanted = (language or "en").strip().lower()[:2]
     reason += f" → {spec.label['en']}"
     if wanted not in spec.languages:
-        reason += f"; {spec.label['en']} has no '{wanted}' version, using English"
+        reason += f"; it has no {_LANGUAGE_NAMES.get(wanted, wanted.upper())} version, so English is used"
     return key, reason
 
 
