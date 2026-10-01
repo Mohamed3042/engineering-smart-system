@@ -118,6 +118,8 @@ export function useDraft(q: Quote | undefined) {
   );
   const dirty = changedKeys.length > 0 || choiceChanged;
   dirtyRef.current = dirty;
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   // Take the server copy when it changes and nothing is being edited.
   const stamp = q ? `${q.id}:${q.updated_at}:${q.status}` : "";
@@ -142,12 +144,17 @@ export function useDraft(q: Quote | undefined) {
   }, []);
   const discard = useCallback(() => setDraft(base), [base]);
 
-  /** Replace both copies with what the server returned after a save. */
-  const accept = useCallback((saved: Quote) => {
+  /**
+   * Take what the server returned after a save. `sent` is the draft the save was made from: when
+   * the person kept typing meanwhile, only the saved copy moves and the newer edits stay unsaved.
+   */
+  const accept = useCallback((saved: Quote, sent?: Draft | null) => {
     const next = fromQuote(saved);
-    dirtyRef.current = false;
     setBase(next);
-    setDraft(next);
+    if (!sent || draftRef.current === sent) {
+      dirtyRef.current = false;
+      setDraft(next);
+    }
   }, []);
 
   const body = useCallback(() => {

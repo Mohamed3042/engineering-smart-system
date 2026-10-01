@@ -2,10 +2,10 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "@/api/client";
-import { useWorkspace } from "@/api/session";
+import { useCategoryLabel, useWorkspace } from "@/api/session";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format";
-import { serviceFamilyShort, workTypeLabel } from "@/lib/labels";
+import { workTypeLabel } from "@/lib/labels";
 import { quotationHref } from "@/lib/routes";
 import { Button, Dialog, EmptyState, Field, InlineError, LoadingRows, SearchInput, Segmented, Select, toast } from "@/ui";
 import { useInvalidate, useProject, useProjects, useTemplates, type Quote } from "../api";
@@ -66,6 +66,7 @@ export function NewQuotationDialog({
   initialEnquiryId?: string | null;
 }) {
   const ws = useWorkspace();
+  const familyLabel = useCategoryLabel();
   const navigate = useNavigate();
   const invalidate = useInvalidate();
   const projects = useProjects(open);
@@ -75,7 +76,8 @@ export function NewQuotationDialog({
   const [enquiryId, setEnquiryId] = useState<string>(initialEnquiryId ?? "");
   const [templateKey, setTemplateKey] = useState("");
   const defaultLanguage = (ws.settings?.quotations?.default_language as string | undefined) ?? "en";
-  const [language, setLanguage] = useState(defaultLanguage);
+  // "auto" = let the template rule decide (falling back to the workspace default language).
+  const [language, setLanguage] = useState("auto");
   const project = useProject(projectId || null);
 
   useEffect(() => {
@@ -83,10 +85,10 @@ export function NewQuotationDialog({
       setProjectId(initialProjectId ?? "");
       setEnquiryId(initialEnquiryId ?? "");
       setTemplateKey("");
-      setLanguage(defaultLanguage);
+      setLanguage("auto");
       setSearch("");
     }
-  }, [open, initialProjectId, initialEnquiryId, defaultLanguage]);
+  }, [open, initialProjectId, initialEnquiryId]);
 
   const enquiries = project.data?.enquiries ?? [];
   useEffect(() => {
@@ -100,13 +102,15 @@ export function NewQuotationDialog({
   const arabicMissing = chosenTemplate ? !chosenTemplate.languages.includes("ar") : false;
   useEffect(() => {
     if (arabicMissing && language === "ar") setLanguage("en");
-  }, [arabicMissing, language]);
+    // A chosen template needs a language; the rule cannot decide it any more.
+    if (templateKey && language === "auto") setLanguage(defaultLanguage);
+  }, [arabicMissing, language, templateKey, defaultLanguage]);
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const all = projects.data?.items ?? [];
     return all
-      .filter((p) => !needle || [p.name, p.code, p.customer].filter(Boolean).join(" ").toLowerCase().includes(needle))
+      .filter((p) => !needle || [p.name, p.code, p.customer?.name].filter(Boolean).join(" ").toLowerCase().includes(needle))
       .slice(0, 60);
   }, [projects.data, search]);
 
@@ -116,7 +120,7 @@ export function NewQuotationDialog({
         project_id: projectId,
         enquiry_id: enquiryId || undefined,
         template_key: templateKey || undefined,
-        language,
+        language: language === "auto" ? undefined : language,
       }),
     onSuccess: async (q) => {
       toast.success(`Draft ${q.reference} created`, { description: "Prices are empty: enter each one before approval." });
@@ -130,7 +134,7 @@ export function NewQuotationDialog({
   const templateOptions = [
     { value: "", label: "Let the template rules choose (recommended)" },
     ...(templates.data ?? [])
-      .filter((t) => t.settings?.[language]?.enabled !== false)
+      .filter((t) => t.settings?.[language === "auto" ? defaultLanguage : language]?.enabled !== false)
       .map((t) => ({ value: t.key, label: `${t.label.en}${t.languages.includes("ar") ? "" : " (English only)"}` })),
   ];
 
@@ -177,7 +181,7 @@ export function NewQuotationDialog({
                       setEnquiryId("");
                     }}
                     title={p.name}
-                    meta={[serviceFamilyShort(p.service_family), workTypeLabel(p.work_type), p.customer].filter(Boolean).join(" · ")}
+                    meta={[familyLabel(p.service_family), workTypeLabel(p.work_type), p.customer?.name].filter(Boolean).join(" · ")}
                   />
                 ))}
               </div>
@@ -242,11 +246,16 @@ export function NewQuotationDialog({
               value={language}
               onChange={setLanguage}
               options={[
+                ...(templateKey ? [] : [{ value: "auto", label: "As the rule says" }]),
                 { value: "en", label: "English" },
                 ...(arabicMissing ? [] : [{ value: "ar", label: "Arabic" }]),
               ]}
             />
-            {arabicMissing ? <p className="text-sm text-ink-3">This template has no Arabic version.</p> : null}
+            {arabicMissing ? (
+              <p className="text-sm text-ink-3">This template has no Arabic version.</p>
+            ) : language === "auto" ? (
+              <p className="text-sm text-ink-3">A template rule may set it; otherwise {defaultLanguage === "ar" ? "Arabic" : "English"}.</p>
+            ) : null}
           </div>
         </section>
 

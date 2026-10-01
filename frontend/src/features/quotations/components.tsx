@@ -2,7 +2,18 @@
  * Small building blocks shared by the quotation screens.
  */
 import { useMutation } from "@tanstack/react-query";
-import { CircleAlert, CircleCheck, CircleDashed, FileText, Mail, Quote as QuoteIcon, TriangleAlert } from "lucide-react";
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleDashed,
+  Clock,
+  FileText,
+  Mail,
+  MessageCircleQuestionMark,
+  Quote as QuoteIcon,
+  RotateCcw,
+  TriangleAlert,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "@/api/client";
@@ -11,8 +22,8 @@ import { cn } from "@/lib/cn";
 import { quotationStatusInfo } from "@/lib/labels";
 import { emailHref, fileHref } from "@/lib/routes";
 import { Button, Chip, EvidenceQuote, InlineError, Popover, Skeleton, StatusChip, sourceLabel } from "@/ui";
-import type { Quote } from "./api";
-import type { Gate } from "./lib";
+import type { Quote, TermChange } from "./api";
+import { explainError, TERM_STATUS, termStatus, type Gate } from "./lib";
 
 /* ------------------------------------------------------------------ status */
 
@@ -37,6 +48,8 @@ const gateIcon = {
 
 const gateWord = { done: "Done", open: "Open", blocked: "Blocked" };
 
+const fixCls = "text-sm font-medium text-brand-ink underline-offset-4 hover:underline";
+
 /** Checklist of what blocks approval and sending; each open item links to where it is fixed. */
 export function GateList({ gates, className, compact }: { gates: Gate[]; className?: string; compact?: boolean }) {
   return (
@@ -50,15 +63,74 @@ export function GateList({ gates, className, compact }: { gates: Gate[]; classNa
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-ink">{g.label}</p>
             <p className="text-sm text-ink-3">{g.detail}</p>
+            {g.fix ? (
+              g.fix.to.startsWith("#") ? (
+                <a href={g.fix.to} className={cn(fixCls, "mt-1 inline-block")}>
+                  {g.fix.label}
+                </a>
+              ) : (
+                <Link to={g.fix.to} className={cn(fixCls, "mt-1 inline-block")}>
+                  {g.fix.label}
+                </Link>
+              )
+            ) : null}
           </div>
-          {g.fix ? (
-            <Link to={g.fix.to} className="shrink-0 text-sm font-medium text-brand-ink underline-offset-4 hover:underline">
-              {g.fix.label}
-            </Link>
-          ) : null}
         </li>
       ))}
     </ul>
+  );
+}
+
+/* ------------------------------------------------------------------ term changes */
+
+const termIcons = {
+  pending: <Clock aria-hidden />,
+  accepted: <CircleCheck aria-hidden />,
+  retained: <RotateCcw aria-hidden />,
+  clarification: <MessageCircleQuestionMark aria-hidden />,
+};
+
+/** Detected request vs agreed term, always in words and with an icon. */
+export function TermStatusChip({ change, size }: { change: TermChange; size?: "sm" | "md" }) {
+  const s = termStatus(change);
+  return <StatusChip info={TERM_STATUS[s]} icon={termIcons[s]} size={size} />;
+}
+
+/* ------------------------------------------------------------------ errors */
+
+/** A refused action in plain words, with the way to fix it; unknown errors fall back to the message. */
+export function ExplainedError({
+  error,
+  q,
+  className,
+  action,
+}: {
+  error: unknown;
+  q?: Pick<Quote, "id" | "project_id"> | null;
+  className?: string;
+  action?: ReactNode;
+}) {
+  if (!error) return null;
+  const e = explainError(error, q);
+  if (!e) return <InlineError error={error} className={className} />;
+  return (
+    <div role="alert" className={cn("rounded-lg border border-block-line bg-block-soft px-4 py-3 text-sm", className)}>
+      <p className="flex items-center gap-2 font-semibold text-block">
+        <CircleAlert className="size-4 shrink-0" aria-hidden />
+        {e.title}
+      </p>
+      <p className="mt-0.5 text-ink-2">{e.message}</p>
+      {e.fix || action ? (
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          {e.fix ? (
+            <Link to={e.fix.to} className={fixCls}>
+              {e.fix.label}
+            </Link>
+          ) : null}
+          {action}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

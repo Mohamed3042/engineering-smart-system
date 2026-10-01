@@ -1,14 +1,14 @@
 /**
- * Pure helpers for the quotation builder: money, line totals, gates (what blocks approval and
- * sending), labels and API error explanations. No React here except the role hook.
+ * Pure helpers for the quotation builder: money, line totals, approval blockers, term changes,
+ * labels and API error explanations. No React here except the role hook.
  */
 import { ApiError } from "@/api/client";
 import { useCurrentUser } from "@/api/session";
-import type { Evidence, Project, ScopeItem, Workspace } from "@/api/types";
-import { formatDate, formatMoney, humanize } from "@/lib/format";
-import { requestKindLabel, reviewStatusInfo, serviceFamilyFallback, workTypeLabel } from "@/lib/labels";
+import type { Approval, Evidence, ScopeItem, Workspace } from "@/api/types";
+import { formatMoney, humanize } from "@/lib/format";
+import { requestKindLabel, serviceFamilyFallback, workTypeLabel, type StatusInfo, type Tone } from "@/lib/labels";
 import { projectHref, quotationHref } from "@/lib/routes";
-import type { Line, Paper, Quote, QuoteDetail, SignatoryRow, TemplateInfo, Term } from "./api";
+import type { ApprovalBlocker, Line, Paper, Quote, QuotationData, SignatoryRow, TemplateInfo, Term, TermChange, TermChangeStatus } from "./api";
 
 /* ------------------------------------------------------------------ roles */
 
@@ -49,6 +49,7 @@ export function round(n: number, digits = 3): number {
   return Math.round(n * f) / f;
 }
 
+/** Quantity × price, only when both are known (an unstated quantity never becomes 0). */
 export function lineTotal(line: Line): number | null {
   const qty = parseAmount(line.qty);
   const price = parseAmount(line.unit_price);
@@ -60,16 +61,15 @@ export function hasPrice(line: Line): boolean {
   return parseAmount(line.unit_price) !== null;
 }
 
-/** Matches backend drafting.missing_prices: a line needs a price unless it is "included". */
-export function missingPriceLines(items: Line[] | undefined): number[] {
-  return (items ?? []).flatMap((l, i) => (!hasPrice(l) && !l.included ? [i + 1] : []));
-}
-
 export interface Totals {
+  /** Sum of the counted lines; null until every counted line has a quantity and a price. */
   total: number | null;
   /** Lines that count towards the total (not optional, not included). */
   counted: number;
-  missing: number;
+  /** Lines without a price that are not "included" (the backend's missing_prices). */
+  missingPrice: number;
+  /** Lines without a stated quantity that are not "included" (the backend's quantities_missing). */
+  missingQty: number;
   optionalTotal: number | null;
   optionalCount: number;
 }
@@ -77,11 +77,15 @@ export interface Totals {
 export function totals(items: Line[] | undefined): Totals {
   let sum = 0;
   let counted = 0;
-  let missing = 0;
+  let missingPrice = 0;
+  let missingQty = 0;
+  let incomplete = false;
   let opt = 0;
   let optionalCount = 0;
   for (const line of items ?? []) {
     if (line.included) continue;
+    if (!hasPrice(line)) missingPrice++;
+    if (parseAmount(line.qty) === null) missingQty++;
     const t = lineTotal(line);
     if (line.optional) {
       optionalCount++;
@@ -89,13 +93,14 @@ export function totals(items: Line[] | undefined): Totals {
       continue;
     }
     counted++;
-    if (t === null) missing++;
-    else sum += t;
+    if (t !== null) sum += t;
+    else incomplete = true;
   }
   return {
-    total: counted > 0 && missing === 0 ? round(sum, 3) : null,
+    total: counted > 0 && !incomplete ? round(sum, 3) : null,
     counted,
-    missing,
+    missingPrice,
+    missingQty,
     optionalTotal: optionalCount ? round(opt, 3) : null,
     optionalCount,
   };
@@ -135,7 +140,7 @@ export function createdByLabel(createdBy: string | null | undefined): string {
 }
 
 export function paperModeLabel(mode?: string | null): string {
-  return mode === "preprinted" ? "Pre-printed paper" : "Full letterhead";
+  return mode === "preprinted" ? "Pre-printed paper (body only)" : "Full letterhead";
 }
 
 export function paperName(papers: Paper[] | undefined, id: string | null | undefined, fallbackDefault?: string | null): string {
@@ -149,10 +154,14 @@ export function signatoryLabel(s: Pick<SignatoryRow, "full_name" | "initials"> |
   return `${s.full_name || s.initials} (${s.initials})`;
 }
 
-export function matchSummary(match: Record<string, unknown> | null | undefined, customerName?: (id: string) => string): string {
+export function matchSummary(
+  match: Record<string, unknown> | null | undefined,
+  customerName?: (id: string) => string,
+  familyLabel: (key: string) => string = serviceFamilyFallback,
+): string {
   const m = match ?? {};
   const parts: string[] = [];
-  if (m.service_family) parts.push(serviceFamilyFallback(String(m.service_family)));
+  if (m.service_family) parts.push(familyLabel(String(m.service_family)));
   if (m.work_type) parts.push(workTypeLabel(String(m.work_type)));
   if (m.request_kind) parts.push(requestKindLabel(String(m.request_kind)));
   if (m.customer_id) parts.push(customerName ? customerName(String(m.customer_id)) : "One customer");
@@ -170,14 +179,6 @@ export function termText(terms: Term[] | undefined, key: string): string {
   return terms?.find((t) => t.key === key)?.text ?? "";
 }
 
-export function setTerm(terms: Term[] | undefined, key: string, label: string, text: string | null): Term[] {
-  const list = [...(terms ?? [])];
-  const i = list.findIndex((t) => t.key === key);
-  if (i >= 0) list[i] = { ...list[i], text };
-  else list.push({ key, label, text });
-  return list;
-}
-
 /** Clarifications are stored as strings by the drafting step; tolerate objects too. */
 export function clarificationText(c: unknown): string {
   if (typeof c === "string") return c;
@@ -186,6 +187,160 @@ export function clarificationText(c: unknown): string {
     return String(o.text ?? o.question ?? o.label ?? JSON.stringify(o));
   }
   return String(c ?? "");
+}
+
+/* ------------------------------------------------------------------ customer-requested term changes */
+
+/** Older drafts carry no status: a change nobody decided is pending. */
+export function termStatus(c: TermChange): TermChangeStatus {
+  return c.status === "accepted" || c.status === "retained" || c.status === "clarification" ? c.status : "pending";
+}
+
+export const TERM_STATUS: Record<TermChangeStatus, StatusInfo> = {
+  pending: { label: "Waiting for decision", tone: "review" },
+  accepted: { label: "Requested wording accepted", tone: "brand" },
+  retained: { label: "Template wording kept", tone: "neutral" },
+  clarification: { label: "Clarification requested", tone: "review" },
+};
+
+export function termChanges(data: QuotationData | undefined): TermChange[] {
+  return (data?.term_changes ?? []).filter((c): c is TermChange => Boolean(c && typeof c === "object" && c.key));
+}
+
+export function pendingTermChanges(data: QuotationData | undefined): TermChange[] {
+  return termChanges(data).filter((c) => termStatus(c) === "pending");
+}
+
+export function detectedByLabel(by?: string | null): string {
+  if (!by || by === "rules") return "Found by the mail rules";
+  if (by.startsWith("mcp:")) return `Found by AI (${by.slice(4)})`;
+  if (by === "ai" || by === "mcp") return "Found by AI";
+  return `Found by ${by}`;
+}
+
+/* ------------------------------------------------------------------ approval blockers */
+
+export function engineeringRequired(ws: Workspace | null | undefined): boolean {
+  return (ws?.settings?.quotations?.require_engineer_review ?? true) !== false;
+}
+
+/** Unmet conditions for approval, exactly as the backend's approval gate lists them. */
+export function blockersOf(q: Quote, from?: { approval_blockers?: ApprovalBlocker[] } | null): ApprovalBlocker[] {
+  return from?.approval_blockers ?? q.approval_blockers ?? [];
+}
+
+export const BLOCKER_LABEL: Record<string, string> = {
+  review_required: "Engineering review",
+  impact_review: "New technical revision",
+  prices_missing: "Prices",
+  quantities_missing: "Quantities",
+  terms_pending: "Customer-requested terms",
+};
+
+export type GateState = "done" | "open" | "blocked";
+
+export interface Gate {
+  key: string;
+  label: string;
+  state: GateState;
+  detail: string;
+  fix?: { to: string; label: string };
+}
+
+/** Unmet conditions as checklist rows; `inEditor` links to sections of the same page. */
+export function blockerGates(blockers: ApprovalBlocker[], q: Pick<Quote, "id" | "project_id">, inEditor: boolean): Gate[] {
+  const editor = inEditor ? "" : quotationHref(q.id);
+  const review = q.project_id ? projectHref(q.project_id, "review") : undefined;
+  return blockers.map((b) => {
+    const fix =
+      b.code === "review_required"
+        ? review && { to: review, label: "Open engineering review" }
+        : b.code === "impact_review"
+          ? review && { to: review, label: "Review the revision" }
+          : b.code === "prices_missing"
+            ? { to: `${editor}#line-items`, label: "Enter prices" }
+            : b.code === "quantities_missing"
+              ? { to: `${editor}#line-items`, label: "Enter quantities" }
+              : b.code === "terms_pending"
+              ? { to: `${editor}#term-changes`, label: "Decide the terms" }
+              : undefined;
+    return {
+      key: b.code,
+      label: BLOCKER_LABEL[b.code] ?? humanize(b.code),
+      state: b.code === "impact_review" ? "blocked" : "open",
+      detail: b.message,
+      fix: fix || undefined,
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ API errors */
+
+export interface Explained {
+  title: string;
+  message: string;
+  fix?: { to: string; label: string };
+}
+
+/** 4xx answers from approve, send, submit, decide and edit as plain explanations with a way to fix. */
+export function explainError(err: unknown, q?: Pick<Quote, "id" | "project_id"> | null): Explained | null {
+  if (!(err instanceof ApiError)) return null;
+  const review = q?.project_id ? projectHref(q.project_id, "review") : undefined;
+  switch (err.code) {
+    case "review_required":
+      return {
+        title: "Engineering review first",
+        message: "The engineer review must approve the technical scope before the quotation can be approved.",
+        fix: review ? { to: review, label: "Open engineering review" } : undefined,
+      };
+    case "impact_review":
+      return { title: "A new technical revision needs review", message: err.message, fix: review ? { to: review, label: "Review the revision" } : undefined };
+    case "prices_missing":
+      return {
+        title: "Prices are missing",
+        message: `${err.message} AI never writes prices: a person enters each one.`,
+        fix: q ? { to: `${quotationHref(q.id)}#line-items`, label: "Enter prices" } : undefined,
+      };
+    case "quantities_missing":
+      return {
+        title: "Quantities are missing",
+        message: err.message,
+        fix: q ? { to: `${quotationHref(q.id)}#line-items`, label: "Enter quantities" } : undefined,
+      };
+    case "terms_pending":
+      return {
+        title: "Customer-requested terms need a decision",
+        message: err.message,
+        fix: q ? { to: `${quotationHref(q.id)}#term-changes`, label: "Decide the terms" } : undefined,
+      };
+    case "frozen":
+      return {
+        title: "This revision is frozen",
+        message: "Approved and sent quotations cannot change. Create a revision: it needs approval and send authorization again.",
+      };
+    case "reason_required":
+      return { title: "Give a reason", message: "Say why the template wording stays. The reason is recorded with the decision." };
+    case "not_approved":
+      return { title: "Not approved yet", message: "Only an approved quotation can be sent." };
+    case "no_pdf":
+      return { title: "Render the PDF first", message: err.message };
+    case "bad_state":
+      return { title: "The status changed", message: `${err.message}. Reload to see the current status.` };
+    case "no_recipient":
+      return { title: "Add a recipient", message: "Add at least one e-mail address in To." };
+    case "confirm_required":
+      return { title: "Confirm first", message: err.message };
+    case "not_connected":
+      return { title: "No mailbox connected", message: err.message, fix: { to: "/settings/connections", label: "Open connections" } };
+    case "forbidden":
+      return { title: "Not allowed for your role", message: err.message };
+    case "note_required":
+      return { title: "Say what must change", message: "Write a short note for the person who prepares the quotation." };
+    case "signature_not_found":
+      return { title: "No signature found", message: `${err.message} Draw a box around the signature and try again.` };
+    default:
+      return null;
+  }
 }
 
 /* ------------------------------------------------------------------ evidence */
@@ -211,148 +366,31 @@ export function lineEvidence(line: Line, scope: ScopeItem[] | undefined): Eviden
   if (own) return own;
   const d = norm(line.description);
   if (!d || !scope?.length) return null;
-  const hit = scope.find((s) => norm(s.description) === d) ?? scope.find((s) => {
-    const sd = norm(s.description);
-    return sd.length > 12 && (sd.includes(d) || d.includes(sd));
-  });
+  const hit =
+    scope.find((s) => norm(s.description) === d) ??
+    scope.find((s) => {
+      const sd = norm(s.description);
+      return sd.length > 12 && (sd.includes(d) || d.includes(sd));
+    });
   return hit ? firstEvidence(hit.evidence) : null;
 }
 
-/* ------------------------------------------------------------------ gates */
+/* ------------------------------------------------------------------ approval records */
 
-export type GateState = "done" | "open" | "blocked";
-
-export interface Gate {
-  key: string;
-  label: string;
-  state: GateState;
-  detail: string;
-  fix?: { to: string; label: string };
-}
-
-export function engineeringRequired(ws: Workspace | null | undefined): boolean {
-  return (ws?.settings?.quotations?.require_engineer_review ?? true) !== false;
-}
-
-/**
- * What stands between this quotation and sending, in the order a person resolves it:
- * engineering review, impact review after a new revision, prices, commercial approval.
- */
-export function quoteGates(q: Quote, project: Project | null | undefined, ws: Workspace | null | undefined): Gate[] {
-  const gates: Gate[] = [];
-  const reviewHref = q.project_id ? projectHref(q.project_id, "review") : undefined;
-  if (engineeringRequired(ws)) {
-    const rs = project?.review_status ?? "not_started";
-    const info = reviewStatusInfo(rs);
-    gates.push({
-      key: "engineering",
-      label: "Engineering review",
-      state: rs === "approved" ? "done" : rs === "changes_requested" ? "blocked" : "open",
-      detail: rs === "approved" ? "Technical scope approved" : rs === "not_started" ? "Not started" : info.label,
-      fix: rs === "approved" || !reviewHref ? undefined : { to: reviewHref, label: "Open engineering review" },
-    });
+/** One approval record in words: approved, changes requested, sent or saved as mail draft. */
+export function describeApproval(a: Pick<Approval, "action" | "decision" | "note">): { label: string; tone: Tone; recipients: string[] } {
+  if (a.action === "send_quotation") {
+    const s = parseSendNote(a.note);
+    return { label: s.sendNow === false ? "Saved as mail draft" : "Sent", tone: "brand", recipients: s.to };
   }
-  if (q.impact_review?.required) {
-    gates.push({
-      key: "impact",
-      label: "New technical revision",
-      state: "blocked",
-      detail: `The engineer must review it first${q.impact_review.reason ? `: ${String(q.impact_review.reason)}` : ""}.`,
-      fix: reviewHref ? { to: reviewHref, label: "Review the revision" } : undefined,
-    });
-  }
-  const missing = q.missing_prices ?? [];
-  gates.push({
-    key: "prices",
-    label: "Prices",
-    state: missing.length ? "open" : "done",
-    detail: missing.length
-      ? `Missing on ${missing.length === 1 ? "line" : "lines"} ${missing.join(", ")}`
-      : "Every line has a price or is marked included",
-    fix: missing.length ? { to: quotationHref(q.id), label: "Enter prices" } : undefined,
-  });
-  const commercial: Record<string, [GateState, string]> = {
-    draft: ["open", "Not submitted for approval"],
-    changes_requested: ["blocked", "Changes requested"],
-    needs_review: ["open", "Waiting for approval"],
-    approved: ["done", q.approved_by ? `Approved by ${q.approved_by}, ${formatDate(q.approved_at)}` : "Approved"],
-    sent: ["done", q.approved_by ? `Approved by ${q.approved_by}` : "Approved"],
-    superseded: ["blocked", "Superseded by a newer revision"],
-  };
-  const [state, detail] = commercial[q.status] ?? ["open", humanize(q.status)];
-  gates.push({ key: "commercial", label: "Commercial approval", state, detail });
-  return gates;
-}
-
-/** Reasons the Approve button is disabled (empty when a person may approve). */
-export function approveBlockers(q: Quote, project: Project | null | undefined, ws: Workspace | null | undefined): Gate[] {
-  if (!["needs_review", "draft"].includes(q.status)) return [];
-  return quoteGates(q, project, ws).filter((g) => g.key !== "commercial" && g.state !== "done");
-}
-
-/* ------------------------------------------------------------------ API errors */
-
-export interface Explained {
-  title: string;
-  message: string;
-  fix?: { to: string; label: string };
-}
-
-/** 409/403 answers from approve, send, submit and edit as plain explanations with a way to fix. */
-export function explainError(err: unknown, q?: Pick<Quote, "id" | "project_id" | "status"> | null): Explained | null {
-  if (!(err instanceof ApiError)) return null;
-  const review = q?.project_id ? projectHref(q.project_id, "review") : undefined;
-  switch (err.code) {
-    case "review_required":
-      return {
-        title: "Engineering review first",
-        message: "The engineer review must approve the technical scope before the quotation can be approved.",
-        fix: review ? { to: review, label: "Open engineering review" } : undefined,
-      };
-    case "impact_review":
-      return {
-        title: "A new technical revision needs review",
-        message: err.message,
-        fix: review ? { to: review, label: "Review the revision" } : undefined,
-      };
-    case "prices_missing":
-      return {
-        title: "Prices are missing",
-        message: `${err.message} AI never writes prices: a person enters each one.`,
-        fix: q ? { to: quotationHref(q.id), label: "Enter prices" } : undefined,
-      };
-    case "frozen":
-      return { title: "This revision is frozen", message: "Approved and sent quotations cannot change. Create a revision to edit it." };
-    case "not_approved":
-      return { title: "Not approved yet", message: "Only an approved quotation can be sent." };
-    case "bad_state":
-      return { title: "The status changed", message: `${err.message}. Reload to see the current status.` };
-    case "no_recipient":
-      return { title: "Add a recipient", message: "Add at least one e-mail address in To." };
-    case "confirm_required":
-      return { title: "Confirm first", message: "Tick the confirmation before sending." };
-    case "not_connected":
-      return {
-        title: "No mailbox connected",
-        message: err.message,
-        fix: { to: "/settings/connections", label: "Open connections" },
-      };
-    case "forbidden":
-      return { title: "Not allowed for your role", message: err.message };
-    case "note_required":
-      return { title: "Say what must change", message: "Write a short note for the person who prepares the quotation." };
-    case "signature_not_found":
-      return { title: "No signature found", message: `${err.message} Draw a box around the signature and try again.` };
-    default:
-      return null;
-  }
+  if (a.action === "approve_quotation")
+    return a.decision === "approved"
+      ? { label: "Approved", tone: "brand", recipients: [] }
+      : { label: "Changes requested", tone: "block", recipients: [] };
+  return { label: `${humanize(a.action)}: ${humanize(a.decision).toLowerCase()}`, tone: "neutral", recipients: [] };
 }
 
 /* ------------------------------------------------------------------ misc */
-
-export function detailFor(q: Quote, d: QuoteDetail | undefined): QuoteDetail | undefined {
-  return d && d.quotation.id === q.id ? d : undefined;
-}
 
 /** `to=a@x, b@y; send_now=True; draft=r-1` → ["a@x", "b@y"] (backend send record note). */
 export function parseSendNote(note: string | null | undefined): { to: string[]; sendNow: boolean | null; draftId: string | null } {
@@ -384,6 +422,7 @@ export function currencyLabel(currency: string | null | undefined, language: str
   return language === "ar" ? (AR_CURRENCY[code] ?? code) : code;
 }
 
+/** Same as backend templates.fill_placeholders: "{currency}" → value; unknown names stay as they are. */
 export function fillPlaceholders(text: string, values: Record<string, string | null | undefined>): string {
   return text.replace(/\{(\w+)\}/g, (m, k: string) => (values[k] ?? m) || "");
 }

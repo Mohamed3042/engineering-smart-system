@@ -40,14 +40,48 @@ export interface Term {
   text: string | null;
 }
 
-/** A term the drafting step changed from the template default because the customer asked for it. */
+export type TermDecision = "accept" | "retain" | "clarify";
+export type TermChangeStatus = "pending" | "accepted" | "retained" | "clarification";
+
+/**
+ * A term wording the customer asked for (detected in their mail). It is a request, not part of the
+ * quotation, until a person accepts it; only "accepted" changes the agreed text in `data.terms`.
+ */
 export interface TermChange {
   key: string;
   label?: string;
+  /** Template wording. */
   from?: string | null;
+  /** Customer-requested wording. */
   to?: string | null;
+  /** Who detected it: "rules" or "mcp:<model>". */
   by?: string;
   evidence?: Evidence | null;
+  enquiry_id?: string | null;
+  /** Older drafts have no status: treat as "pending". */
+  status?: TermChangeStatus | string;
+  decided_by?: string | null;
+  decided_at?: string | null;
+  /** e.g. "AA/26/0118 v1". */
+  revision?: string | null;
+  reason?: string | null;
+  detected_at?: string | null;
+}
+
+/** Unknown future codes are shown by their message. */
+export type BlockerCode = "review_required" | "impact_review" | "prices_missing" | "quantities_missing" | "terms_pending";
+
+/** One unmet condition for final approval (GET /quotations/{id}; the approve endpoint refuses with the same codes). */
+export interface ApprovalBlocker {
+  code: BlockerCode | string;
+  message: string;
+}
+
+export interface ChangeRequest {
+  by?: string;
+  at?: string;
+  note?: string;
+  items?: unknown[];
 }
 
 export interface Photo {
@@ -122,10 +156,13 @@ export interface AssetsStatus {
   [k: string]: unknown;
 }
 
-export interface Quote extends OmitKnown<Quotation, "data" | "missing_prices" | "assets_status"> {
+export interface Quote extends OmitKnown<Quotation, "data" | "missing_prices" | "assets_status" | "change_requests"> {
   data: QuotationData;
   missing_prices: (number | string)[];
   assets_status: AssetsStatus;
+  change_requests: ChangeRequest[];
+  /** Present when the backend puts the blockers on the quotation itself. */
+  approval_blockers?: ApprovalBlocker[];
 }
 
 export interface QuoteListItem extends Quote {
@@ -152,6 +189,13 @@ export interface QuoteDetail {
   signatory: Signatory | null;
   approvals: Approval[];
   send_defaults: SendDefaults;
+  /** Unmet conditions for final approval; empty = approval possible. Missing on older backends. */
+  approval_blockers?: ApprovalBlocker[];
+}
+
+export interface SendResult {
+  draft_id: string | null;
+  sent: boolean;
 }
 
 export interface ApprovalQueue {
@@ -292,8 +336,8 @@ export interface ProjectSummary {
   service_family: string;
   work_type?: string;
   request_kind?: string;
-  customer?: string | null;
-  customer_id?: string | null;
+  /** GET /projects returns the customer as {id, name}. */
+  customer?: { id: string; name: string } | null;
   stage?: string;
   due_date?: string | null;
   [k: string]: unknown;
@@ -307,10 +351,11 @@ export const ALL_STATUSES = "draft,needs_review,changes_requested,approved,sent,
 
 export type ListParams = { status?: string; project_id?: string };
 
-export function useQuotations(params: ListParams = {}) {
+export function useQuotations(params: ListParams = {}, enabled = true) {
   return useQuery({
     queryKey: ["quotations", params],
     queryFn: () => api.get<QuoteList>("/quotations", params),
+    enabled,
   });
 }
 
@@ -403,6 +448,18 @@ export function quoteKeys(id: string, projectId?: string | null): QueryKey[] {
   const keys: QueryKey[] = [["quotation", id], ["quotations"], ["approvals"], ["dashboard"]];
   if (projectId) keys.push(["project", projectId]);
   return keys;
+}
+
+/** After a mutation that returns the public quotation: show it at once, then refetch what it touches. */
+export function useQuoteUpdated() {
+  const qc = useQueryClient();
+  return useCallback(
+    async (q: Quote) => {
+      qc.setQueryData<QuoteDetail>(["quotation", q.id], (d) => (d ? { ...d, quotation: { ...d.quotation, ...q } } : d));
+      await Promise.all(quoteKeys(q.id, q.project_id).map((queryKey) => qc.invalidateQueries({ queryKey })));
+    },
+    [qc],
+  );
 }
 
 /** Absolute URL of the quotation PDF (served inline by the local backend). */

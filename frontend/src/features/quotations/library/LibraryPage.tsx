@@ -1,4 +1,4 @@
-import { CircleCheck, FilePlus2, FileText, Plus, Settings2 } from "lucide-react";
+import { CircleCheck, Clock, FilePlus2, FileText, Plus, Settings2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useWorkspace } from "@/api/session";
@@ -8,6 +8,7 @@ import { serviceFamilyShort } from "@/lib/labels";
 import { quotationHref } from "@/lib/routes";
 import {
   Button,
+  Chip,
   Count,
   EmptyState,
   ErrorState,
@@ -30,7 +31,7 @@ import {
 } from "@/ui";
 import { useQuotations, useTemplates, type QuoteListItem } from "../api";
 import { ImpactChip, QuoteStatusChip } from "../components";
-import { languageLabel, money, templateName, totals } from "../lib";
+import { languageLabel, money, pendingTermChanges, templateName, totals } from "../lib";
 import { NewQuotationDialog } from "./NewQuotationDialog";
 
 const STATUS_TABS = [
@@ -44,6 +45,17 @@ const STATUS_TABS = [
 
 type SortKey = "reference" | "updated";
 
+/** Customer-requested terms nobody decided yet (they block approval). */
+function TermsChip({ q }: { q: QuoteListItem }) {
+  const n = pendingTermChanges(q.data).length;
+  if (!n) return null;
+  return (
+    <Chip tone="review" size="sm" icon={<Clock aria-hidden />}>
+      {n} {n === 1 ? "term" : "terms"} to decide
+    </Chip>
+  );
+}
+
 function PricesCell({ q, currency }: { q: QuoteListItem; currency: string }) {
   const items = q.data.items ?? [];
   const missing = q.missing_prices?.length ?? 0;
@@ -55,6 +67,12 @@ function PricesCell({ q, currency }: { q: QuoteListItem; currency: string }) {
       </span>
     );
   const t = totals(items);
+  if (t.missingQty)
+    return (
+      <span className="text-sm font-medium text-review tabular">
+        {t.missingQty} without quantity
+      </span>
+    );
   return <span className="text-sm text-ink tabular">{t.total !== null ? money(t.total, currency) : "All priced"}</span>;
 }
 
@@ -102,7 +120,8 @@ export function LibraryPage() {
 
   const counts = list.data?.counts ?? {};
   const total = list.data?.items.length ?? 0;
-  const waiting = (counts.needs_review ?? 0) + (counts.approved ?? 0);
+  // The approval queue holds quotations submitted for approval (approved ones wait to be sent, not approved).
+  const waiting = counts.needs_review ?? 0;
   const filtersOn = status !== "all" || Boolean(template) || Boolean(search);
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "updated" ? "desc" : "asc" }));
@@ -254,6 +273,7 @@ export function LibraryPage() {
                       <div className="flex flex-col items-start gap-1.5">
                         <QuoteStatusChip q={q} />
                         <ImpactChip q={q} />
+                        <TermsChip q={q} />
                       </div>
                     </TD>
                     <TD className="whitespace-nowrap">
@@ -299,9 +319,10 @@ export function LibraryPage() {
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
-                  {q.impact_review?.required ? (
-                    <div className="mt-2">
+                  {q.impact_review?.required || pendingTermChanges(q.data).length ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
                       <ImpactChip q={q} />
+                      <TermsChip q={q} />
                     </div>
                   ) : null}
                 </ListRow>

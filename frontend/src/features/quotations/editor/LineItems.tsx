@@ -2,6 +2,7 @@ import {
   ArrowDown,
   ArrowUp,
   BookOpen,
+  CircleDashed,
   Copy,
   EllipsisVertical,
   History,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 import type { ScopeItem } from "@/api/types";
 import { cn } from "@/lib/cn";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, isRtl } from "@/lib/format";
 import { Button, Chip, Count, EmptyState, IconButton, Input, Menu, Panel, PanelHeader, Select, Switch, type MenuItem } from "@/ui";
 import type { PriceHint, TemplateInfo } from "../api";
 import { EvidenceButton } from "../components";
@@ -56,8 +57,8 @@ function PriceGuidance({ hint }: { hint?: PriceHint }) {
   return (
     <p className="mt-1 flex items-start gap-1 text-xs text-ink-3">
       <History className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-      <span>
-        <span className="font-medium text-ink-2">Old price, dated — guidance only.</span> {hint.text}
+      <span dir={isRtl(hint.text) ? "rtl" : "auto"}>
+        <span className="font-medium text-ink-2">Last known price, not copied in.</span> {hint.text}
       </span>
     </p>
   );
@@ -79,6 +80,8 @@ interface Props {
   onShowTotal: (v: boolean) => void;
   title?: string;
   description?: string;
+  /** Arabic quotation: text fields run right to left. */
+  rtl?: boolean;
 }
 
 export function LineItems({
@@ -95,10 +98,17 @@ export function LineItems({
   showTotal,
   canToggleTotal,
   onShowTotal,
+  rtl,
   title = "Line items",
-  description = "AI never writes prices. Each price is entered by a person.",
+  description = layout.pricesOptional
+    ? "AI never writes prices. Price each line, or mark it Included when the contract value covers it."
+    : "AI never writes prices. Each price is entered by a person.",
 }: Props) {
   const t = totals(lines);
+  const qtyText = (l: DraftLine) => {
+    const q = parseAmount(l.qty);
+    return q === null ? <span className="text-ink-3">Not stated</span> : formatNumber(q, Number.isInteger(q) ? 0 : 2);
+  };
   const set = (i: number, patch: Partial<DraftLine>) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const move = (i: number, by: number) => {
     const j = i + by;
@@ -133,7 +143,7 @@ export function LineItems({
     { label: "Remove line", icon: <Trash2 />, onSelect: () => remove(i), danger: true, separatorBefore: true },
   ];
 
-  const missing = t.missing;
+  const missing = t.missingPrice;
   const flags = (l: DraftLine) => (
     <>
       {l.optional ? (
@@ -154,7 +164,8 @@ export function LineItems({
     </>
   );
   const needsPrice = (l: DraftLine) => !readOnly && !l.included && priceOf(l) === null;
-  const priceCls = (l: DraftLine) => (needsPrice(l) && !layout.pricesOptional ? "border-review-line bg-review-soft/40" : "");
+  const priceCls = (l: DraftLine) => (needsPrice(l) ? "border-review-line bg-review-soft/40" : "");
+  const qtyCls = (l: DraftLine) => (!readOnly && !l.included && parseAmount(l.qty) === null ? "border-review-line bg-review-soft/40" : "");
 
   const priceUnitOptions = layout.priceUnits.map((u) => ({ value: u, label: u }));
 
@@ -178,8 +189,8 @@ export function LineItems({
         title={
           <span className="flex flex-wrap items-center gap-2">
             {title}
-            {missing > 0 && !layout.pricesOptional ? (
-              <Chip tone="review" size="sm">
+            {missing > 0 ? (
+              <Chip tone="review" size="sm" icon={<CircleDashed aria-hidden />}>
                 {missing} {missing === 1 ? "needs" : "need"} a price
               </Chip>
             ) : null}
@@ -238,7 +249,7 @@ export function LineItems({
                     Unit
                   </th>
                   <th scope="col" className="w-40 px-2 py-3 text-right font-medium">
-                    {layout.pricesOptional ? `Unit price (${currency}, optional)` : `Unit price (${currency})`}
+                    Unit price ({currency})
                   </th>
                   {layout.hasTotal ? (
                     <th scope="col" className="w-36 px-2 py-3 text-right font-medium">
@@ -260,13 +271,14 @@ export function LineItems({
                       <td className="px-2 py-3">
                         {readOnly ? (
                           <div className="px-2 py-1.5">
-                            <p className="whitespace-pre-line text-ink">{l.description || "—"}</p>
-                            {l.spec ? <p className="mt-0.5 whitespace-pre-line text-sm text-ink-3">{l.spec}</p> : null}
+                            <p dir={rtl || isRtl(l.description) ? "rtl" : "auto"} className="whitespace-pre-line text-ink">{l.description || "—"}</p>
+                            {l.spec ? <p dir={rtl || isRtl(l.spec) ? "rtl" : "auto"} className="mt-0.5 whitespace-pre-line text-sm text-ink-3">{l.spec}</p> : null}
                           </div>
                         ) : (
                           <>
                             <AutoTextarea
                               quiet
+                              dir={rtl ? "rtl" : undefined}
                               aria-label={`Description, line ${i + 1}`}
                               placeholder="Describe the item or work"
                               value={l.description ?? ""}
@@ -275,6 +287,7 @@ export function LineItems({
                             />
                             <AutoTextarea
                               quiet
+                              dir={rtl ? "rtl" : undefined}
                               aria-label={`Specification, line ${i + 1}`}
                               placeholder="Specification (optional)"
                               value={l.spec ?? ""}
@@ -290,10 +303,12 @@ export function LineItems({
                       </td>
                       <td className="px-2 py-3">
                         {readOnly ? (
-                          <p className="px-3 py-2 text-right tabular">{l.qty ?? "—"}</p>
+                          <p className="px-3 py-2 text-right tabular">{qtyText(l)}</p>
                         ) : (
                           <AmountInput
                             aria-label={`Quantity, line ${i + 1}`}
+                            placeholder="Not stated"
+                            className={qtyCls(l)}
                             value={parseAmount(l.qty)}
                             onChange={(v) => set(i, { qty: v })}
                           />
@@ -386,13 +401,14 @@ export function LineItems({
                     <div className="min-w-0 flex-1">
                       {readOnly ? (
                         <>
-                          <p className="whitespace-pre-line font-medium text-ink">{l.description || "—"}</p>
-                          {l.spec ? <p className="mt-0.5 whitespace-pre-line text-sm text-ink-3">{l.spec}</p> : null}
+                          <p dir={rtl || isRtl(l.description) ? "rtl" : "auto"} className="whitespace-pre-line font-medium text-ink">{l.description || "—"}</p>
+                          {l.spec ? <p dir={rtl || isRtl(l.spec) ? "rtl" : "auto"} className="mt-0.5 whitespace-pre-line text-sm text-ink-3">{l.spec}</p> : null}
                         </>
                       ) : (
                         <>
                           <AutoTextarea
                             quiet
+                            dir={rtl ? "rtl" : undefined}
                             aria-label={`Description, line ${i + 1}`}
                             placeholder="Describe the item or work"
                             value={l.description ?? ""}
@@ -401,6 +417,7 @@ export function LineItems({
                           />
                           <AutoTextarea
                             quiet
+                            dir={rtl ? "rtl" : undefined}
                             aria-label={`Specification, line ${i + 1}`}
                             placeholder="Specification (optional)"
                             value={l.spec ?? ""}
@@ -429,10 +446,12 @@ export function LineItems({
                     <label className="block min-w-0">
                       <span className="mb-1 block text-xs text-ink-3">Quantity</span>
                       {readOnly ? (
-                        <span className="block tabular">{l.qty ?? "—"}</span>
+                        <span className="block tabular">{qtyText(l)}</span>
                       ) : (
                         <AmountInput
                           aria-label={`Quantity, line ${i + 1}`}
+                          placeholder="Not stated"
+                          className={qtyCls(l)}
                           value={parseAmount(l.qty)}
                           onChange={(v) => set(i, { qty: v })}
                         />
@@ -508,10 +527,19 @@ export function LineItems({
                 </span>
               </div>
             ) : null}
-            {t.total === null && t.missing > 0 && layout.hasTotal ? (
+            {t.missingPrice > 0 ? (
               <p className="text-sm text-review">
-                {formatNumber(t.missing)} of {formatNumber(t.counted)} priced {t.counted === 1 ? "line has" : "lines have"} no price yet. The PDF
-                prints no total until every line is priced.
+                {formatNumber(t.missingPrice)} of {formatNumber(lines.filter((l) => !l.included).length)}{" "}
+                {t.missingPrice === 1 ? "line has" : "lines have"} no price yet.
+                {layout.hasTotal ? " The PDF prints no total until every line is priced." : ""} Approval waits until every line
+                is priced or marked Included.
+              </p>
+            ) : null}
+            {t.missingQty > 0 ? (
+              <p className="text-sm text-review">
+                {formatNumber(t.missingQty)} {t.missingQty === 1 ? "line has" : "lines have"} no stated quantity
+                {layout.hasTotal ? `, so ${t.missingQty === 1 ? "its" : "their"} total stays empty` : ""}. A quantity the tender does
+                not state is never assumed: enter it once confirmed, or mark the line Included.
               </p>
             ) : null}
             {t.optionalCount > 0 ? (

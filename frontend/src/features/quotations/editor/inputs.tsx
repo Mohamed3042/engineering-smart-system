@@ -113,6 +113,7 @@ export function ListEditor({
   itemLabel,
   removeLabel = "Remove",
   empty,
+  rtl,
 }: {
   items: string[];
   onChange: (items: string[]) => void;
@@ -122,7 +123,10 @@ export function ListEditor({
   itemLabel: (i: number) => string;
   removeLabel?: string;
   empty?: string;
+  /** Arabic quotation: right to left. */
+  rtl?: boolean;
 }) {
+  const dir = rtl ? "rtl" : undefined;
   const [adding, setAdding] = useState("");
   const add = () => {
     const t = adding.trim();
@@ -140,6 +144,7 @@ export function ListEditor({
             <AutoTextarea
               aria-label={itemLabel(i)}
               value={it}
+              dir={dir}
               disabled={disabled}
               onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))}
               className="min-h-10 py-2"
@@ -156,6 +161,7 @@ export function ListEditor({
         <div className="flex gap-2">
           <Input
             value={adding}
+            dir={dir}
             placeholder={placeholder}
             aria-label={addLabel}
             onChange={(e) => setAdding(e.target.value)}
