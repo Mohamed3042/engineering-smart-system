@@ -6,7 +6,6 @@ import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/
 import { api } from "@/api/client";
 import type {
   Activity,
-  Approval,
   Blocker,
   Customer,
   Email,
@@ -87,6 +86,8 @@ export interface ProjectDetail {
   links: ProjectLink[];
   quotations: Quotation[];
   review: Review | null;
+  /** Every review round, newest first (superseded rounds included). */
+  reviews: Review[];
   activity: Activity[];
   related: { id: string; name: string; service_family: string; stage: string }[];
 }
@@ -102,6 +103,35 @@ export interface TemplateInfo {
   languages?: string[];
   applies_to?: { work_types?: string[]; service_families?: string[]; request_kinds?: string[] };
   [k: string]: unknown;
+}
+
+/** project.analysis as written by backend/ess/pipeline/analysis.py. */
+export interface ProjectAnalysis {
+  status?: "running" | "done" | "failed" | string;
+  started_at?: string;
+  ran_at?: string;
+  by?: string;
+  error?: string;
+  notes?: string[];
+  stats?: { files?: number; engine?: string; drawing_pages?: number };
+}
+
+/** Row of GET /api/quotations (the quotation plus its customer). */
+export interface QuotationRow extends Quotation {
+  customer: { id: string; name: string } | null;
+}
+
+/** One BOQ row read from a file (file.extraction.boq_relevant, backend/ess/documents/boq.py). */
+export interface BoqRow {
+  ref?: string | null;
+  description?: string;
+  qty?: number | null;
+  qty_text?: string;
+  unit?: string | null;
+  section?: string | null;
+  row?: number;
+  sheet?: string;
+  page?: number;
 }
 
 /* ------------------------------------------------------------------ polling */
@@ -142,12 +172,10 @@ export function useProject(id: string | undefined) {
   });
 }
 
-/** The open review round. Only call when one exists: GET creates a new round otherwise. */
-export function useProjectReview(id: string, enabled: boolean) {
+export function useProjectQuotations(projectId: string) {
   return useQuery({
-    queryKey: ["project-review", id],
-    queryFn: () => api.get<Review>(`/projects/${encodeURIComponent(id)}/review`),
-    enabled,
+    queryKey: ["quotations", { project_id: projectId }],
+    queryFn: () => api.get<{ items: QuotationRow[] }>("/quotations", { project_id: projectId }),
   });
 }
 
@@ -174,14 +202,6 @@ export function useTemplates() {
 
 export function useTemplateRules() {
   return useQuery({ queryKey: ["template-rules"], queryFn: () => api.get<TemplateRule[]>("/template-rules") });
-}
-
-/** Workspace approval log (latest 50). Used for the review history of a project. */
-export function useApprovalHistory() {
-  return useQuery({
-    queryKey: ["approvals"],
-    queryFn: () => api.get<{ pending: unknown[]; history: Approval[] }>("/approvals"),
-  });
 }
 
 export function useCustomerOptions(enabled: boolean) {

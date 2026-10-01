@@ -8,7 +8,7 @@ import { Link, useNavigate } from "react-router";
 import { api } from "@/api/client";
 import type { Evidence, Quotation } from "@/api/types";
 import { cn } from "@/lib/cn";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateShort, formatDateTime, humanize } from "@/lib/format";
 import { customerResponseInfo, enquiryStatusInfo, quotationStatusInfo } from "@/lib/labels";
 import { customerHref, quotationHref } from "@/lib/routes";
 import {
@@ -18,6 +18,7 @@ import {
   Dialog,
   EmptyState,
   EvidenceQuote,
+  evidenceHref,
   Field,
   IconButton,
   InlineError,
@@ -43,10 +44,12 @@ import type { TabProps } from "../ProjectLayout";
 const RESPONSES = ["none", "awaiting", "clarification", "accepted", "rejected"];
 const NEEDS_NOTE = new Set(["accepted", "rejected", "clarification"]);
 
+/** One replaced closing date: `value` is the earlier date; the rest says when, by whom and why it changed. */
 interface HistoryEntry {
   value?: string | null;
   changed_at?: string;
   confirmed_by?: string;
+  source?: string;
   note?: string;
   evidence?: Evidence;
 }
@@ -114,25 +117,28 @@ export function EnquiriesTab({ detail }: TabProps) {
     const q = quoteFor(e);
     if (q) {
       return (
-        <div className={cn("flex flex-wrap items-center gap-2", full && "justify-between")}>
-          <Link to={quotationHref(q.id)} className="font-medium text-brand-ink hover:underline">
-            {q.reference || "Draft quotation"}
-          </Link>
-          <StatusChip info={quotationStatusInfo(q.status)} size="sm" />
+        <div className={cn("flex flex-col items-start gap-2", full && "items-stretch")}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-ink">{q.reference || "Draft quotation"}</span>
+            <span className="text-sm text-ink-3">v{q.version}</span>
+            <StatusChip info={quotationStatusInfo(q.status)} size="sm" />
+          </div>
+          <Button asChild size="sm" variant="secondary" className={full ? "w-full" : undefined}>
+            <Link to={quotationHref(q.id)}>Open quotation</Link>
+          </Button>
         </div>
       );
     }
     return (
       <Button
         size="sm"
-        variant="secondary"
         icon={<FilePlus2 />}
         className={full ? "w-full" : undefined}
         loading={create.isPending && create.variables?.id === e.id}
         disabled={!!p.archived_at}
         onClick={() => create.mutate(e)}
       >
-        Create quotation
+        Create quotation for this contractor
       </Button>
     );
   };
@@ -151,7 +157,6 @@ export function EnquiriesTab({ detail }: TabProps) {
           <THead>
             <tr>
               <TH>Contractor</TH>
-              <TH>Contact</TH>
               <TH>Closing date</TH>
               <TH>Our status</TH>
               <TH>Customer response</TH>
@@ -166,15 +171,15 @@ export function EnquiriesTab({ detail }: TabProps) {
               <TR key={e.id}>
                 <TD className="max-w-[16rem]">
                   <ContractorName e={e} />
-                  <div className="mt-0.5 text-sm text-ink-3">Received {formatDate(e.received_at)}</div>
+                  <div className="mt-0.5 text-sm text-ink-3">
+                    {enquiryMeta(e)}
+                  </div>
+                  <Contact e={e} className="mt-2" />
                 </TD>
-                <TD className="max-w-[14rem]">
-                  <Contact e={e} />
-                </TD>
-                <TD>
+                <TD className="max-w-[15rem]">
                   <ClosingDate e={e} detail={detail} />
                 </TD>
-                <TD className="max-w-[12rem]">
+                <TD className="max-w-[13rem]">
                   <OurStatus e={e} />
                 </TD>
                 <TD>
@@ -211,7 +216,9 @@ export function EnquiriesTab({ detail }: TabProps) {
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <ContractorName e={e} />
-                <div className="mt-0.5 text-sm text-ink-3">Received {formatDate(e.received_at)}</div>
+                <div className="mt-0.5 text-sm text-ink-3">
+                  {enquiryMeta(e)}
+                </div>
               </div>
               <Menu
                 trigger={
@@ -238,13 +245,14 @@ export function EnquiriesTab({ detail }: TabProps) {
               <dt className="text-ink-3">Customer response</dt>
               <dd className="min-w-0">
                 <StatusChip info={customerResponseInfo(e.customer_response || "none")} size="sm" />
+                {e.customer_response_at ? <div className="mt-1 text-xs text-ink-3">{formatDate(e.customer_response_at)}</div> : null}
               </dd>
             </dl>
             <div className="mt-3 grid gap-2 border-t border-line pt-3">
-              {quotationCell(e, true)}
               <Button variant="secondary" size="sm" icon={<MessageSquareReply />} onClick={() => setResponding(e)} disabled={!!p.archived_at}>
                 Record customer response
               </Button>
+              {quotationCell(e, true)}
             </div>
           </li>
         ))}
@@ -258,6 +266,9 @@ export function EnquiriesTab({ detail }: TabProps) {
 
 /* ------------------------------------------------------------------ cells */
 
+const enquiryMeta = (e: EnquiryRow) =>
+  [e.ref, e.received_at ? `received ${formatDate(e.received_at)}` : null].filter(Boolean).join(" · ");
+
 function ContractorName({ e }: { e: EnquiryRow }) {
   if (!e.customer) return <span className="font-semibold text-ink">Unknown sender</span>;
   return (
@@ -267,11 +278,11 @@ function ContractorName({ e }: { e: EnquiryRow }) {
   );
 }
 
-function Contact({ e }: { e: EnquiryRow }) {
+function Contact({ e, className }: { e: EnquiryRow; className?: string }) {
   const c = e.contact ?? {};
-  if (!c.name && !c.email) return <span className="text-ink-3">—</span>;
+  if (!c.name && !c.email) return <span className={cn("text-ink-3", className)}>—</span>;
   return (
-    <div className="min-w-0">
+    <div className={cn("min-w-0", className)}>
       {c.name ? <Bidi text={String(c.name)} as="div" className="break-words text-ink" /> : null}
       {c.email ? (
         <a href={`mailto:${c.email}`} className="block break-all text-sm text-ink-3 hover:text-ink hover:underline">
@@ -283,36 +294,64 @@ function Contact({ e }: { e: EnquiryRow }) {
   );
 }
 
+/** Our status (open, quoted …) and our response: whether and when our offer went out. */
 function OurStatus({ e }: { e: EnquiryRow }) {
-  const ours = (e.our_response ?? {}) as { detail?: string; date?: string };
+  const ours = (e.our_response ?? {}) as { status?: string; detail?: string; date?: string };
+  const offered = ours.status === "quoted";
   return (
     <div className="flex flex-col items-start gap-1">
       <StatusChip info={enquiryStatusInfo(e.status)} size="sm" />
-      {ours.detail ? <Bidi text={ours.detail} as="p" className="line-clamp-2 text-xs text-ink-3" title={ours.detail} /> : null}
+      <p className="text-xs text-ink-3">
+        {offered ? `Offer sent${ours.date ? ` ${formatDate(ours.date)}` : ""}` : "No offer sent yet"}
+        {offered && ours.detail ? (
+          <>
+            {" · "}
+            <Bidi text={ours.detail} />
+          </>
+        ) : null}
+      </p>
     </div>
   );
 }
 
+/** Where an earlier date was replaced: "changed 29 Sep by Sarah". */
+function historySource(h: HistoryEntry): string {
+  const when = h.changed_at ? `changed ${formatDateShort(h.changed_at)}` : null;
+  const who = h.confirmed_by ? `by ${h.confirmed_by}` : h.source ? `by ${humanize(h.source)}` : null;
+  return [when, who].filter(Boolean).join(" ") || "earlier date";
+}
+
 function ClosingDate({ e, detail }: { e: EnquiryRow; detail: TabProps["detail"] }) {
-  const history = ((e.due_date_history ?? []) as HistoryEntry[]).filter((h) => h.value);
-  const superseded = history.filter((h) => h.value !== e.due_date);
-  const unique = [...new Map(superseded.map((h) => [h.value, h])).values()];
+  // Each history entry holds a date that was replaced, newest last.
+  const earlier = ((e.due_date_history ?? []) as HistoryEntry[]).filter((h) => h.value && h.value !== e.due_date).reverse();
+  const withQuotes = earlier.some((h) => h.evidence?.quote || h.note);
   return (
     <div className="flex items-start gap-1">
       <div className="min-w-0">
         <DueDate value={e.due_date} />
-        {unique.length ? (
-          <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-ink-3">
-            <span className="sr-only">Earlier closing dates:</span>
-            {unique.map((h) => (
-              <s key={String(h.value)} className="tabular" title="Superseded closing date">
-                {formatDate(h.value)}
-              </s>
-            ))}
-          </div>
+        {earlier.length ? (
+          <ul className="mt-1 space-y-0.5 text-xs text-ink-3" aria-label="Earlier closing dates">
+            {earlier.map((h, i) => {
+              const ev = h.evidence ? withSource(h.evidence, detail.emails, detail.files) : null;
+              const href = ev ? evidenceHref(ev) : null;
+              return (
+                <li key={i}>
+                  <s className="tabular">{formatDate(h.value)}</s> · {historySource(h)}
+                  {href?.startsWith("/") ? (
+                    <>
+                      {" · "}
+                      <Link to={href} className="text-brand-ink hover:underline">
+                        {ev?.source_type === "email" ? "email" : "source"}
+                      </Link>
+                    </>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
         ) : null}
       </div>
-      {history.length ? (
+      {withQuotes ? (
         <Popover
           align="start"
           className="w-[min(26rem,calc(100vw-2rem))]"
@@ -324,22 +363,17 @@ function ClosingDate({ e, detail }: { e: EnquiryRow; detail: TabProps["detail"] 
         >
           <p className="mb-2 text-sm font-semibold text-ink">Closing date history</p>
           <ol className="max-h-[60vh] space-y-3 overflow-y-auto">
-            {[...history].reverse().map((h, i) => {
+            <li className="text-sm">
+              <span className="font-semibold text-ink tabular">{formatDate(e.due_date, "No closing date")}</span>
+              <span className="ml-2 text-xs text-ink-3">Current</span>
+            </li>
+            {earlier.map((h, i) => {
               const ev = h.evidence ? withSource(h.evidence, detail.emails, detail.files) : null;
-              const current = h.value === e.due_date;
               return (
                 <li key={i} className="text-sm">
                   <div className="flex flex-wrap items-baseline gap-x-2">
-                    {current ? (
-                      <span className="font-semibold text-ink tabular">{formatDate(h.value)}</span>
-                    ) : (
-                      <s className="text-ink-3 tabular">{formatDate(h.value)}</s>
-                    )}
-                    <span className="text-xs text-ink-3">
-                      {current ? "Current" : "Superseded"}
-                      {h.changed_at ? ` · noted ${formatDate(h.changed_at)}` : ""}
-                      {h.confirmed_by ? ` · confirmed by ${h.confirmed_by}` : ""}
-                    </span>
+                    <s className="text-ink-3 tabular">{formatDate(h.value)}</s>
+                    <span className="text-xs text-ink-3">Superseded · {historySource(h)}</span>
                   </div>
                   {h.note ? <Bidi text={h.note} as="p" className="mt-0.5 text-xs text-ink-3" /> : null}
                   {ev?.quote ? <EvidenceQuote evidence={ev} className="mt-1.5" /> : null}

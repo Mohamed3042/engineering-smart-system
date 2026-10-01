@@ -3,7 +3,7 @@
  * link vocabulary that labels.ts does not cover, and the four separate status facts.
  */
 import type { Enquiry, Evidence, NextAction, ProjectChange, ProjectFile, ProjectLink, Quotation } from "@/api/types";
-import { formatDate, formatDateShort, humanize, isRtl } from "@/lib/format";
+import { formatDate, formatDateShort, humanize } from "@/lib/format";
 import {
   customerResponseInfo,
   fileSourceLabel,
@@ -322,9 +322,4 @@ export function dueTone(days: number | null): Tone {
   if (days < 0) return "block";
   if (days <= 7) return "review";
   return "neutral";
-}
-
-/** Direction for user content: Arabic text reads right to left. */
-export function dirOf(text: string | null | undefined): "rtl" | undefined {
-  return isRtl(text) ? "rtl" : undefined;
 }

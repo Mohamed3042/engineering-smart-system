@@ -122,7 +122,8 @@ def project_detail(project_id: str, session: Session = Depends(get_session), ws:
     files = session.exec(select(ProjectFile).where(ProjectFile.project_id == p.id).order_by(col(ProjectFile.created_at))).all()
     links = session.exec(select(ProjectLink).where(ProjectLink.project_id == p.id)).all()
     quotes = session.exec(select(Quotation).where(Quotation.project_id == p.id).order_by(col(Quotation.created_at).desc())).all()
-    review = session.exec(select(Review).where(Review.project_id == p.id).order_by(col(Review.created_at).desc())).first()
+    # every review round, newest first: a round a newer one supersedes stays in the history
+    reviews = session.exec(select(Review).where(Review.project_id == p.id).order_by(col(Review.created_at).desc())).all()
     activity = session.exec(select(Activity).where(Activity.project_id == p.id)
                             .order_by(col(Activity.created_at).desc()).limit(40)).all()
     related = session.exec(select(Project).where(col(Project.id).in_(p.related_project_ids or []))).all()
@@ -139,7 +140,8 @@ def project_detail(project_id: str, session: Session = Depends(get_session), ws:
         "files": files,
         "links": links,
         "quotations": quotes,
-        "review": review,
+        "review": reviews[0] if reviews else None,
+        "reviews": reviews,
         "activity": activity,
         "related": [{"id": r.id, "name": r.name, "service_family": r.service_family, "stage": r.stage} for r in related],
     }

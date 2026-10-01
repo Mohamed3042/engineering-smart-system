@@ -12,7 +12,6 @@ import {
   FolderSearch,
   PencilRuler,
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ApiError } from "@/api/client";
 import type { Blocker, NextAction, ProjectChange, ProjectFile } from "@/api/types";
@@ -23,7 +22,7 @@ import { actionButtonLabel, actionHref, dueTone } from "./lib";
 
 /* ------------------------------------------------------------------ text */
 
-/** User content (names, quotes, notes): Arabic gets dir="rtl". */
+/** User content (names, quotes, notes): Arabic gets dir="rtl", everything else dir="auto". */
 export function Bidi({
   text,
   as: As = "span",
@@ -37,7 +36,7 @@ export function Bidi({
 }) {
   if (!text) return null;
   return (
-    <As dir={isRtl(text) ? "rtl" : undefined} className={className} title={title}>
+    <As dir={isRtl(text) ? "rtl" : "auto"} className={className} title={title}>
       {text}
     </As>
   );
@@ -118,7 +117,7 @@ export function BlockersChip({ blockers, size = "sm" }: { blockers: Blocker[] | 
       content={
         <ul className="space-y-1">
           {open.slice(0, 6).map((b, i) => (
-            <li key={i} dir={isRtl(b.text) ? "rtl" : undefined}>
+            <li key={i} dir={isRtl(b.text) ? "rtl" : "auto"}>
               {b.text}
             </li>
           ))}
@@ -196,15 +195,5 @@ export function NotFoundOrError({ error, onRetry, what = "project" }: { error: u
     <Page>
       <ErrorState error={error} onRetry={onRetry} />
     </Page>
-  );
-}
-
-/** Label + value row used inside panels where KeyValue is too heavy. */
-export function FactLine({ label, children, className }: { label: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-start sm:gap-4", className)}>
-      <dt className="shrink-0 text-sm text-ink-3 sm:w-40">{label}</dt>
-      <dd className="min-w-0 flex-1 text-base text-ink">{children}</dd>
-    </div>
   );
 }
