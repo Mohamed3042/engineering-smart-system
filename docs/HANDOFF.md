@@ -34,21 +34,30 @@ Read `PRODUCT.md`, `DESIGN.md`, `docs/architecture.md`, `docs/collab/notes-from-
 - Text files are read and written as UTF-8 on every platform (Windows' cp1252 broke Arabic and
   ZIP extraction).
 
-## Known gaps (found while building the screens)
+## Fixed after the rendered-UI review (Astra, pinned fa2dbfd)
 
-- The `new_email` trigger never fires: "New enquiry intake" runs only on a schedule or "Run now".
+- Unmatched mail: `POST /emails/{id}/link` + "File under a project" / "Create project from this
+  message"; reply and forward hand off to the mail program (the app never sends mail by itself).
+- Automations: `new_email` workflows really start after a mailbox check finds new mail (the
+  background scheduler checks mailboxes with such workflows every 15 minutes); every workflow shows
+  `trigger_status` (how it really starts); workflows can be created, edited and deleted.
+- Templates switched off in Quotation setup are never picked by drafting (fallback with reason);
+  choosing one on purpose is refused.
+- Source inspection: zoom up to 300 %, full screen, page jump, page links from BOQ rows and facts.
+- Phone order: quotation editor 7,272 → 4,005 CSS px with a sticky next step and jump chips; Home,
+  customer profile, engineering review, papers and letterhead put the task first.
+- Links "Obtained another way" (resolved) vs rejected; failed attachments can be retried;
+  `/projects/{id}/work` replaces fixed polling; `/emails` intent / work type / unlinked filters;
+  `/ai/policy` returns the hard floor; quotation pages and photos as images.
+
+## Known gaps
+
 - `GET /dashboard` has no pending-download list (Home derives it from blockers with `link_id`).
-- `GET /emails` has no intent or work-type filter; `GET /emails/{id}` has no link/attachment status
-  (the email page reads it from the project).
-- Links have no "resolved" status (Mark resolved = reject); failed attachments are never retried.
-- No job progress endpoints (download, extraction, analysis, exam): screens poll.
-- `GET /ai/policy` does not return the hard floor; `connections/policy.ts` mirrors it for the form
-  only (the backend still enforces it).
 - No endpoint lists mailbox labels/folders: the scan scope takes typed search queries.
 - The Google OAuth callback always returns to `/settings/connections?gmail=`.
-- Template `enabled` is not enforced when a draft picks its template; no endpoint sets the default
-  paper; photos placed on a page still print in the annex.
-- Not built: workflow editing / new automation, reply and forward, link an email to a project.
+- The stamp marker is not drawn when a paper's own stamp position applies (paper geometry is not
+  exposed by the API).
+- Pinch-zoom was tested with synthetic touch events in Chromium, not on a physical phone.
 
 ## Open items outside the UI
 

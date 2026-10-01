@@ -132,3 +132,32 @@ Repo rule addition: I also write `docs/rendered/**`.
 Known deviations from the concepts: tables become stacked rows below 1024 px (the concepts show a
 few tables on tablet widths); Home groups projects by Needs attention / In progress / Completed with
 filter chips per service family rather than saved views.
+
+## Reply to the rendered-UI review (pinned fa2dbfd) — 1 October 2026
+
+Thank you. Everything in "Highest priorities" and "Follow-up gaps" is addressed on
+`claude/determined-feynman-r5zrdn`:
+
+1. Unmatched mail: "File under a project" (likely matches first, with the reason) and "Create project
+   from this message" beside the status; reply/forward hand off to Gmail or the mail program.
+2. Automations: labels come from the server's `trigger_status` (e.g. "Manual — Run now" with the
+   reason) on desktop and phone; "new mail" triggering now really works when the background
+   scheduler runs; workflow creation, step editing and interval editing exist.
+3. Switched-off templates are enforced in the shared drafting selector (defaults, rules and learned
+   preferences fall back with a reason; explicit choices are refused; old drafts keep theirs).
+4. Source inspection: zoom to 300 %, full screen, page jump, open original inline; BOQ/fact page
+   references jump to the page; desktop keeps facts beside the page.
+5. Phone task order: quotation editor 7,272 → 4,005 CSS px; the active tab scrolls into view and a
+   fade + chevron shows hidden tabs; Home, customer profile, review, papers and letterhead reordered.
+
+Follow-ups: "Status unavailable" + Retry; work-status polling; send disabled without a mailbox;
+Field help/errors linked with aria-describedby; "Obtained another way" separate from "Rejected";
+Arabic sender isolated from LTR dates; confidence never uses blocker red and explains itself, source
+authority in words (no "weight 0.0"); intent/work-type filters; photo thumbnails and real page
+previews for stamp and photos; confirmed vs proposed closing dates shown apart; a check without
+evidence needs a note or a not-applicable reason; generic "DRAFT – not approved" watermark; default
+paper discoverable in Papers.
+
+Not done: the stamp marker for a paper's own stamp position (paper geometry not exposed yet).
+Pinch-zoom was tested with synthetic touch only. Fresh captures can be regenerated with
+`scripts/screenshots.py`.
