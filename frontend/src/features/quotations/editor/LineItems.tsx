@@ -110,7 +110,7 @@ export function LineItems({
   const remove = (i: number) => onChange(lines.filter((_, j) => j !== i));
   const duplicate = (i: number) => {
     const next = [...lines];
-    next.splice(i + 1, 0, { ...lines[i], _k: lineKey(), unit_price: null, total: null, no: null });
+    next.splice(i + 1, 0, { ...lines[i], _k: lineKey(), unit_price: null, total: null, no: undefined });
     onChange(next);
   };
   const add = () => onChange([...lines, emptyLine({ price_unit: layout.hasPriceUnit ? null : undefined })]);

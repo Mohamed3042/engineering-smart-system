@@ -41,7 +41,7 @@ const STEPS: StepDef[] = [
 
 type StepState = "done" | "running" | "pending" | "skipped";
 
-function stepState(def: StepDef, step: LearningStep | undefined, finished: boolean): StepState {
+function stepState(_def: StepDef, step: LearningStep | undefined, finished: boolean): StepState {
   if (step?.status === "done") return "done";
   if (step?.status === "running") return finished ? "skipped" : "running";
   return finished ? "skipped" : "pending";

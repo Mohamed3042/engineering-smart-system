@@ -15,6 +15,7 @@ import type {
   Lesson,
   Opportunity,
   ResearchReport,
+  OmitKnown,
 } from "@/api/types";
 
 /* ------------------------------------------------------------------ shapes */
@@ -74,7 +75,7 @@ export interface TagEvidence {
   date?: string | null;
 }
 
-export interface Tag extends Omit<CustomerTag, "evidence"> {
+export interface Tag extends OmitKnown<CustomerTag, "evidence"> {
   tag: string;
   kind?: string;
   key?: string;

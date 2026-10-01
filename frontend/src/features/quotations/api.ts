@@ -18,6 +18,7 @@ import type {
   Review,
   Signatory,
   TemplateRule,
+  OmitKnown,
 } from "@/api/types";
 
 /* ------------------------------------------------------------------ shapes */
@@ -121,7 +122,7 @@ export interface AssetsStatus {
   [k: string]: unknown;
 }
 
-export interface Quote extends Omit<Quotation, "data" | "missing_prices" | "assets_status"> {
+export interface Quote extends OmitKnown<Quotation, "data" | "missing_prices" | "assets_status"> {
   data: QuotationData;
   missing_prices: (number | string)[];
   assets_status: AssetsStatus;

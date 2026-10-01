@@ -52,8 +52,8 @@ data in code or tests (the repository is public). If a folder is too far gone, r
 
 ## Open items outside the UI
 
-- Download the tender files on a normal machine (the sandbox blocks Drive/WeTransfer/SharePoint):
-  New Ahmadi Hospital (KOC RFP-2143588) closes **11 Oct 2026**; Egaila schools closes 18 Oct.
+- Download the tender files of the two open tenders (closing 11 and 18 Oct 2026) on a normal
+  machine (the sandbox blocks Drive/WeTransfer/SharePoint). Names stay in the private workspace.
 - Connect Gmail (OAuth or IMAP) and an AI engine (API key or MCP) on the owner's machine:
   `./run.sh`, then follow `docs/connections.md`.
 - Calibrate templates against the company's local quotation folder.

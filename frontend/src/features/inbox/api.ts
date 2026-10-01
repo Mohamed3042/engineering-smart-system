@@ -4,12 +4,12 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { Attachment, Category, Customer, Email, Enquiry, Project } from "@/api/types";
+import type { Attachment, Category, Customer, Email, Enquiry, OmitKnown, Project } from "@/api/types";
 
 /* ------------------------------------------------------------------ shapes */
 
 /** GET /api/emails item: the Email row without body_text, plus small joins. */
-export interface EmailListItem extends Omit<Email, "body_text"> {
+export interface EmailListItem extends OmitKnown<Email, "body_text"> {
   project: { id: string; name: string; service_family: string } | null;
   customer: { id: string; name: string } | null;
   category_label: string;

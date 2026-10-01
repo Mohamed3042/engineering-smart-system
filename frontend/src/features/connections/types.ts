@@ -2,7 +2,7 @@
  * Shapes returned by the connection and AI endpoints (backend/ess/api/connections.py, api/ai.py),
  * narrowed from the loose shared types.
  */
-import type { AIModelState, Connection, ISODateTime } from "@/api/types";
+import type { AIModelState, Connection, ISODateTime, OmitKnown } from "@/api/types";
 
 export interface SecretHint {
   set: boolean;
@@ -86,7 +86,7 @@ export interface ExamRecord {
   [k: string]: unknown;
 }
 
-export type ModelItem = Omit<AIModelState, "capabilities" | "exam"> & {
+export type ModelItem = OmitKnown<AIModelState, "capabilities" | "exam"> & {
   capabilities: ModelCapabilities;
   exam: ExamRecord;
 };

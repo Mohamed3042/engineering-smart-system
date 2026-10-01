@@ -4,6 +4,12 @@
  * feature folders may narrow them locally.
  */
 
+/**
+ * Omit for the entity types below. They carry an index signature (`[k: string]: unknown`), and the
+ * built-in Omit drops every named field of such types (all become `unknown`); this one keeps them.
+ */
+export type OmitKnown<T, K extends PropertyKey> = { [P in keyof T as Exclude<P, K>]: T[P] };
+
 export type ID = string;
 export type ISODate = string; // "2026-10-11"
 export type ISODateTime = string; // "2026-10-01T09:41:00Z"
