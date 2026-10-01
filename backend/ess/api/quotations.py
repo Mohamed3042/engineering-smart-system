@@ -1,6 +1,7 @@
 """Quotations, templates, signatories, letterhead assets, approval queue and the send gate."""
 from __future__ import annotations
 
+import copy
 import io
 from typing import Optional
 
@@ -81,7 +82,8 @@ def get_quotation(quotation_id: str, session: Session = Depends(get_session), ws
     return {"quotation": drafting.as_public(q), "project": project, "enquiry": enquiry,
             "customer": session.get(Customer, q.customer_id) if q.customer_id else None,
             "signatory": session.get(Signatory, q.signatory_id) if q.signatory_id else None,
-            "approvals": approvals, "send_defaults": drafting.default_send_message(session, ws, q)}
+            "approvals": approvals, "send_defaults": drafting.default_send_message(session, ws, q),
+            "approval_blockers": drafting.approval_blockers(session, ws, q)}
 
 
 @router.put("/quotations/{quotation_id}")
@@ -120,6 +122,40 @@ def edit_quotation(quotation_id: str, data: dict = Body(...), session: Session =
     q.pdf_path = None  # stale until re-rendered
     session.add(q)
     log_activity(session, ws.id, "quotation_edited", f"Quotation {q.reference} edited", actor=user.name,
+                 project_id=q.project_id, quotation_id=q.id)
+    session.commit()
+    return drafting.as_public(q)
+
+
+@router.post("/quotations/{quotation_id}/term-changes/{key}/decide")
+def decide_term(quotation_id: str, key: str, data: dict = Body(...), session: Session = Depends(get_session),
+                ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> dict:
+    """A person decides a term the customer asked for: accept the requested wording, keep the template
+    wording (reason required) or ask the customer to clarify."""
+    from ..pipeline.terms import decide_term_change
+
+    q = get_or_404(session, Quotation, quotation_id, ws)
+    if q.status in ("approved", "sent", "superseded"):
+        raise HTTPException(409, {"code": "frozen", "message": "This quotation is frozen. Create a revision: "
+                                                               "it needs a fresh approval and send authorization."})
+    data_copy = copy.deepcopy(q.data or {})
+    try:
+        changed = decide_term_change(data_copy, key, str(data.get("decision") or ""), actor=user.name,
+                                     revision=f"{q.reference} v{q.version}", reason=str(data.get("reason") or ""))
+    except LookupError:
+        raise HTTPException(404, {"code": "no_term_change", "message": f"No requested term '{key}' on this quotation."})
+    except ValueError as exc:
+        code = "reason_required" if data.get("decision") == "retain" else "bad_decision"
+        raise HTTPException(400, {"code": code, "message": str(exc)})
+    q.data, q.updated_at = data_copy, utcnow()
+    reopened = changed and q.status == "needs_review"
+    if changed:
+        q.pdf_path = None  # stale until re-rendered
+    if reopened:
+        q.status = "draft"  # the approver saw other terms: approval must be requested again
+    session.add(q)
+    log_activity(session, ws.id, "quotation_term_decided", f"{q.reference}: requested {key} term {data.get('decision')}",
+                 detail="Approval request reopened" if reopened else "", actor=user.name,
                  project_id=q.project_id, quotation_id=q.id)
     session.commit()
     return drafting.as_public(q)

@@ -139,6 +139,43 @@ def test_quotation_price_and_send_gates(client):
     assert r.status_code == 409  # not approved yet
 
 
+def test_requested_terms_wait_for_a_person_and_block_approval(client):
+    pytest.importorskip("ess.quotation.templates")
+    _demo(client)
+    from ess.db import session_scope
+    from ess.models import Email, Project
+
+    projects = {p["name"]: p for p in client.get("/api/projects").json()["items"]}
+    pid = projects["Harbor Offices"]["id"]
+    with session_scope() as s:  # the customer asks for a longer offer validity in the same thread
+        p = s.get(Project, pid)
+        s.add(Email(id="terms-1", workspace_id=p.workspace_id, thread_id="demo-t4", project_id=pid,
+                    subject="RE: BMU maintenance quote", body_text="Kindly note the validity of the offer: 120 days."))
+    q = client.post("/api/quotations", json={"project_id": pid}).json()
+    assert {t["key"]: t["text"] for t in q["data"]["terms"]}["validity"] == "One month."  # detected, not agreed
+    change = next(c for c in q["data"]["term_changes"] if c["key"] == "validity")
+    assert change["status"] == "pending" and change["to"] == "120 days." and change["enquiry_id"]
+    review = client.get(f"/api/projects/{pid}/review").json()
+    client.put(f"/api/projects/{pid}/review", json={"checklist": [{**i, "status": "checked"} for i in review["checklist"]]})
+    client.post(f"/api/projects/{pid}/review/approve", json={})
+    client.put(f"/api/quotations/{q['id']}", json={"data": {"items": [{**i, "unit_price": 10} for i in q["data"]["items"]]}})
+    assert [b["code"] for b in client.get(f"/api/quotations/{q['id']}").json()["approval_blockers"]] == ["terms_pending"]
+    r = client.post(f"/api/quotations/{q['id']}/approve", json={})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "terms_pending"
+    url = f"/api/quotations/{q['id']}/term-changes/validity/decide"
+    assert client.post(url, json={"decision": "retain"}).json()["detail"]["code"] == "reason_required"
+    assert client.post(f"/api/quotations/{q['id']}/submit").json()["status"] == "needs_review"
+    decided = client.post(url, json={"decision": "accept"}).json()
+    assert {t["key"]: t["text"] for t in decided["data"]["terms"]}["validity"] == "120 days."
+    assert decided["status"] == "draft"  # the term changed while waiting for approval: ask again
+    rec = next(c for c in decided["data"]["term_changes"] if c["key"] == "validity")
+    assert rec["status"] == "accepted" and rec["decided_by"] and rec["revision"].endswith("v1")
+    assert client.get(f"/api/quotations/{q['id']}").json()["approval_blockers"] == []
+    assert client.post(f"/api/quotations/{q['id']}/approve", json={}).status_code == 200
+    r = client.post(url, json={"decision": "retain", "reason": "late change"})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "frozen"  # revise: fresh approval + send
+
+
 def test_mcp_requires_declared_eligible_engine(client):
     _demo(client)
     headers = {"accept": "application/json, text/event-stream", "content-type": "application/json"}

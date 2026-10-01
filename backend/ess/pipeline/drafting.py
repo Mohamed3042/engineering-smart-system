@@ -137,9 +137,10 @@ def create_quotation(session: Session, ws: Workspace, project: Project, *, enqui
         data["items"] = [{"no": i + 1, "description": it.get("description", ""), "spec": it.get("spec", ""),
                           "qty": it.get("qty"), "unit": it.get("unit") or "", "unit_price": None, "total": None}
                          for i, it in enumerate(project.scope_items)]
-    from .terms import apply_requested_terms
+    from .terms import record_requested_terms
 
-    apply_requested_terms(data, enquiry_sources(session, project, enquiry))  # e.g. "validity of the offer: 120 days"
+    # e.g. "validity of the offer: 120 days" — recorded for a person to decide, never applied by itself
+    record_requested_terms(data, enquiry_sources(session, project, enquiry), enquiry_id=enquiry.id if enquiry else None)
     data = strip_prices(data)  # hard rule: drafts never carry prices
 
     q = Quotation(workspace_id=ws.id, project_id=project.id, enquiry_id=enquiry.id if enquiry else None,
@@ -206,23 +207,39 @@ def missing_prices(q: Quotation) -> list[int]:
             if i.get("unit_price") in (None, "") and not i.get("included")]
 
 
-def approve_quotation(session: Session, ws: Workspace, q: Quotation, user: TeamMember, note: str = "") -> Quotation:
+def approval_blockers(session: Session, ws: Workspace, q: Quotation) -> list[dict]:
+    """Every unmet condition for approving ``q``, in the order a person should clear them.
+    The approve gate refuses with the first one; the editor and the preview list them all."""
     from ..models import Review
+    from .terms import open_term_requests
 
-    review = session.exec(select(Review).where(Review.project_id == q.project_id)
-                          .order_by(Review.created_at.desc())).first()
+    out = []
     if (ws.settings or {}).get("quotations", {}).get("require_engineer_review", True):
+        review = session.exec(select(Review).where(Review.project_id == q.project_id)
+                              .order_by(Review.created_at.desc())).first()
         if review is None or review.decision != "approved":
-            raise HTTPException(409, {"code": "review_required",
-                                      "message": "The engineer review must approve the technical scope first."})
+            out.append({"code": "review_required",
+                        "message": "The engineer review must approve the technical scope first."})
     if (q.impact_review or {}).get("required"):
-        raise HTTPException(409, {"code": "impact_review",
-                                  "message": "A new technical revision arrived: the engineer must review it first ("
-                                             + str(q.impact_review.get("reason")) + ")."})
+        out.append({"code": "impact_review",
+                    "message": "A new technical revision arrived: the engineer must review it first ("
+                               + str(q.impact_review.get("reason")) + ")."})
     gaps = missing_prices(q)
     if gaps:
-        raise HTTPException(409, {"code": "prices_missing",
-                                  "message": f"Enter prices for item(s) {', '.join(map(str, gaps))} before approval."})
+        out.append({"code": "prices_missing",
+                    "message": f"Enter prices for item(s) {', '.join(map(str, gaps))} before approval."})
+    open_terms = open_term_requests(q.data or {})
+    if open_terms:
+        out.append({"code": "terms_pending",
+                    "message": "Decide the terms the customer asked for: "
+                               + ", ".join(str(c.get("label") or c.get("key")) for c in open_terms) + "."})
+    return out
+
+
+def approve_quotation(session: Session, ws: Workspace, q: Quotation, user: TeamMember, note: str = "") -> Quotation:
+    blockers = approval_blockers(session, ws, q)
+    if blockers:
+        raise HTTPException(409, blockers[0])
     q.status = "approved"
     q.approved_by = user.name
     q.approved_at = utcnow()

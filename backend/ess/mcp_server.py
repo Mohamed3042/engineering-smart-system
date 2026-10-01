@@ -298,15 +298,16 @@ def _server():
                           terms: Optional[list[dict]] = None) -> dict:
         """Create a draft quotation (subject, intro, items with qty/unit, exclusions, clarifications). No prices.
 
-        terms: optional changes to the template's terms when the customer asked for something else,
+        terms: optional terms the customer asked for that differ from the template's,
         e.g. [{"key": "validity", "text": "120 days from the tender closing date.",
         "evidence": {"quote": "<the customer's sentence, verbatim>", "source_id": "<email id>"}}].
         Keys are the template's term keys (validity, contract_period, spare_parts, visits, payment,
-        delivery, warranty …). A change is applied only when its quote is found word for word in the
-        project's mail; terms never carry prices. Terms the customer's mail states are also applied
-        automatically. The result lists applied and rejected changes."""
+        delivery, warranty …). A request is recorded only when its quote is found word for word in the
+        project's mail; terms never carry prices. Requests are not agreed terms: the draft keeps the
+        template wording until a person accepts, keeps or clarifies each one. Terms the customer's
+        mail states are also recorded automatically. The result lists recorded and rejected requests."""
         from .pipeline.drafting import create_quotation, enquiry_sources
-        from .pipeline.terms import apply_term_proposals
+        from .pipeline.terms import record_term_requests
 
         with session_scope() as s:
             ws = get_active_workspace(s)
@@ -326,10 +327,10 @@ def _server():
                 data["items"] = [{"no": i + 1, "description": it.get("description", ""), "spec": it.get("spec", ""),
                                   "qty": it.get("qty"), "unit": it.get("unit") or "", "unit_price": None, "total": None}
                                  for i, it in enumerate(clean["items"])]
-            term_result = {"applied": [], "rejected": []}
+            term_result = {"recorded": [], "rejected": []}
             if terms:
-                term_result = apply_term_proposals(data, terms, actor=f"mcp:{decl['model_id']}",
-                                                   sources=enquiry_sources(s, p, enquiry))
+                term_result = record_term_requests(data, terms, actor=f"mcp:{decl['model_id']}",
+                                                   sources=enquiry_sources(s, p, enquiry), enquiry_id=q.enquiry_id)
             q.data = data
             q.created_by = "mcp"
             s.add(q)
