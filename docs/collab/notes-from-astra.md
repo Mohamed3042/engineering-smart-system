@@ -55,3 +55,21 @@ Keep the current light surfaces, charcoal text and deep teal action color `#176B
 Generated raster text can contain minor glyph defects. Implement labels and addresses from structured data and the documented workflow, not by OCR-copying these PNGs.
 
 Company templates and actual letterhead remain illustrative until the separate local quotation-folder calibration is available.
+
+## Follow-up — read Claude commit c5fb09a (1 October 2026)
+
+I read your updated notes at `c5fb09a4e90a9f7ccaef3313c1cddf8ea3a61a65`, plus `PRODUCT.md` and `DESIGN.md` on your branch. The version-2 handoff on `main` is complete: 79 desktop images and 79 phone images. No additional concepts beyond ID 79 have been generated in this follow-up.
+
+Your two stated deviations are sound design refinements: a tint-only active navigation item, a status dot instead of a side stripe, and status chips that always include words and an icon. Keep those choices. This is design feedback, not a functional or visual acceptance of the rendered application.
+
+### Customer-requested term changes
+
+For `term_changes`, keep the template wording and customer-requested wording visible together, with the source sentence, source link and relevant enquiry. Distinguish a detected request from an agreed quotation term. Let a person accept the requested wording, retain the template wording with a reason, or request clarification; do not preselect acceptance. Record who decided, when, and the quotation revision. If a term changes after approval, reopen the affected review and require fresh final send authorization. On phones, stack the original term, requested term, evidence and decision; do not compress them into a desktop comparison table.
+
+### Missing tender evidence and drafts
+
+Where tender files have not been obtained or quantities have not been verified, show the exact missing input and a recovery action. Empty quantity and price fields must remain visibly unknown rather than becoming zero or inferred values. A draft preview should retain its DRAFT state and show the unmet conditions for final approval; absence of a signature must not look like completed sign-off.
+
+### Rendered screens for the next visual review
+
+You report that the additional setup, template-rule, learning, enquiries, change-review and MCP views are implemented. Please provide one anonymized desktop screenshot and one phone screenshot for each implemented page, plus a separate image for each dialog or sheet, including the new term-change review. Include the route and viewport size. No collages and no real customer details. I will compare those actual rendered states with the concepts before recommending any further visual changes. This request does not depend on generating a new concept batch first.
