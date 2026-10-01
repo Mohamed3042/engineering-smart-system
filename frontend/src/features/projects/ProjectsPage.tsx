@@ -1,8 +1,8 @@
 /**
  * Projects (mockups 15, 16): one tab per service family, filters, a table on desktop and
- * stacked cards on phones. Each row carries one next action.
+ * collapsed project/company titles on phones. Each expanded row carries one next action.
  */
-import { Archive, FolderPlus, Plus, SearchX } from "lucide-react";
+import { Archive, ChevronRight, FolderPlus, Plus, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useCategories, useCategoryLabel } from "@/api/session";
@@ -10,9 +10,9 @@ import { PROJECT_STAGES, reviewStatusInfo, stageInfo } from "@/lib/labels";
 import { projectHref } from "@/lib/routes";
 import {
   Button,
+  CollapsibleSection,
   EmptyState,
   ErrorState,
-  ListRow,
   LoadingRows,
   Page,
   PageHeader,
@@ -314,40 +314,27 @@ function ProjectRow({
 }
 
 function ProjectCard({ p, familyName }: { p: ProjectSummary; familyName: string | null }) {
-  const sentence = actionSentence(p.next_action) ?? (p.next_action?.label ? String(p.next_action.label) : null);
   return (
-    <ListRow
-      to={projectHref(p.id)}
-      title={<Bidi text={p.name} />}
-      subtitle={[p.customer?.name, p.code, familyName].filter(Boolean).join(" · ")}
-      footer={
-        p.next_action?.kind && p.next_action.kind !== "none" ? (
-          <NextActionButton projectId={p.id} action={p.next_action} className="w-full" />
-        ) : undefined
-      }
+    <CollapsibleSection
+      title={<span className="block min-w-0 text-sm">
+        <Bidi text={p.name} as="span" className="block break-words" />
+        <span className="mt-0.5 block break-words text-xs font-normal text-ink-3"><Bidi text={p.customer?.name || "No customer linked"} /></span>
+      </span>}
+      summary={p.blockers?.length ? <BlockersChip blockers={p.blockers} /> : p.open_changes?.length ? <ChangesChip changes={p.open_changes} /> : <StatusChip info={stageInfo(p.stage)} size="sm" />}
+      actions={<Button asChild variant="ghost" size="sm" className="min-h-11 min-w-11 px-2">
+        <Link to={projectHref(p.id)} aria-label={`Open project ${p.name}`}><ChevronRight aria-hidden /></Link>
+      </Button>}
     >
+      <p className="mb-2 text-xs text-ink-3">{[p.code, familyName].filter(Boolean).join(" · ")}</p>
       <div className="flex flex-wrap gap-1.5">
         <StatusChip info={stageInfo(p.stage)} size="sm" />
-        {p.review_status && p.review_status !== "not_started" ? <StatusChip info={reviewStatusInfo(p.review_status)} size="sm" /> : null}
         <ChangesChip changes={p.open_changes} />
         <BlockersChip blockers={p.blockers} />
       </div>
-      <dl className="mt-3 grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-2">
-        <dt className="text-ink-3">Closing date</dt>
-        <dd className="min-w-0">
-          <DueDate value={p.due_date} />
-        </dd>
-        <dt className="text-ink-3">Enquiries</dt>
-        <dd className="tabular text-ink">{p.enquiries || "—"}</dd>
-        {sentence ? (
-          <>
-            <dt className="text-ink-3">Next action</dt>
-            <dd className="min-w-0 text-ink">
-              <Bidi text={sentence} as="p" className="line-clamp-3" />
-            </dd>
-          </>
-        ) : null}
-      </dl>
-    </ListRow>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm text-ink-3">Closing <DueDate value={p.due_date} inline /></span>
+        {p.next_action?.kind && p.next_action.kind !== "none" ? <NextActionButton projectId={p.id} action={p.next_action} size="sm" /> : null}
+      </div>
+    </CollapsibleSection>
   );
 }

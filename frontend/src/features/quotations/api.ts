@@ -466,3 +466,20 @@ export function useQuoteUpdated() {
 export function pdfUrl(id: string, version?: string | null): string {
   return `/api/quotations/${encodeURIComponent(id)}/pdf${version ? `?v=${encodeURIComponent(version)}` : ""}`;
 }
+
+export function useQuotationPages(q: Quote, enabled = true) {
+  return useQuery({
+    queryKey: ["quotation-pages", q.id, q.updated_at, q.pdf_rendered_at],
+    queryFn: () => api.get<{ count: number; rendered_at: string | null }>(`/quotations/${q.id}/pages`),
+    enabled,
+  });
+}
+
+export function pageImageUrl(q: Quote, page: number, dpi = 100): string {
+  const version = encodeURIComponent(`${q.updated_at}|${q.pdf_rendered_at ?? ""}`);
+  return `/api/quotations/${encodeURIComponent(q.id)}/pages/${page}.png?dpi=${dpi}&v=${version}`;
+}
+
+export function photoImageUrl(q: Quote, index: number): string {
+  return `/api/quotations/${encodeURIComponent(q.id)}/photos/${index}?v=${encodeURIComponent(q.updated_at)}`;
+}

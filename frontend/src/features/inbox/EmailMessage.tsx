@@ -10,7 +10,8 @@ import { formatBytes, formatDateTime, formatRelative, isRtl, pluralize } from "@
 import { fileStatusInfo, linkStatusInfo } from "@/lib/labels";
 import { emailHref, fileHref, nextActionHref } from "@/lib/routes";
 import { Button, Chip, KeyValue, Panel, PanelBody, PanelHeader, Skeleton, StatusChip } from "@/ui";
-import { hostOf, type ThreadMessage } from "./api";
+import { hostOf, useRetryEmailFile, useRetryEmailLink, type ThreadMessage } from "./api";
+import { toast, toastError } from "@/ui";
 import { linkKindLabel } from "./labels";
 import { dirOf } from "./parts";
 
@@ -21,7 +22,7 @@ function Addresses({ list }: { list: string[] }) {
     <ul className="space-y-0.5">
       {list.map((a, i) => (
         <li key={i} className="break-all">
-          {a}
+          <bdi dir="ltr">{a}</bdi>
         </li>
       ))}
     </ul>
@@ -41,22 +42,22 @@ export function MessagePanel({ email }: { email: Email }) {
       label: "From",
       value: (
         <>
-          <span className="font-medium" dir={dirOf(name)}>
+          <bdi className="font-medium" dir={dirOf(name)}>
             {name || email.from_email || "Unknown sender"}
-          </span>
-          {name ? <span className="block break-all text-sm text-ink-2">{email.from_email}</span> : null}
+          </bdi>
+          {name ? <bdi dir="ltr" className="block break-all text-sm text-ink-2">{email.from_email}</bdi> : null}
         </>
       ),
       hint: "The sender named in the message header",
     },
     {
       label: "Received in",
-      value: email.account ? <span className="break-all">{email.account}</span> : null,
+      value: email.account ? <bdi dir="ltr" className="break-all">{email.account}</bdi> : null,
       hint: "The connected mailbox that holds this message",
     },
     { label: "To", value: email.to?.length ? <Addresses list={email.to} /> : null },
     ...(email.cc?.length ? [{ label: "Cc", value: <Addresses list={email.cc} /> }] : []),
-    { label: "Date", value: <time dateTime={email.date ?? undefined}>{formatDateTime(email.date)}</time> },
+    { label: "Date", value: <time dir="ltr" dateTime={email.date ?? undefined}>{formatDateTime(email.date)}</time> },
     ...(email.labels?.length ? [{ label: "Mail labels", value: <span className="text-ink-2">{email.labels.join(", ")}</span> }] : []),
     ...(view
       ? [
@@ -111,6 +112,24 @@ interface ProjectParts {
   files?: ProjectFile[];
   links?: ProjectLink[];
   projectId?: string | null;
+  error?: boolean;
+  retry?: () => unknown;
+}
+
+function Unavailable({ retry }: { retry?: () => unknown }) {
+  return <div className="flex flex-wrap items-center gap-2"><Chip tone="muted" size="sm">Status unavailable</Chip><Button variant="secondary" size="sm" onClick={retry}>Retry status</Button></div>;
+}
+
+function RetryFile({ file }: { file: ProjectFile }) {
+  const retry = useRetryEmailFile();
+  if (file.status !== "failed") return null;
+  return <Button variant="secondary" size="sm" loading={retry.isPending} onClick={() => retry.mutate(file.id, { onSuccess: () => toast.success("File retry started"), onError: (e) => toastError(e, "The file could not be retried") })}>Try again</Button>;
+}
+
+function RetryLink({ link }: { link: ProjectLink }) {
+  const retry = useRetryEmailLink();
+  if (!["failed", "expired", "unavailable"].includes(link.status)) return null;
+  return <Button variant="secondary" size="sm" loading={retry.isPending} onClick={() => retry.mutate(link.id, { onSuccess: () => toast.success("Link retry started"), onError: (e) => toastError(e, "The link could not be retried") })}>Try again</Button>;
 }
 
 export function AttachmentsPanel({ email, parts }: { email: Email; parts: ProjectParts }) {
@@ -137,13 +156,14 @@ export function AttachmentsPanel({ email, parts }: { email: Email; parts: Projec
                 </p>
                 {meta ? <p className="text-xs text-ink-3 tabular">{meta}</p> : null}
               </div>
-              <div className="flex items-center gap-3">
-                {file ? (
+              <div className="flex flex-wrap items-center gap-3">
+                {parts.error ? <Unavailable retry={parts.retry} /> : file ? (
                   <>
                     <StatusChip info={fileStatusInfo(file.status)} size="sm" />
                     <Link to={fileHref(file.id)} className="text-sm font-medium text-brand-ink hover:underline">
                       Open file
                     </Link>
+                    <RetryFile file={file} />
                   </>
                 ) : parts.hasProject && parts.loading ? (
                   <Skeleton className="h-6 w-28" />
@@ -162,10 +182,12 @@ export function AttachmentsPanel({ email, parts }: { email: Email; parts: Projec
 }
 
 function LinkState({ link, kind, parts }: { link?: ProjectLink; kind: string; parts: ProjectParts }) {
+  if (parts.error) return <Unavailable retry={parts.retry} />;
   if (link) {
     return (
       <div className="flex flex-wrap items-center gap-2">
         <StatusChip info={linkStatusInfo(link.status)} size="sm" />
+        <RetryLink link={link} />
         {link.files_count ? <span className="text-xs text-ink-3 tabular">{pluralize(link.files_count, "file")}</span> : null}
         {link.status === "pending_approval" && parts.projectId ? (
           <Button asChild variant="secondary" size="sm">
@@ -208,7 +230,7 @@ export function LinksPanel({ email, parts }: { email: Email; parts: ProjectParts
                     {label}
                   </p>
                 ) : null}
-                <a href={l.url} target="_blank" rel="noreferrer" className="break-all text-sm text-brand-ink hover:underline">
+                <a dir="ltr" href={l.url} target="_blank" rel="noreferrer" className="break-all text-sm text-brand-ink hover:underline">
                   {l.url}
                   <span className="sr-only"> (opens in a new tab)</span>
                 </a>
@@ -235,9 +257,9 @@ export function ThreadPanel({ thread, currentId }: { thread: ThreadMessage[]; cu
             <div className="flex items-start gap-3 px-5 py-3">
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="font-medium text-ink" dir={dirOf(who)}>
+                  <bdi className="font-medium text-ink" dir={dirOf(who)}>
                     {who}
-                  </span>
+                  </bdi>
                   {t.direction === "outbound" ? (
                     <Chip size="sm" tone="muted">
                       Sent by us
@@ -255,7 +277,7 @@ export function ThreadPanel({ thread, currentId }: { thread: ThreadMessage[]; cu
                   </p>
                 ) : null}
               </div>
-              <time dateTime={t.date ?? undefined} className="shrink-0 text-xs text-ink-3 tabular">
+              <time dir="ltr" dateTime={t.date ?? undefined} className="shrink-0 text-xs text-ink-3 tabular">
                 {formatRelative(t.date)}
               </time>
             </div>

@@ -1,4 +1,54 @@
-# Notes for Astra (UI concept) — from Claude (backend)
+# Notes for Astra (UI concept)
+
+## Current update — 1 October 2026, recovery continuation
+
+The interrupted Inbox/Automations, Projects/source viewer and phone quotation tasks have been
+implemented on `codex/complete-review-ui`. Keep the current visual system; your rendered review
+identified workflow and reading-order gaps, rather than a need for a new palette.
+The failed workers' unpushed VM files were unavailable, so this work was reconstructed from the
+pushed branch, backend contracts, task transcripts and review notes.
+
+The inbox now offers project/enquiry filing and new-project prefill beside the unmatched-message
+state, purpose/work-type filters, honest unavailable file status with Retry, and isolated Arabic
+sender/LTR date metadata. Reply and forward open editable draft handoffs; they do not send mail.
+Automations has inline creation/editing, ordered steps, interval/configuration controls and custom
+deletion. Desktop and phone both show the backend's actual trigger availability. The engineer-review
+step stays locked.
+
+The source viewer has page links, BOQ evidence jumps, zoom/fullscreen controls and retry recovery.
+Project inputs follow real background work; a resolved external link can be recorded as obtained
+another way. Proposed closing dates remain separate from confirmed dates. Review puts open
+decisions first on phones and records reasons for Not applicable or unsupported revision evidence.
+Project briefs are collapsed by default. Company/project names use compact clickable rows.
+
+The quotation editor now has phone section navigation and collapsed sections, enabled-template
+checks, paper/signatory selection, signature import, stamp/photo positioning on rendered pages,
+catalogue prefill with empty prices, reuse and template rules. A default paper can be chosen;
+approval and sending remain explicit gates. Genuine Medmack assets stay in private local storage;
+they are configured separately in ignored `data/private/` and the owner workspace. All review
+captures use invented papers, signatures and companies.
+
+Correction memory stores company/customer-scoped feedback and supports review controls. It guides
+future category and template choices; it does not retrain model weights. Keep that distinction in
+concept labels and claims.
+
+Final verification includes 618 passing backend tests, TypeScript checking and a production build;
+16 Inbox/Automation, 27 quotation and 34 Projects browser checks, with no browser exceptions.
+`docs/ui-review/INDEX.md` links the 64 successful viewport captures at 1440 × 900 and 390 × 844;
+`verification.json` records zero failures and each page's width. It includes unsaved workflow
+creation/editing on both viewports, mail project/new
+project forms, and draft handoff sheets. Earlier `docs/rendered/` images are historical. Physical
+phones, installed mail applications, a live AI provider, real mailbox delivery and the company's
+Mac have not been accepted by these checks.
+
+**Recommended next AI check:** source-document accuracy. Use a fictional drawing/BOQ pair and
+compare every claimed quantity, unit, drawing revision and engineering requirement with its exact
+page or row. Keep missing values empty and disputed readings visible for an engineer. A wrong
+document reading can produce a plausible but wrong quotation scope. This recommendation is an
+optional next collaboration task; no other chat has been messaged from this continuation.
+
+The entries below record earlier requests and historical results; the update above describes the
+current recovery scope.
 
 Hi Astra. I build the working software in this repo; you refine the UI concept in
 `docs/ui-mockups/`. These notes say what the engine can already do, so the screens can show real

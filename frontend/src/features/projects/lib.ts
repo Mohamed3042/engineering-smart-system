@@ -127,11 +127,12 @@ export function openChangeIndexes(changes: ProjectChange[] | null | undefined): 
 
 /* ------------------------------------------------------------------ checklist */
 
-export type CheckStatus = "pending" | "checked" | "needs_review" | "failed";
+export type CheckStatus = "pending" | "checked" | "needs_review" | "failed" | "na";
 
 /** The backend stores pending | checked | needs_review | failed; older data may say open / flagged. */
 export function normalizeCheck(s: string | null | undefined): CheckStatus {
   if (s === "checked") return "checked";
+  if (s === "na" || s === "not_applicable") return "na";
   if (s === "needs_review" || s === "flagged") return "needs_review";
   if (s === "failed") return "failed";
   return "pending";
@@ -140,6 +141,7 @@ export function normalizeCheck(s: string | null | undefined): CheckStatus {
 const CHECK: Record<CheckStatus, StatusInfo> = {
   pending: { label: "Open", tone: "neutral" },
   checked: { label: "Checked", tone: "brand" },
+  na: { label: "Not applicable", tone: "neutral" },
   needs_review: { label: "Needs review", tone: "review" },
   failed: { label: "Problem found", tone: "block" },
 };

@@ -3,6 +3,7 @@
  * person reads what each step really does before approving it.
  */
 import type { Automation } from "@/api/types";
+import type { TriggerStatus } from "./api";
 import { humanize } from "@/lib/format";
 import { runStatusInfo, type StatusInfo } from "@/lib/labels";
 import { emailHref, projectHref } from "@/lib/routes";
@@ -47,12 +48,11 @@ export function intervalLabel(minutes: number | null | undefined): string | null
   return `Every ${minutes} minutes`;
 }
 
-/** How a workflow starts. Only schedules and "Run now" start runs today; new mail does not start one by itself. */
-export function triggerInfo(a: Pick<Automation, "trigger" | "interval_minutes">): { label: string; hint: string | null } {
-  if (a.trigger === "schedule") return { label: intervalLabel(a.interval_minutes) ?? "On a schedule", hint: "Starts by itself while a mailbox is connected" };
-  if (a.trigger === "new_email") return { label: "New mail", hint: "Starts with Run now" };
-  if (a.trigger === "manual") return { label: "By hand", hint: "Starts with Run now" };
-  return { label: humanize(a.trigger), hint: null };
+/** The server reports scheduler and mailbox availability; a configured trigger alone proves neither. */
+export function triggerInfo(a: Pick<Automation, "trigger" | "interval_minutes"> & { trigger_status?: TriggerStatus }, status?: TriggerStatus): { label: string; hint: string | null } {
+  const actual = status ?? a.trigger_status;
+  if (actual) return { label: actual.label, hint: actual.detail };
+  return { label: "Trigger status unavailable", hint: "Reload to check how it starts. Run now is available." };
 }
 
 export const runTriggerLabel = (t?: string | null) =>

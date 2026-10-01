@@ -3,6 +3,7 @@
  * link kinds, mail groups). Kept here so the inbox screens use one wording.
  */
 import { humanize } from "@/lib/format";
+import { intentInfo, requestKindLabel, workTypeLabel } from "@/lib/labels";
 import type { StatusInfo } from "@/lib/labels";
 
 export type MailGroup = "work" | "bills" | "promotions" | "other";
@@ -80,3 +81,7 @@ export const linkKindLabel = (k?: string | null) => (k ? (LINK_KIND[k] ?? humani
 
 /** Below this the classification is shown as uncertain. */
 export const LOW_CONFIDENCE = 0.6;
+
+export const INTENT_OPTIONS = ["rfq", "addendum", "deadline_change", "reminder", "revision", "clarification", "award", "purchase_order", "invoice", "offer", "newsletter", "notification", "internal", "other"].map((value) => ({ value, label: intentInfo(value).label }));
+export const WORK_TYPE_OPTIONS = ["supply_installation", "annual_maintenance", "equipment_rental", "service_repair", "inspection_certification"].map((value) => ({ value, label: workTypeLabel(value) }));
+export const REQUEST_KIND_OPTIONS = ["direct_rfq", "tender_rfq", "revision", "o_and_m"].map((value) => ({ value, label: requestKindLabel(value) }));

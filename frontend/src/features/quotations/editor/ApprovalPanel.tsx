@@ -16,7 +16,6 @@ import {
   Banner,
   Button,
   ChoiceCards,
-  CollapsibleSection,
   ConfirmDialog,
   Dialog,
   Field,
@@ -44,6 +43,7 @@ import {
   totals,
   useRoleGate,
 } from "../lib";
+import { EditorSection } from "./EditorSection";
 
 /** The newest revision of the same enquiry, for a superseded quotation. */
 function useCurrentRevision(q: Quote) {
@@ -163,8 +163,9 @@ export function ApprovalPanel({
     case "approved": {
       const mail = session.data?.mail;
       const reason =
+        saveFirst ??
         roleGate("engineer", "Sending a quotation") ??
-        (mail && mail.status !== "connected" ? "Connect a mailbox first (Settings, Connections)." : null);
+        (session.isError ? "Mailbox status is unavailable. Retry before sending." : session.isLoading ? "Checking the mailbox connection." : mail?.status !== "connected" ? "Connect a mailbox before sending a quotation." : null);
       body = (
         <div className="space-y-2 text-sm text-ink-2">
           <p>
@@ -186,6 +187,7 @@ export function ApprovalPanel({
             Send quotation
           </Button>
           <Reason>{reason}</Reason>
+          {session.isError ? <Button variant="secondary" size="sm" onClick={() => session.refetch()}>Retry mailbox status</Button> : mail?.status !== "connected" && !session.isLoading ? <Button variant="secondary" size="sm" asChild><Link to="/settings/connections">Open mailbox connections</Link></Button> : null}
           <Button variant="secondary" className="w-full" icon={<GitBranch />} onClick={onRevise}>
             Create revision
           </Button>
@@ -425,7 +427,8 @@ function SendDialog({ open, onOpenChange, detail }: { open: boolean; onOpenChang
   }, [open, reset]);
 
   const mailbox = session.data?.mail?.account;
-  const ready = recipients.length > 0 && bad.length === 0 && Boolean(mode) && subject.trim().length > 0;
+  const connected = !session.isError && session.data?.mail?.status === "connected";
+  const ready = connected && recipients.length > 0 && bad.length === 0 && Boolean(mode) && subject.trim().length > 0;
   const confirmLabel = mode === "now" ? `Send now to ${recipients.length} ${recipients.length === 1 ? "recipient" : "recipients"}` : mode === "draft" ? "Save mail draft" : "Choose how to send";
   return (
     <ConfirmDialog
@@ -436,9 +439,10 @@ function SendDialog({ open, onOpenChange, detail }: { open: boolean; onOpenChang
       confirmLabel={confirmLabel}
       disabled={!ready}
       loading={send.isPending}
-      onConfirm={() => send.mutate()}
+      onConfirm={() => ready && send.mutate()}
     >
       <div className="space-y-4">
+        {!connected ? <Banner tone="review" title="Connect a mailbox before sending" actions={<Button variant="secondary" size="sm" asChild><Link to="/settings/connections">Open connections</Link></Button>}>A quotation can be saved without a mailbox. Sending and saving a mail draft need a connected mailbox.</Banner> : null}
         <KeyValue
           labelWidth="sm"
           items={[
@@ -595,17 +599,18 @@ function approvalItem(a: Approval, showRevision = true): TimelineItem {
 export function HistoryPanel({ detail }: { detail: QuoteDetail }) {
   const rows = [...detail.approvals].sort((a, b) => b.created_at.localeCompare(a.created_at));
   return (
-    <CollapsibleSection
+    <EditorSection
+      id="history"
       title="Approval history"
       summary={rows.length ? `${rows.length} ${rows.length === 1 ? "record" : "records"}` : "No decisions yet"}
     >
-      {rows.length === 0 ? (
+      <Panel><PanelBody>{rows.length === 0 ? (
         <p className="text-sm text-ink-3">
           Approvals, change requests and sends appear here with the person, the date and the exact revision.
         </p>
       ) : (
         <Timeline items={rows.map((a) => approvalItem(a))} />
-      )}
-    </CollapsibleSection>
+      )}</PanelBody></Panel>
+    </EditorSection>
   );
 }

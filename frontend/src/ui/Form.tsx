@@ -5,7 +5,9 @@
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { Checkbox as C, RadioGroup as R, Switch as S } from "radix-ui";
 import {
+  createContext,
   forwardRef,
+  useContext,
   useId,
   type InputHTMLAttributes,
   type ReactNode,
@@ -18,6 +20,26 @@ const control =
   "w-full rounded-md border border-line-strong bg-surface text-ink placeholder:text-ink-3 transition-[border-color,box-shadow] duration-150 " +
   "hover:border-ink-3 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 " +
   "disabled:cursor-not-allowed disabled:bg-sunken disabled:text-ink-3 aria-[invalid=true]:border-block";
+
+interface FieldCtx {
+  id: string;
+  describedBy?: string;
+  invalid: boolean;
+}
+
+/** Field gives its control an id, links the hint/error with aria-describedby and marks it invalid. */
+const FieldContext = createContext<FieldCtx | null>(null);
+
+/** Props a control takes from the surrounding Field (explicit props win). */
+function useFieldProps(props: { id?: string; "aria-describedby"?: string; invalid?: boolean }) {
+  const ctx = useContext(FieldContext);
+  const describedBy = [props["aria-describedby"], ctx?.describedBy].filter(Boolean).join(" ") || undefined;
+  return {
+    id: props.id ?? ctx?.id,
+    "aria-describedby": describedBy,
+    "aria-invalid": props.invalid || ctx?.invalid || undefined,
+  };
+}
 
 export function Field({
   label,
@@ -38,20 +60,36 @@ export function Field({
   className?: string;
   htmlFor?: string;
 }) {
+  const auto = useId();
+  const id = htmlFor ?? `f${auto}`;
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
+  const ctx: FieldCtx = { id, describedBy: [errorId, hintId].filter(Boolean).join(" ") || undefined, invalid: !!error };
   return (
     <div className={cn("space-y-1.5", className)}>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
+      <label htmlFor={id} className="block text-sm font-medium text-ink">
         {label}
-        {required ? <span className="text-block"> *</span> : null}
+        {required ? (
+          <>
+            <span className="text-block" aria-hidden>
+              {" "}
+              *
+            </span>
+            <span className="sr-only"> (required)</span>
+          </>
+        ) : null}
         {optional ? <span className="font-normal text-ink-3"> (optional)</span> : null}
       </label>
-      {children}
+      <FieldContext.Provider value={ctx}>{children}</FieldContext.Provider>
       {error ? (
-        <p className="text-sm text-block" role="alert">
+        <p id={errorId} className="text-sm text-block" aria-live="polite">
           {error}
         </p>
-      ) : hint ? (
-        <p className="text-sm text-ink-3">{hint}</p>
+      ) : null}
+      {hint ? (
+        <p id={hintId} className={cn("text-sm text-ink-3", error && "sr-only")}>
+          {hint}
+        </p>
       ) : null}
     </div>
   );
@@ -59,19 +97,21 @@ export function Field({
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(
   function Input({ className, invalid, ...rest }, ref) {
-    return <input ref={ref} aria-invalid={invalid || undefined} className={cn(control, "h-10 px-3 text-base", className)} {...rest} />;
+    const field = useFieldProps({ ...rest, invalid });
+    return <input ref={ref} {...rest} {...field} className={cn(control, "h-10 px-3 text-base", className)} />;
   },
 );
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }>(
   function Textarea({ className, invalid, rows = 4, ...rest }, ref) {
+    const field = useFieldProps({ ...rest, invalid });
     return (
       <textarea
         ref={ref}
         rows={rows}
-        aria-invalid={invalid || undefined}
-        className={cn(control, "min-h-20 px-3 py-2 text-base leading-relaxed", className)}
         {...rest}
+        {...field}
+        className={cn(control, "min-h-20 px-3 py-2 text-base leading-relaxed", className)}
       />
     );
   },
@@ -88,14 +128,10 @@ export const Select = forwardRef<
   HTMLSelectElement,
   SelectHTMLAttributes<HTMLSelectElement> & { options: Option[]; placeholder?: string; invalid?: boolean }
 >(function Select({ options, placeholder, className, invalid, ...rest }, ref) {
+  const field = useFieldProps({ ...rest, invalid });
   return (
     <div className={cn("relative", className)}>
-      <select
-        ref={ref}
-        aria-invalid={invalid || undefined}
-        className={cn(control, "h-10 appearance-none pl-3 pr-9 text-base")}
-        {...rest}
-      >
+      <select ref={ref} {...rest} {...field} className={cn(control, "h-10 appearance-none pl-3 pr-9 text-base")}>
         {placeholder !== undefined && <option value="">{placeholder}</option>}
         {options.map((o) => (
           <option key={o.value} value={o.value} disabled={o.disabled}>
@@ -174,7 +210,8 @@ export function Checkbox({
       checked={checked}
       disabled={disabled}
       onCheckedChange={(v) => onChange(v === true)}
-      aria-label={typeof label === "string" ? undefined : "Select"}
+      aria-label={label ? undefined : "Select"}
+      aria-describedby={description ? `${cid}-desc` : undefined}
       className={cn(
         "grid size-5 shrink-0 place-items-center rounded border border-line-strong bg-surface transition-colors",
         "data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=indeterminate]:border-brand data-[state=indeterminate]:bg-brand",
@@ -196,7 +233,11 @@ export function Checkbox({
       <span className="mt-0.5">{box}</span>
       <label htmlFor={cid} className="min-w-0 cursor-pointer select-none">
         <span className="block text-base text-ink">{label}</span>
-        {description ? <span className="block text-sm text-ink-3">{description}</span> : null}
+        {description ? (
+          <span id={`${cid}-desc`} className="block text-sm text-ink-3">
+            {description}
+          </span>
+        ) : null}
       </label>
     </div>
   );
@@ -225,6 +266,7 @@ export function Switch({
       disabled={disabled}
       onCheckedChange={onChange}
       aria-label={typeof label === "string" ? label : undefined}
+      aria-describedby={description ? `${id}-desc` : undefined}
       className={cn(
         "relative h-6 w-11 shrink-0 rounded-full bg-line-strong transition-colors duration-150",
         "data-[state=checked]:bg-brand disabled:opacity-50",
@@ -238,7 +280,11 @@ export function Switch({
     <div className={cn("flex items-start justify-between gap-4", className)}>
       <label htmlFor={id} className="min-w-0 cursor-pointer">
         <span className="block text-base text-ink">{label}</span>
-        {description ? <span className="block text-sm text-ink-3">{description}</span> : null}
+        {description ? (
+          <span id={`${id}-desc`} className="block text-sm text-ink-3">
+            {description}
+          </span>
+        ) : null}
       </label>
       <span className="mt-0.5">{sw}</span>
     </div>
@@ -321,6 +367,7 @@ export function DateInput({
   className,
   ...rest
 }: Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void }) {
+  const field = useFieldProps(rest);
   return (
     <input
       type="date"
@@ -328,8 +375,9 @@ export function DateInput({
       min={min}
       max={max}
       onChange={(e) => onChange(e.target.value)}
-      className={cn(control, "h-10 px-3 text-base tabular", className)}
       {...rest}
+      {...field}
+      className={cn(control, "h-10 px-3 text-base tabular", className)}
     />
   );
 }

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlparse
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from ..config import get_settings
 from ..db import session_scope
@@ -154,16 +154,21 @@ def _source_for_kind(kind: str) -> str:
 # --------------------------------------------------------------------------- attachments
 
 
-def fetch_attachments(project_id: str) -> dict:
+def fetch_attachments(project_id: str, *, retry_failed: bool = False, file_ids: Optional[list[str]] = None) -> dict:
+    """Download e-mail attachments not saved yet; with ``retry_failed`` also the ones that failed."""
     from .connect import mail_source_for
 
     saved, failed = 0, []
+    statuses = ["not_downloaded", "failed"] if retry_failed else ["not_downloaded"]
     with session_scope() as s:
         project = s.get(Project, project_id)
         ws = s.get(Workspace, project.workspace_id)
-        pending = s.exec(select(ProjectFile).where(ProjectFile.project_id == project_id,
-                                                   ProjectFile.source == "email_attachment",
-                                                   ProjectFile.status == "not_downloaded")).all()
+        query = select(ProjectFile).where(ProjectFile.project_id == project_id,
+                                          ProjectFile.source == "email_attachment",
+                                          col(ProjectFile.status).in_(statuses))
+        if file_ids:
+            query = query.where(col(ProjectFile.id).in_(file_ids))
+        pending = s.exec(query).all()
         if not pending:
             return {"saved": 0, "failed": []}
         source = mail_source_for(s, ws)

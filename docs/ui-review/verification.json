@@ -1,0 +1,1030 @@
+{
+  "fixture": "Invented workspace only; no mailbox or AI provider connected. Workflow forms are unsaved; no workflow is run or mail sent.",
+  "captures": [
+    {
+      "name": "home",
+      "device": "desktop",
+      "route": "/",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 2005
+      },
+      "file": "home-desktop.png"
+    },
+    {
+      "name": "inbox",
+      "device": "desktop",
+      "route": "/inbox",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1592
+      },
+      "file": "inbox-desktop.png"
+    },
+    {
+      "name": "arabic-email",
+      "device": "desktop",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "arabic-email-desktop.png"
+    },
+    {
+      "name": "projects",
+      "device": "desktop",
+      "route": "/projects",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "projects-desktop.png"
+    },
+    {
+      "name": "project-brief",
+      "device": "desktop",
+      "route": "/projects/{marina}",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 988
+      },
+      "file": "project-brief-desktop.png"
+    },
+    {
+      "name": "inputs",
+      "device": "desktop",
+      "route": "/projects/{crescent}/inputs",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1394
+      },
+      "file": "inputs-desktop.png"
+    },
+    {
+      "name": "drawing-viewer",
+      "device": "desktop",
+      "route": "/files/{file_pdf}",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1528
+      },
+      "file": "drawing-viewer-desktop.png"
+    },
+    {
+      "name": "boq-evidence",
+      "device": "desktop",
+      "route": "/files/{file_boq}",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1349
+      },
+      "file": "boq-evidence-desktop.png"
+    },
+    {
+      "name": "engineering-review",
+      "device": "desktop",
+      "route": "/projects/{marina}/review",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1827
+      },
+      "file": "engineering-review-desktop.png"
+    },
+    {
+      "name": "deadline-change",
+      "device": "desktop",
+      "route": "/projects/{marina}/changes/0",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1269
+      },
+      "file": "deadline-change-desktop.png"
+    },
+    {
+      "name": "quotation-editor",
+      "device": "desktop",
+      "route": "/quotations/{q_harbor}",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 3098
+      },
+      "file": "quotation-editor-desktop.png"
+    },
+    {
+      "name": "quotation-builder",
+      "device": "desktop",
+      "route": "/quotations/{q_harbor}#document",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 3530
+      },
+      "file": "quotation-builder-desktop.png"
+    },
+    {
+      "name": "quotation-preview",
+      "device": "desktop",
+      "route": "/quotations/{q_harbor}/preview",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1041
+      },
+      "file": "quotation-preview-desktop.png"
+    },
+    {
+      "name": "quotation-papers",
+      "device": "desktop",
+      "route": "/quotations/setup/papers",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "quotation-papers-desktop.png"
+    },
+    {
+      "name": "quotation-signatories",
+      "device": "desktop",
+      "route": "/quotations/setup/signatories",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "quotation-signatories-desktop.png"
+    },
+    {
+      "name": "quotation-letterhead",
+      "device": "desktop",
+      "route": "/quotations/setup/letterhead",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "quotation-letterhead-desktop.png"
+    },
+    {
+      "name": "template-rules",
+      "device": "desktop",
+      "route": "/quotations/setup/rules",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "template-rules-desktop.png"
+    },
+    {
+      "name": "customers",
+      "device": "desktop",
+      "route": "/customers",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "customers-desktop.png"
+    },
+    {
+      "name": "customer-lessons",
+      "device": "desktop",
+      "route": "/customers/{customer}/lessons",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "customer-lessons-desktop.png"
+    },
+    {
+      "name": "workspace-learning",
+      "device": "desktop",
+      "route": "/settings/learning",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "workspace-learning-desktop.png"
+    },
+    {
+      "name": "automations",
+      "device": "desktop",
+      "route": "/automations",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "automations-desktop.png"
+    },
+    {
+      "name": "automation-details",
+      "device": "desktop",
+      "route": "/automations/{automation}",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1501
+      },
+      "file": "automation-details-desktop.png"
+    },
+    {
+      "name": "workflow-create",
+      "device": "desktop",
+      "route": "/automations",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 2307
+      },
+      "file": "workflow-create-desktop.png"
+    },
+    {
+      "name": "workflow-edit",
+      "device": "desktop",
+      "route": "/automations/{automation}",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 3123
+      },
+      "file": "workflow-edit-desktop.png"
+    },
+    {
+      "name": "quotation-defaults",
+      "device": "desktop",
+      "route": "/settings/workspace#quotation-defaults",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1724
+      },
+      "file": "quotation-defaults-desktop.png"
+    },
+    {
+      "name": "mail-project-picker",
+      "device": "desktop",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "mail-project-picker-desktop.png"
+    },
+    {
+      "name": "mail-new-project",
+      "device": "desktop",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "mail-new-project-desktop.png"
+    },
+    {
+      "name": "reply-draft",
+      "device": "desktop",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "reply-draft-desktop.png"
+    },
+    {
+      "name": "forward-draft",
+      "device": "desktop",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900
+      },
+      "file": "forward-draft-desktop.png"
+    },
+    {
+      "name": "stamp-position",
+      "device": "desktop",
+      "route": "/quotations/{q_harbor}#document",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 3530
+      },
+      "file": "stamp-position-desktop.png"
+    },
+    {
+      "name": "photo-import",
+      "device": "desktop",
+      "route": "/quotations/{q_harbor}#photos",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 3276
+      },
+      "file": "photo-import-desktop.png"
+    },
+    {
+      "name": "template-rule-dialog",
+      "device": "desktop",
+      "route": "/quotations/{q_harbor}#document",
+      "viewport": [
+        1440,
+        900
+      ],
+      "measurements": {
+        "width": 1440,
+        "height": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 3530
+      },
+      "file": "template-rule-dialog-desktop.png"
+    },
+    {
+      "name": "home",
+      "device": "phone",
+      "route": "/",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1634
+      },
+      "file": "home-phone.png"
+    },
+    {
+      "name": "inbox",
+      "device": "phone",
+      "route": "/inbox",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 3265
+      },
+      "file": "inbox-phone.png"
+    },
+    {
+      "name": "arabic-email",
+      "device": "phone",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1842
+      },
+      "file": "arabic-email-phone.png"
+    },
+    {
+      "name": "projects",
+      "device": "phone",
+      "route": "/projects",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 844
+      },
+      "file": "projects-phone.png"
+    },
+    {
+      "name": "project-brief",
+      "device": "phone",
+      "route": "/projects/{marina}",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1830
+      },
+      "file": "project-brief-phone.png"
+    },
+    {
+      "name": "inputs",
+      "device": "phone",
+      "route": "/projects/{crescent}/inputs",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 2652
+      },
+      "file": "inputs-phone.png"
+    },
+    {
+      "name": "drawing-viewer",
+      "device": "phone",
+      "route": "/files/{file_pdf}",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 2383
+      },
+      "file": "drawing-viewer-phone.png"
+    },
+    {
+      "name": "boq-evidence",
+      "device": "phone",
+      "route": "/files/{file_boq}",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 2341
+      },
+      "file": "boq-evidence-phone.png"
+    },
+    {
+      "name": "engineering-review",
+      "device": "phone",
+      "route": "/projects/{marina}/review",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 2479
+      },
+      "file": "engineering-review-phone.png"
+    },
+    {
+      "name": "deadline-change",
+      "device": "phone",
+      "route": "/projects/{marina}/changes/0",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 2000
+      },
+      "file": "deadline-change-phone.png"
+    },
+    {
+      "name": "quotation-editor",
+      "device": "phone",
+      "route": "/quotations/{q_harbor}",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 4422
+      },
+      "file": "quotation-editor-phone.png"
+    },
+    {
+      "name": "quotation-builder",
+      "device": "phone",
+      "route": "/quotations/{q_harbor}#document",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 5336
+      },
+      "file": "quotation-builder-phone.png"
+    },
+    {
+      "name": "quotation-preview",
+      "device": "phone",
+      "route": "/quotations/{q_harbor}/preview",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1961
+      },
+      "file": "quotation-preview-phone.png"
+    },
+    {
+      "name": "quotation-papers",
+      "device": "phone",
+      "route": "/quotations/setup/papers",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 952
+      },
+      "file": "quotation-papers-phone.png"
+    },
+    {
+      "name": "quotation-signatories",
+      "device": "phone",
+      "route": "/quotations/setup/signatories",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 844
+      },
+      "file": "quotation-signatories-phone.png"
+    },
+    {
+      "name": "quotation-letterhead",
+      "device": "phone",
+      "route": "/quotations/setup/letterhead",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1557
+      },
+      "file": "quotation-letterhead-phone.png"
+    },
+    {
+      "name": "template-rules",
+      "device": "phone",
+      "route": "/quotations/setup/rules",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 887
+      },
+      "file": "template-rules-phone.png"
+    },
+    {
+      "name": "customers",
+      "device": "phone",
+      "route": "/customers",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 846
+      },
+      "file": "customers-phone.png"
+    },
+    {
+      "name": "customer-lessons",
+      "device": "phone",
+      "route": "/customers/{customer}/lessons",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 923
+      },
+      "file": "customer-lessons-phone.png"
+    },
+    {
+      "name": "workspace-learning",
+      "device": "phone",
+      "route": "/settings/learning",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 844
+      },
+      "file": "workspace-learning-phone.png"
+    },
+    {
+      "name": "automations",
+      "device": "phone",
+      "route": "/automations",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1624
+      },
+      "file": "automations-phone.png"
+    },
+    {
+      "name": "automation-details",
+      "device": "phone",
+      "route": "/automations/{automation}",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 2300
+      },
+      "file": "automation-details-phone.png"
+    },
+    {
+      "name": "workflow-create",
+      "device": "phone",
+      "route": "/automations",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 3510
+      },
+      "file": "workflow-create-phone.png"
+    },
+    {
+      "name": "workflow-edit",
+      "device": "phone",
+      "route": "/automations/{automation}",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 3875
+      },
+      "file": "workflow-edit-phone.png"
+    },
+    {
+      "name": "quotation-defaults",
+      "device": "phone",
+      "route": "/settings/workspace#quotation-defaults",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 2604
+      },
+      "file": "quotation-defaults-phone.png"
+    },
+    {
+      "name": "mail-project-picker",
+      "device": "phone",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1842
+      },
+      "file": "mail-project-picker-phone.png"
+    },
+    {
+      "name": "mail-new-project",
+      "device": "phone",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1842
+      },
+      "file": "mail-new-project-phone.png"
+    },
+    {
+      "name": "reply-draft",
+      "device": "phone",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1842
+      },
+      "file": "reply-draft-phone.png"
+    },
+    {
+      "name": "forward-draft",
+      "device": "phone",
+      "route": "/inbox/demo-a1",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 1842
+      },
+      "file": "forward-draft-phone.png"
+    },
+    {
+      "name": "stamp-position",
+      "device": "phone",
+      "route": "/quotations/{q_harbor}#document",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 5336
+      },
+      "file": "stamp-position-phone.png"
+    },
+    {
+      "name": "photo-import",
+      "device": "phone",
+      "route": "/quotations/{q_harbor}#photos",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 4665
+      },
+      "file": "photo-import-phone.png"
+    },
+    {
+      "name": "template-rule-dialog",
+      "device": "phone",
+      "route": "/quotations/{q_harbor}#document",
+      "viewport": [
+        390,
+        844
+      ],
+      "measurements": {
+        "width": 390,
+        "height": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 5336
+      },
+      "file": "template-rule-dialog-phone.png"
+    }
+  ],
+  "failures": []
+}

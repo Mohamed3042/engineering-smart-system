@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import traceback
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Callable, Optional
 
 from sqlmodel import select
@@ -205,6 +205,104 @@ STEPS: dict[str, Callable[[StepContext, dict], str]] = {
 }
 
 
+# What a person sees when building a workflow. "locked" steps keep their human gate.
+STEP_CATALOG: list[dict] = [
+    {"type": "sync_mail", "label": "Read new mail", "description": "Fetch messages that arrived since the last check.",
+     "config": [{"key": "max_threads", "label": "Most threads per run", "type": "number", "default": 300}]},
+    {"type": "classify", "label": "Classify mail", "description": "Sort new messages into work, bills, promotions and other.",
+     "config": [{"key": "limit", "label": "Most messages per run", "type": "number", "default": 500}]},
+    {"type": "link_project", "label": "Link to project and enquiry",
+     "description": "File work mail under its project and the sender's enquiry (or open a new project)."},
+    {"type": "fetch_attachments", "label": "Save attachments", "description": "Download e-mail attachments of the projects in this run."},
+    {"type": "fetch_links", "label": "Download shared links",
+     "description": "Download approved Google Drive, WeTransfer, Dropbox and OneDrive links. Unknown hosts wait for approval."},
+    {"type": "extract_files", "label": "Read documents and drawings", "description": "Extract text, BOQ rows and drawing pages."},
+    {"type": "analyze_project", "label": "Analyse scope", "description": "Find requirements, scope items and open questions with evidence."},
+    {"type": "draft_quotation", "label": "Draft quotation (no prices)",
+     "description": "Prepare the quotation draft. Prices stay empty for the engineer."},
+    {"type": "detect_changes", "label": "Detect changes", "description": "Find closing-date changes, addenda, reminders and revisions."},
+    {"type": "notify", "label": "Notify owners", "description": "Add a notification for projects with unreviewed changes."},
+    {"type": "monitor_customers", "label": "Search customer updates", "description": "Look for news, projects and tenders of monitored customers."},
+    {"type": "suggest_unsubscribe", "label": "Suggest unsubscribes",
+     "description": "List senders that can be unsubscribed. A person chooses; nothing is sent automatically."},
+    {"type": "request_review", "label": "Engineer review", "locked": True,
+     "description": "Stop here until an engineer continues the run. This gate cannot be switched off."},
+]
+
+SCHEDULER_STATE: dict = {"running": False, "started_at": None}
+DEFAULT_MAIL_POLL_MINUTES = 15
+
+
+def mail_poll_minutes(ws: Workspace) -> int:
+    try:
+        return max(5, int((ws.settings or {}).get("mail_poll_minutes") or DEFAULT_MAIL_POLL_MINUTES))
+    except (TypeError, ValueError):
+        return DEFAULT_MAIL_POLL_MINUTES
+
+
+def _every(minutes: int) -> str:
+    if minutes % (7 * 24 * 60) == 0:
+        n = minutes // (7 * 24 * 60)
+        return "Every week" if n == 1 else f"Every {n} weeks"
+    if minutes % (24 * 60) == 0:
+        n = minutes // (24 * 60)
+        return "Every day" if n == 1 else f"Every {n} days"
+    if minutes % 60 == 0:
+        n = minutes // 60
+        return "Every hour" if n == 1 else f"Every {n} hours"
+    return f"Every {minutes} minutes"
+
+
+def needs_mail(auto: Automation) -> bool:
+    """Workflows that start from mail, or read mail, need a connected mailbox to run on their own."""
+    return auto.trigger == "new_email" or any(st.get("type") == "sync_mail" and st.get("enabled", True)
+                                              for st in auto.steps or [])
+
+
+def trigger_status(session, ws: Workspace, auto: Automation) -> dict:
+    """How this workflow really starts on this installation right now (never more than the truth)."""
+    from ..pipeline.connect import active_connection
+
+    manual = {"mode": "manual", "automatic": False, "label": "Manual — Run now"}
+    if not auto.enabled:
+        return {"mode": "off", "automatic": False, "label": "Switched off",
+                "detail": "It does not run on its own. Run now still works."}
+    if auto.trigger == "manual" or (auto.trigger == "schedule" and not auto.interval_minutes):
+        return {**manual, "detail": "Runs only when someone presses Run now."}
+    if not SCHEDULER_STATE["running"]:
+        return {**manual, "detail": "Background runs are off: the server was started without the scheduler."}
+    if not (ws.settings or {}).get("automations_enabled", True):
+        return {"mode": "paused", "automatic": False, "label": "Paused",
+                "detail": "Automations are paused for this workspace."}
+    if needs_mail(auto) and active_connection(session, ws, "mail") is None:
+        return {**manual, "detail": "Connect a mailbox so it can run on its own."}
+    if auto.trigger == "new_email":
+        return {"mode": "automatic", "automatic": True, "label": "When new mail arrives",
+                "detail": f"The mailbox is checked every {mail_poll_minutes(ws)} minutes."}
+    nxt = (_aware(auto.last_run_at) + timedelta(minutes=auto.interval_minutes)) if auto.last_run_at else utcnow()
+    return {"mode": "automatic", "automatic": True, "label": _every(int(auto.interval_minutes)),
+            "detail": "Runs on its own.", "next_run_at": max(nxt, utcnow()).isoformat()}
+
+
+def on_new_mail(workspace_id: str, new_inbound: int) -> list[str]:
+    """After a mailbox check that stored new inbound mail, start the workspace's "new mail" workflows."""
+    if new_inbound <= 0 or not SCHEDULER_STATE["running"]:
+        return []
+    with session_scope() as s:
+        ws = s.get(Workspace, workspace_id)
+        if ws is None or not (ws.settings or {}).get("automations_enabled", True):
+            return []
+        autos = s.exec(select(Automation).where(Automation.workspace_id == ws.id, Automation.enabled == True,  # noqa: E712
+                                                Automation.trigger == "new_email")).all()
+        due = []
+        for a in autos:
+            busy = s.exec(select(AutomationRun).where(AutomationRun.automation_id == a.id,
+                                                      AutomationRun.status == "running")).first()
+            if busy is None:
+                due.append(a.id)
+    return [start_run(aid, trigger="new_email") for aid in due]
+
+
 def start_run(automation_id: str, *, trigger: str = "manual", target_type: Optional[str] = None,
               target_id: Optional[str] = None) -> str:
     with session_scope() as s:
@@ -282,9 +380,52 @@ def resume_run(run_id: str, approved_by: str) -> None:
     jobs.submit(f"run:{run_id}", execute_run, run_id, resume_from=idx)
 
 
+def _poll_mailboxes() -> None:
+    """Check the mailbox of every workspace with an active "new mail" workflow (every few minutes)."""
+    from ..models import AppState
+    from ..pipeline.connect import active_connection
+    from ..pipeline.scan import run_scan
+
+    with session_scope() as s:
+        targets = []
+        for ws in s.exec(select(Workspace)).all():
+            if not (ws.settings or {}).get("automations_enabled", True):
+                continue
+            wants = s.exec(select(Automation).where(Automation.workspace_id == ws.id, Automation.enabled == True,  # noqa: E712
+                                                    Automation.trigger == "new_email")).first()
+            if wants is None or active_connection(s, ws, "mail") is None:
+                continue
+            state = s.get(AppState, f"mailpoll:{ws.id}")
+            last = state.value if state and state.value else None
+            if last and (utcnow() - _aware(datetime.fromisoformat(last))).total_seconds() < mail_poll_minutes(ws) * 60:
+                continue
+            last_sync = (ws.settings or {}).get("last_sync")
+            job = ScanJob(workspace_id=ws.id, scope={"date_from": (last_sync or "")[:10] or None, "months": 1,
+                                                     "max_threads": 300, "trigger": "mail_poll"})
+            s.add(job)
+            row = state or AppState(key=f"mailpoll:{ws.id}")
+            row.value = utcnow().isoformat()
+            s.add(row)
+            targets.append((ws.id, job.id))
+    for ws_id, job_id in targets:
+        jobs.submit(f"scan:{ws_id}", run_scan, job_id)
+
+
 async def scheduler_loop(stop: asyncio.Event) -> None:
-    """Every minute, start due scheduled automations of every workspace that has a mailbox."""
+    """Every minute: start due scheduled automations, and check mailboxes for "new mail" workflows."""
+    SCHEDULER_STATE.update(running=True, started_at=utcnow().isoformat())
+    try:
+        await _scheduler_ticks(stop)
+    finally:
+        SCHEDULER_STATE["running"] = False
+
+
+async def _scheduler_ticks(stop: asyncio.Event) -> None:
     while not stop.is_set():
+        try:
+            _poll_mailboxes()
+        except Exception:
+            log.error("mailbox poll failed: %s", traceback.format_exc())
         try:
             with session_scope() as s:
                 autos = s.exec(select(Automation).where(Automation.enabled == True, Automation.trigger == "schedule")).all()  # noqa: E712
@@ -296,7 +437,8 @@ async def scheduler_loop(stop: asyncio.Event) -> None:
                 for aid in due:
                     a = s.get(Automation, aid)
                     ws = s.get(Workspace, a.workspace_id)
-                    if active_connection(s, ws, "mail") is not None and (ws.settings or {}).get("automations_enabled", True):
+                    if (ws.settings or {}).get("automations_enabled", True) and (
+                            not needs_mail(a) or active_connection(s, ws, "mail") is not None):
                         runnable.append(aid)
             for aid in runnable:
                 start_run(aid, trigger="schedule")

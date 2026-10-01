@@ -4,15 +4,14 @@
  * clarifications, notes and reference photos. Edits stay local until "Save changes".
  */
 import { BookmarkPlus, EllipsisVertical, Eye, FolderOpen, GitBranch, Save } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useMemo, useState, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router";
 import { useCategoryLabel, useWorkspace } from "@/api/session";
 import { formatDate, isRtl } from "@/lib/format";
 import { workTypeLabel } from "@/lib/labels";
 import { projectHref, quotationPreviewHref } from "@/lib/routes";
 import {
   Button,
-  CollapsibleSection,
   ConfirmDialog,
   DateInput,
   Field,
@@ -24,6 +23,7 @@ import {
   Panel,
   PanelBody,
   PanelHeader,
+  Select,
   Textarea,
   toast,
   type MenuItem,
@@ -41,10 +41,12 @@ import {
   PRICE_TERMS,
   templateName,
   termChanges,
+  termStatus,
 } from "../lib";
 import { RuleDialog } from "../RuleDialog";
 import { ApprovalPanel, HistoryPanel, ReviseDialog } from "./ApprovalPanel";
 import { DocumentPanel } from "./DocumentPanel";
+import { EditorSection, openEditorSection, useEditorHashNavigation } from "./EditorSection";
 import { AutoTextarea, ListEditor } from "./inputs";
 import { CatalogDialog, ReuseDialog } from "./LineTools";
 import { emptyLine, LineItems, lineLayout } from "./LineItems";
@@ -52,16 +54,6 @@ import { PhotosPanel } from "./Photos";
 import type { AreaProps } from "./QuotationArea";
 import { TermChangesPanel } from "./TermChanges";
 import type { DraftLine } from "./useDraft";
-
-/** Links like /quotations/:id#line-items land on the section (after the shell's scroll-to-top). */
-function useScrollToHash() {
-  const { hash } = useLocation();
-  useEffect(() => {
-    if (!hash) return;
-    const t = window.setTimeout(() => document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: "start" }), 60);
-    return () => window.clearTimeout(t);
-  }, [hash]);
-}
 
 const KEY_NAMES: Record<string, string> = {
   to: "addressee",
@@ -96,7 +88,8 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
   const currency = d.data.currency || ws.currency || "KWD";
   const rtl = d.language === "ar";
   const changes = termChanges(q.data);
-  useScrollToHash();
+  useEditorHashNavigation();
+  const waitingTerms = changes.filter((change) => termStatus(change) === "pending").length;
 
   const [reviseOpen, setReviseOpen] = useState(false);
   const [carry, setCarry] = useState(false);
@@ -194,7 +187,9 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
         }
       />
 
-      <div className="-mt-2 mb-6 grid gap-x-8 gap-y-4 border-y border-line py-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-5">
+      <EditorSection id="quotation-details" title="Quotation details" summary={[contractor, detail.project?.name].filter(Boolean).join(" · ")} defaultOpen={window.matchMedia("(min-width: 640px)").matches}>
+      <div className="grid gap-x-8 gap-y-3 border-y border-line py-3 sm:grid-cols-2 lg:grid-cols-5">
         <Fact label="Contractor" hint={contact?.name ? [contact.name, contact.email].filter(Boolean).join(" · ") : undefined}>
           {contractor ? <span dir={isRtl(contractor) ? "rtl" : "auto"}>{contractor}</span> : <span className="text-ink-3">Not recorded</span>}
         </Fact>
@@ -230,10 +225,31 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
         </Fact>
         <Fact label="Quotation date">{formatDate(q.data.date ?? q.created_at)}</Fact>
       </div>
+      </EditorSection>
+      </div>
 
-      <div className="space-y-6">
-        <ApprovalPanel detail={detail} dirty={draft.dirty} onRevise={() => openRevise(false)} />
+      <nav aria-label="Quotation sections" className="mb-5 max-w-md">
+        <Field label="Jump to section" htmlFor="quote-section">
+          <Select id="quote-section" value="" placeholder="Choose a section" options={[
+            { value: "approval", label: "Approval and sending" },
+            { value: "line-items", label: "Line items, catalogue and reuse" },
+            ...(changes.length ? [{ value: "term-changes", label: `Customer-requested terms${waitingTerms ? ` · ${waitingTerms} open` : ""}` }] : []),
+            { value: "document", label: "Template, paper, signature and stamp" },
+            { value: "letter-details", label: "Addressee, subject and date" },
+            { value: "terms", label: "Agreed terms" },
+            { value: "exclusions", label: "Exclusions" },
+            { value: "clarifications", label: "Clarifications" },
+            { value: "notes", label: "Notes" },
+            { value: "photos", label: "Reference photos and page previews" },
+            { value: "history", label: "Approval history" },
+          ]} onChange={(e) => openEditorSection(e.target.value)} />
+        </Field>
+      </nav>
 
+      <div className="space-y-4">
+        <div id="approval" className="scroll-mt-24"><ApprovalPanel detail={detail} dirty={draft.dirty} onRevise={() => openRevise(false)} /></div>
+
+        <EditorSection id="document" title="Template, paper and signature" summary={`${templateName(templates.data, d.template_key)} · ${languageLabel(d.language)}`}>
         <DocumentPanel
           q={q}
           draft={draft}
@@ -242,10 +258,11 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
           currency={currency}
           onSaveRule={() => setRuleOpen(true)}
         />
+        </EditorSection>
 
         <LetterDetails draft={draft} readOnly={readOnly} rtl={rtl} defaultIntro={copy?.intro ?? []} variables={q.data.variables} />
 
-        <div id="line-items" className="scroll-mt-20">
+        <EditorSection id="line-items" title="Line items" summary={`${d.data.items.length} lines`} defaultOpen={!readOnly}>
           <LineItems
             lines={d.data.items}
             onChange={setLines}
@@ -262,10 +279,13 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
             onShowTotal={(v) => draft.setField("show_total", v)}
             rtl={rtl}
           />
-        </div>
+        </EditorSection>
 
+        {changes.length ? <EditorSection id="term-changes-section" title="Customer-requested term changes" summary={waitingTerms ? `${waitingTerms} awaiting a decision` : "Decisions recorded"} defaultOpen={waitingTerms > 0}>
         <TermChangesPanel detail={detail} dirty={draft.dirty} onRevise={() => openRevise(false)} />
+        </EditorSection> : null}
 
+        <EditorSection id="terms" title="Terms" summary={`${d.data.terms?.length ?? 0} agreed terms`}>
         <TermsPanel
           terms={d.data.terms ?? []}
           onChange={(terms) => draft.setField("terms", terms)}
@@ -276,8 +296,10 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
             return c ? <TermStatusChip change={c} size="sm" /> : null;
           }}
         />
+        </EditorSection>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <EditorSection id="exclusions" title="Exclusions" summary={`${d.data.exclusions?.length ?? 0} exclusions`}>
           <Panel>
             <PanelHeader title="Exclusions" description="Printed with the terms." />
             <PanelBody>
@@ -293,6 +315,8 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
               />
             </PanelBody>
           </Panel>
+          </EditorSection>
+          <EditorSection id="clarifications" title="Clarifications" summary={`${d.data.clarifications?.length ?? 0} open questions`}>
           <Panel>
             <PanelHeader title="Clarifications" description="Questions for the customer. Not printed on the quotation." />
             <PanelBody>
@@ -308,8 +332,10 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
               />
             </PanelBody>
           </Panel>
+          </EditorSection>
         </div>
 
+        <EditorSection id="notes" title="Notes" summary={d.data.notes ? "Notes recorded" : "No notes"}>
         <Panel>
           <PanelHeader title="Notes" description="Printed after the terms." />
           <PanelBody>
@@ -328,8 +354,11 @@ export function EditorPage({ detail, draft, save, saving, saveError, leave }: Ar
             )}
           </PanelBody>
         </Panel>
+        </EditorSection>
 
+        <EditorSection id="photos" title="Reference photos" summary={`${q.data.photos?.length ?? 0} photos`}>
         <PhotosPanel q={q} />
+        </EditorSection>
 
         <HistoryPanel detail={detail} />
       </div>
@@ -492,11 +521,12 @@ function LetterDetails({
     </Field>
   );
   return (
-    <CollapsibleSection
+    <EditorSection
+      id="letter-details"
       title="Addressee, subject and date"
       summary={[to.company ? `To ${to.company}` : "No addressee", data.subject].filter(Boolean).join(" · ")}
     >
-      <div className="grid gap-x-6 gap-y-4 md:grid-cols-2">
+      <div className="grid gap-x-6 gap-y-4 rounded-xl border border-line bg-surface p-5 md:grid-cols-2">
         {text("Company", to.company, (v) => setTo("company", v), { id: "to-company" })}
         {text("Attention", to.attention, (v) => setTo("attention", v), { id: "to-attention" })}
         {text("E-mail", to.email, (v) => setTo("email", v), { id: "to-email", type: "email", ltr: true })}
@@ -544,7 +574,7 @@ function LetterDetails({
           />
         </Field>
       </div>
-    </CollapsibleSection>
+    </EditorSection>
   );
 }
 

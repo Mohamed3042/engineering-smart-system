@@ -111,6 +111,7 @@ def _analyze(project_id: str, actor: str) -> dict:
 
             knowledge = {**knowledge, "lessons": memory_context(s, ws, task="extract_request",
                                                                  service_family=project.service_family,
+                                                                 work_type=project.work_type,
                                                                  customer_id=project.customer_id)}
             facts = tasks.extract_request(choice.engine, text, file_docs, knowledge)
             _merge_facts(project, facts)

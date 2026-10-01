@@ -2,6 +2,7 @@ import { CircleAlert, Clock } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { StatusInfo, Tone } from "@/lib/labels";
+import { Tooltip } from "./Overlay";
 
 const chipTones: Record<Tone, string> = {
   neutral: "bg-hover text-ink-2",
@@ -90,17 +91,37 @@ export function Dot({ tone = "neutral", className, label }: { tone?: Tone; class
 }
 
 
-/** Confidence as a short meter with the number (0..1). */
-export function Confidence({ value, className }: { value: number | null | undefined; className?: string }) {
+/**
+ * Confidence as a short meter with the number (0..1): how sure the system is about one automatic
+ * decision. It is not a quality grade, so it never uses the blocker red: low confidence is amber
+ * (a person should check), medium is neutral, high is teal.
+ */
+export function Confidence({
+  value,
+  className,
+  what = "this result",
+}: {
+  value: number | null | undefined;
+  className?: string;
+  /** What the number is about, e.g. "the category" or "this fact". */
+  what?: string;
+}) {
   if (value === null || value === undefined) return <span className="text-ink-3">—</span>;
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
-  const tone = pct >= 80 ? "bg-brand" : pct >= 55 ? "bg-review-mark" : "bg-block";
+  const tone = pct >= 80 ? "bg-brand" : pct >= 55 ? "bg-ink-3" : "bg-review-mark";
+  const advice = pct >= 80 ? "High." : pct >= 55 ? "Medium: worth a look." : "Low: a person should check it.";
   return (
-    <span className={cn("inline-flex items-center gap-2 text-sm text-ink-2 tabular", className)} title={`Confidence ${pct}%`}>
-      <span className="relative h-1.5 w-12 overflow-hidden rounded-full bg-hover" aria-hidden>
-        <span className={cn("absolute inset-y-0 left-0 rounded-full", tone)} style={{ width: `${pct}%` }} />
+    <Tooltip content={`How sure the system is about ${what}: ${pct}%. ${advice} It does not grade the work itself.`}>
+      <span
+        tabIndex={0}
+        className={cn("inline-flex items-center gap-2 rounded text-sm text-ink-2 tabular outline-none focus-visible:ring-2 focus-visible:ring-brand", className)}
+        aria-label={`Confidence ${pct}%. ${advice}`}
+      >
+        <span className="relative h-1.5 w-12 overflow-hidden rounded-full bg-hover" aria-hidden>
+          <span className={cn("absolute inset-y-0 left-0 rounded-full", tone)} style={{ width: `${pct}%` }} />
+        </span>
+        {pct}%
       </span>
-      {pct}%
-    </span>
+    </Tooltip>
   );
 }

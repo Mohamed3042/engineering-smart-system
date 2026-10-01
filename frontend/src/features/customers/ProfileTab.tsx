@@ -257,6 +257,34 @@ function NotesPanel({ customer, className }: { customer: Customer; className?: s
 function GlancePanel({ detail, className }: { detail: CustomerDetail; className?: string }) {
   const c = detail.customer;
   const suggested = detail.opportunities.filter((o) => o.status === "suggested").length;
+  const link = "font-medium text-brand-ink underline-offset-4 hover:underline";
+  return (
+    <>
+      {/* Phones: one summary line instead of a screen of statistics */}
+      <div className={cn("rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2 lg:hidden", className)}>
+        <p className="tabular">
+          <Link to={customerHref(c.id, "projects")} className={link}>
+            {pluralize(c.enquiry_count, "enquiry", "enquiries")}
+          </Link>
+          {" · "}
+          {pluralize(c.project_count, "project")} · {pluralize(detail.quotations.length, "quotation")} ·{" "}
+          {pluralize(c.email_count, "e-mail")}
+        </p>
+        <p className="mt-1 text-ink-3">Last seen {formatRelative(c.last_seen).toLowerCase()}</p>
+        {suggested ? (
+          <Link to={customerHref(c.id, "opportunities")} className={cn("mt-2 inline-block", link)}>
+            {pluralize(suggested, "suggested service")} to review
+          </Link>
+        ) : null}
+      </div>
+      <GlanceTable detail={detail} className={cn("hidden lg:block", className)} />
+    </>
+  );
+}
+
+function GlanceTable({ detail, className }: { detail: CustomerDetail; className?: string }) {
+  const c = detail.customer;
+  const suggested = detail.opportunities.filter((o) => o.status === "suggested").length;
   return (
     <Panel className={className}>
       <PanelHeader title="At a glance" />

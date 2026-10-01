@@ -427,7 +427,7 @@ function TemplateRuleDialog({
           <Button variant="secondary" disabled={save.isPending} onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button disabled={!template} loading={save.isPending} onClick={() => save.mutate()}>
+          <Button disabled={!template || !chosen || chosen.enabled === false || chosen.available === false} loading={save.isPending} onClick={() => save.mutate()}>
             Save template rule
           </Button>
         </>
@@ -443,7 +443,7 @@ function TemplateRuleDialog({
               setLanguage("");
             }}
             placeholder={templates.isLoading ? "Loading templates…" : "Choose a template"}
-            options={(templates.data ?? []).map((t) => ({ value: t.key, label: templateLabel(t, t.key) }))}
+            options={(templates.data ?? []).filter((t) => t.enabled !== false && t.available !== false).map((t) => ({ value: t.key, label: templateLabel(t, t.key) }))}
           />
         </Field>
         {templates.error ? <InlineError error={templates.error} /> : null}

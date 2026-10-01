@@ -17,6 +17,7 @@ import {
   Banner,
   Button,
   ConfirmDialog,
+  CollapsibleSection,
   Dialog,
   EmptyState,
   EvidenceQuote,
@@ -33,6 +34,7 @@ import {
   type TimelineItem,
 } from "@/ui";
 import { useProjectMutation, type ProjectDetail } from "../api";
+import { drawingPages } from "../fileParts";
 import { checklistStatusInfo, normalizeCheck, revisionText, ROLE_RANK, withSource, type CheckStatus } from "../lib";
 import { Bidi } from "../parts";
 import type { TabProps } from "../ProjectLayout";
@@ -42,6 +44,7 @@ const CHECK_OPTIONS: { value: CheckStatus; label: string }[] = [
   { value: "checked", label: "Checked" },
   { value: "needs_review", label: "Needs review" },
   { value: "failed", label: "Problem found" },
+  { value: "na", label: "Not applicable — reason required" },
 ];
 
 /** "Revision R03: mast 20 m → 24 m", or what is under review when no revision is recorded. */
@@ -146,6 +149,19 @@ function toDraft(r: Review): Draft {
   };
 }
 
+/** A missing drawing revision needs an explicit explanation, never an unqualified Checked label. */
+function needsRevisionReason(item: ChecklistItem, detail: ProjectDetail): boolean {
+  if (item.key !== "drawings" && !/revision/i.test(item.key)) return false;
+  return !(item.evidence ?? []).some((ev) => ev.quote?.trim()) && !detail.files.some((file) => drawingPages(file).some(({ finding }) => {
+    const revision = finding.sheet?.revision;
+    return revision?.readable !== false && revision?.value != null && String(revision.value).trim() !== "";
+  }));
+}
+
+function completed(item: ChecklistItem, detail: ProjectDetail): boolean {
+  return item.status === "na" ? !!item.note?.trim() : item.status === "checked" && (!needsRevisionReason(item, detail) || !!item.note?.trim());
+}
+
 function ReviewRound({ detail, review }: TabProps & { review: Review }) {
   const p = detail.project;
   const id = useId();
@@ -188,13 +204,13 @@ function ReviewRound({ detail, review }: TabProps & { review: Review }) {
   );
 
   const items = draft.items;
-  const open = items.filter((i) => i.status !== "checked");
+  const open = items.filter((i) => !completed(i, detail));
   const role = user?.role ?? "";
   const canApprove = (ROLE_RANK[role] ?? 0) >= ROLE_RANK.engineer;
   const blockReason = !items.length
     ? "The checklist has no items, so there is nothing to approve."
     : open.length
-      ? `Check every item first. Still open: ${open.map((i) => i.label).join(", ")}.`
+      ? `Complete every item. Not applicable and missing revision evidence need a reason. Still open: ${open.map((i) => i.label).join(", ")}.`
       : !canApprove
         ? `Approving the technical scope needs the engineer role. You are signed in as ${roleLabel(role).toLowerCase()}.`
         : null;
@@ -211,7 +227,7 @@ function ReviewRound({ detail, review }: TabProps & { review: Review }) {
           revision or addendum opens a new review round.
         </Banner>
         <Panel>
-          <PanelHeader title="Checklist" description={`${items.length} of ${items.length} checked`} />
+          <PanelHeader title="Checklist" description={`${items.filter((i) => i.status === "checked").length} checked · ${items.filter((i) => i.status === "na").length} not applicable with a reason`} />
           <ul className="divide-y divide-line">
             {items.map((item, i) => (
               <ChecklistRow key={item.key || i} item={item} detail={detail} />
@@ -238,7 +254,7 @@ function ReviewRound({ detail, review }: TabProps & { review: Review }) {
       <Panel>
         <PanelHeader
           title="Checklist"
-          description={`${items.length - open.length} of ${items.length} checked · Reviewing ${revisionLabel(review)}`}
+          description={`${items.length - open.length} of ${items.length} complete · Reviewing ${revisionLabel(review)}`}
         />
         {items.length ? (
           <ul className="divide-y divide-line">
@@ -265,7 +281,7 @@ function ReviewRound({ detail, review }: TabProps & { review: Review }) {
         <div className="flex flex-col gap-3 border-t border-line px-5 py-4 lg:flex-row lg:items-center">
           <p className={cn("flex items-start gap-2 text-sm lg:mr-auto", blockReason ? "text-review" : "text-ink-3")}>
             {blockReason ? <Lock className="mt-0.5 size-4 shrink-0" aria-hidden /> : null}
-            {blockReason ?? "Every item is checked. You can approve this revision."}
+            {blockReason ?? "Every item is checked or not applicable with a reason. You can approve this revision."}
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end lg:shrink-0">
             <Button variant="secondary" loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>
@@ -310,7 +326,7 @@ function ReviewRound({ detail, review }: TabProps & { review: Review }) {
               { label: "Project", value: <Bidi text={p.name} /> },
               { label: "Revision", value: <Bidi text={revisionLabel(review)} /> },
               { label: "Reviewer", value: user ? `${user.name} (${roleLabel(user.role)})` : "You" },
-              { label: "Checklist", value: `${items.length} of ${items.length} items checked` },
+              { label: "Checklist", value: `${items.length} complete: ${items.filter((i) => i.status === "checked").length} checked, ${items.filter((i) => i.status === "na").length} not applicable` },
               { label: "Date", value: formatDate(new Date()) },
             ]}
           />
@@ -340,12 +356,15 @@ function ChecklistRow({
   onChange?: (patch: Partial<ChecklistItem>) => void;
 }) {
   const evidence = Array.isArray(item.evidence) ? item.evidence : [];
+  const needsReason = normalizeCheck(item.status) === "na" || (normalizeCheck(item.status) === "checked" && needsRevisionReason(item, detail));
+  const missingRevision = normalizeCheck(item.status) === "checked" && needsRevisionReason(item, detail);
+  const info = missingRevision ? { label: item.note?.trim() ? "No revision evidence — reason recorded" : "No revision evidence — reason needed", tone: "review" as const } : checklistStatusInfo(item.status);
   return (
     <li className="px-5 py-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="font-semibold text-ink">{item.label}</p>
-          <StatusChip info={checklistStatusInfo(item.status)} size="sm" />
+          <StatusChip info={info} size="sm" />
         </div>
         {onChange ? (
           <Select
@@ -358,14 +377,16 @@ function ChecklistRow({
         ) : null}
       </div>
       {onChange ? (
+        <Field label={needsReason ? "Reason" : "Review note"} required={needsReason} className="mt-2" error={needsReason && !item.note?.trim() ? "Record why this is not applicable or why no revision evidence is available." : undefined}>
         <Textarea
-          aria-label={`Note for ${item.label}`}
+          aria-label={`${needsReason ? "Reason" : "Note"} for ${item.label}`}
           rows={2}
-          className="mt-2"
           value={item.note ?? ""}
-          placeholder="What you checked, or what is missing"
+          invalid={needsReason && !item.note?.trim()}
+          placeholder={needsReason ? "Explain why, with the document or scope you checked" : "What you checked, or what is missing"}
           onChange={(e) => onChange({ note: e.target.value })}
         />
+        </Field>
       ) : item.note ? (
         <Bidi text={item.note} as="p" className="mt-1.5 text-sm text-ink-2" />
       ) : null}
@@ -475,15 +496,12 @@ function HistoryPanel({ detail }: TabProps) {
   const replaced = new Set(detail.reviews.map((r) => r.supersedes_id).filter(Boolean));
   const decided = detail.reviews.filter((r) => r.decision);
   return (
-    <Panel>
-      <PanelHeader title="Review history" description="Each decision with the person, the date and the revision." />
-      <PanelBody>
+    <CollapsibleSection title="Review history" summary={`${decided.length} decisions`}>
         {decided.length ? (
           <Timeline items={decided.map((r) => historyItem(r, replaced.has(r.id), detail.review))} />
         ) : (
           <p className="text-sm text-ink-3">No decisions yet. Approvals and change requests appear here with who decided and when.</p>
         )}
-      </PanelBody>
-    </Panel>
+    </CollapsibleSection>
   );
 }

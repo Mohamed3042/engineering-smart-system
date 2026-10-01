@@ -85,6 +85,15 @@ export const WEIGHT_TABLE: { type: string; label: string; weight: number; note?:
 
 export const formatWeight = (w: number) => w.toFixed(1);
 
+/** Source authority in words: what a person can rely on, without exposing raw weights. */
+export function sourceStrength(w: number, contextOnly?: boolean): string {
+  if (contextOnly) return "context only";
+  if (w >= 0.95) return "strongest source";
+  if (w >= 0.75) return "strong source";
+  if (w > 0) return "supporting source";
+  return "unrated source";
+}
+
 /** Link for an evidence source: mail opens in the inbox, web pages open the page. Files from
  * company folders stay on this computer and have no in-app viewer. */
 export function evidenceLink(e: Evidence): string | null {

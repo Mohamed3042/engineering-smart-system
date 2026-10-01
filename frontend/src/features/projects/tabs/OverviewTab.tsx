@@ -15,6 +15,7 @@ import {
   Banner,
   Button,
   ConfirmDialog,
+  CollapsibleSection,
   EvidenceQuote,
   Input,
   KeyValue,
@@ -47,17 +48,17 @@ export function OverviewTab({ detail }: TabProps) {
   return (
     <div className="space-y-6">
       {open.length ? <ChangesBanner detail={detail} indexes={open} /> : null}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:grid-rows-[auto_1fr]">
-        <div className="space-y-6 lg:col-start-2 lg:row-start-1">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:grid-rows-[auto_1fr]">
+        <div className="min-w-0 space-y-6 lg:col-start-2 lg:row-start-1">
           <NextActionPanel detail={detail} />
-          <StatusPanel detail={detail} />
-        </div>
-        <div className="space-y-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
-          <SummaryPanel detail={detail} />
           <BlockersPanel detail={detail} />
+        </div>
+        <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          <StatusPanel detail={detail} />
+          <SummaryPanel detail={detail} />
           <QuotationsPanel detail={detail} />
         </div>
-        <div className="space-y-6 lg:col-start-2 lg:row-start-2">
+        <div className="min-w-0 space-y-6 lg:col-start-2 lg:row-start-2">
           <TimelinePanel detail={detail} />
           {detail.related.length ? <RelatedPanel detail={detail} /> : null}
         </div>
@@ -100,7 +101,7 @@ function ChangesBanner({ detail, indexes }: TabProps & { indexes: number[] }) {
                 {hasValues && c.kind === "deadline_changed" ? (
                   <span className="tabular">
                     {" "}
-                    ({displayValue(c.old_value)} → <strong className="font-semibold text-ink">{displayValue(c.new_value)}</strong>)
+                    (confirmed {displayValue(c.old_value)} → <strong className="font-semibold text-ink">{c.pending_confirmation ? "proposed " : "confirmed "}{displayValue(c.new_value)}</strong>)
                   </span>
                 ) : null}
                 {c.date ? <span className="text-ink-3"> · {formatDateShort(c.date)}</span> : null}
@@ -209,9 +210,7 @@ function SummaryPanel({ detail }: TabProps) {
     .sort()[0];
   const more = detail.enquiries.length - 1;
   return (
-    <Panel>
-      <PanelHeader title="Project summary" />
-      <PanelBody>
+    <CollapsibleSection title="Project brief" summary={[p.name, detail.customer?.name].filter(Boolean).join(" · ")}>
         {p.summary ? <Bidi text={p.summary} as="p" className="mb-3 max-w-[70ch] text-base leading-relaxed text-ink-2" /> : null}
         <KeyValue
           items={[
@@ -246,8 +245,7 @@ function SummaryPanel({ detail }: TabProps) {
             ...(mailbox ? [{ label: "Received in", value: mailbox, hint: firstReceived ? `First enquiry ${formatDate(firstReceived)}` : undefined }] : []),
           ]}
         />
-      </PanelBody>
-    </Panel>
+    </CollapsibleSection>
   );
 }
 
@@ -445,17 +443,14 @@ function TimelinePanel({ detail }: TabProps) {
     tone: t.tone,
   }));
   return (
-    <Panel>
-      <PanelHeader title="Timeline" />
-      <PanelBody>
+    <CollapsibleSection title="Timeline" summary={`${merged.length} events`}>
         {items.length ? <Timeline items={items} /> : <p className="text-ink-3">Events appear here as mail arrives and people act.</p>}
         {merged.length > 6 ? (
           <Button variant="link" className="mt-3" onClick={() => setAll((v) => !v)}>
             {all ? "Show fewer" : `Show all ${merged.length} events`}
           </Button>
         ) : null}
-      </PanelBody>
-    </Panel>
+    </CollapsibleSection>
   );
 }
 

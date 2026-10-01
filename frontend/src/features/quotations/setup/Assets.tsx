@@ -10,6 +10,7 @@ import { api } from "@/api/client";
 import { humanize, isRtl } from "@/lib/format";
 import {
   Banner,
+  Button,
   Chip,
   ConfirmDialog,
   EmptyState,
@@ -54,6 +55,7 @@ export function PapersTab() {
       <PanelHeader
         title="Papers"
         description="Letterhead sets the PDFs print on. Each quotation can choose one; otherwise the workspace default applies."
+        actions={<Button variant="secondary" size="sm" asChild><Link to="/settings/workspace#quotation-defaults">Change workspace default</Link></Button>}
       />
       <QueryState
         query={papers}

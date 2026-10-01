@@ -116,7 +116,8 @@ def _classify(session: Session, ws: Workspace, email: Email, categories: list[Ca
             try:
                 from ..learning import memory_context
 
-                know = {**knowledge_context(session, ws), "lessons": memory_context(session, ws, task="classify_email")}
+                know = {**knowledge_context(session, ws), "lessons": memory_context(
+                    session, ws, task="classify_email", sender_email=email.from_email)}
                 result = tasks.classify_email(choice.engine, payload, cats, know)
                 source = "ai"
             except Exception as exc:  # keep the rule result; the failure is visible in the reason
@@ -154,11 +155,15 @@ def _match_project(session: Session, ws: Workspace, email: Email, name: str, ten
     return best if score >= 88 else None
 
 
-def link_email_to_project(session: Session, ws: Workspace, email: Email) -> Optional[Project]:
+def link_email_to_project(session: Session, ws: Workspace, email: Email,
+                          project: Optional[Project] = None, enquiry: Optional[Enquiry] = None) -> Optional[Project]:
+    """Attach a message to a project and to its sender's enquiry. Without ``project`` the project is
+    matched by tender number or name, or created; with ``project`` a person chose it."""
     text = f"{email.subject}\n{email.body_text or ''}"
     name = clean_subject(email.subject)
     tenders = tender_numbers(text)
-    project = _match_project(session, ws, email, name, tenders)
+    chosen = project is not None
+    project = project or _match_project(session, ws, email, name, tenders)
     created = project is None
     if project is None:
         count = len(session.exec(select(Project.id).where(Project.workspace_id == ws.id)).all())
@@ -183,7 +188,7 @@ def link_email_to_project(session: Session, ws: Workspace, email: Email) -> Opti
                                 email=email.from_email, last_seen=email.date))
         project.customer_id = project.customer_id or customer.id
         email.customer_id = customer.id
-    enquiry = session.exec(select(Enquiry).where(Enquiry.project_id == project.id,
+    enquiry = enquiry or session.exec(select(Enquiry).where(Enquiry.project_id == project.id,
                                                  Enquiry.customer_id == (customer.id if customer else None))).first()
     if enquiry is None:
         enquiry = Enquiry(workspace_id=ws.id, project_id=project.id, customer_id=customer.id if customer else None,
@@ -213,15 +218,31 @@ def link_email_to_project(session: Session, ws: Workspace, email: Email) -> Opti
     session.add(enquiry)
     email.project_id = project.id
     email.enquiry_id = enquiry.id
-    email.state = "linked" if not created else "needs_review"
+    email.state = "linked" if (chosen or not created) else "needs_review"
+    attachment_files = list(session.exec(select(ProjectFile).where(ProjectFile.workspace_id == ws.id,
+                                     ProjectFile.project_id == project.id, ProjectFile.email_id == email.id,
+                                     ProjectFile.source == "email_attachment")).all())
     for a in email.attachments or []:
         name_ = a.get("filename")
-        if not name_ or session.exec(select(ProjectFile).where(ProjectFile.project_id == project.id,
-                                                               ProjectFile.name == name_)).first():
+        if not name_:
             continue
-        session.add(ProjectFile(workspace_id=ws.id, project_id=project.id, enquiry_id=enquiry.id, name=name_,
-                                source="email_attachment", email_id=email.id, attachment_id=a.get("attachment_id"),
-                                mime=a.get("mime") or "", size=a.get("size") or 0, status="not_downloaded"))
+        attachment_id = a.get("attachment_id")
+        existing = next((file for file in attachment_files if attachment_id and file.attachment_id == attachment_id), None)
+        if existing is None:
+            # Older imported file records have no provider attachment id. Adopt it without replacing
+            # the saved bytes. Filenames are a fallback within this message, never across a project.
+            existing = next((file for file in attachment_files if (not attachment_id or not file.attachment_id)
+                             and file.name == name_), None)
+        if existing is not None:
+            if attachment_id and not existing.attachment_id:
+                existing.attachment_id = attachment_id
+                session.add(existing)
+            continue
+        file = ProjectFile(workspace_id=ws.id, project_id=project.id, enquiry_id=enquiry.id, name=name_,
+                           source="email_attachment", email_id=email.id, attachment_id=attachment_id,
+                           mime=a.get("mime") or "", size=a.get("size") or 0, status="not_downloaded")
+        session.add(file)
+        attachment_files.append(file)
     register_links(session, ws, project, email)
     session.add(project)
     if created:
@@ -272,7 +293,7 @@ def run_scan(job_id: str) -> dict:
         s.add(job)
         scope = dict(job.scope or {})
     log: list[str] = []
-    counts = {"threads": 0, "messages": 0, "new_messages": 0, "work": 0, "projects": 0}
+    counts = {"threads": 0, "messages": 0, "new_messages": 0, "new_inbound": 0, "work": 0, "projects": 0}
     try:
         with session_scope() as s:
             ws = s.get(Workspace, job.workspace_id)
@@ -301,6 +322,7 @@ def run_scan(job_id: str) -> dict:
                     if email.direction == "outbound":
                         email.category = email.category if email.category != "other" else "internal"
                         continue
+                    counts["new_inbound"] += int(is_new)
                     if is_new or email.category_source == "rules":
                         _classify(s, ws, email, categories)
                     if email.category in work_keys and email.category != "other_work" or (
@@ -331,6 +353,9 @@ def run_scan(job_id: str) -> dict:
             log_activity(s, ws.id, "scan", f"Mailbox scan finished: {counts['threads']} threads",
                          detail=f"{counts['work']} work messages, {counts['projects']} projects", severity="success")
         _auto_fetch(job_id)
+        from ..automations.runner import on_new_mail
+
+        on_new_mail(job.workspace_id, counts["new_inbound"])  # "new mail" workflows (background service only)
         return counts
     except Exception as exc:
         with session_scope() as s:

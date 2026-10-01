@@ -10,7 +10,6 @@ import { customerKindLabel } from "@/lib/labels";
 import { formatRelative, pluralize } from "@/lib/format";
 import { customerHref } from "@/lib/routes";
 import {
-  Avatar,
   Button,
   ConfirmDialog,
   Count,
@@ -410,35 +409,21 @@ export function DirectoryPage() {
           </Panel>
 
           {/* phone and tablet cards */}
-          <div className="space-y-3 lg:hidden">
+          <Panel className="divide-y divide-line overflow-hidden lg:hidden">
             {rows.map((c) => (
               <ListRow
                 key={c.id}
                 to={customerHref(c.id)}
-                leading={<Avatar name={c.name} />}
-                title={c.name}
+                className="rounded-none border-0"
+                title={<bdi dir="auto">{c.name}</bdi>}
                 subtitle={[customerKindLabel(c.kind || "other"), c.domain].filter(Boolean).join(" · ")}
                 aside={<ProfileChip status={c.profile_status} />}
-              >
-                <TagChips tags={displayTags(tagsOf(c), c.kind)} />
-                <p className="mt-2.5 text-sm text-ink-3 tabular">
-                  {pluralize(c.enquiry_count, "enquiry", "enquiries")} · {pluralize(c.project_count, "project")} · Last seen{" "}
-                  {formatRelative(c.last_seen).toLowerCase()}
-                  {c.monitoring ? " · Watching" : ""}
-                </p>
-                {c.opportunities ? (
-                  <p className="mt-1.5">
-                    <SuggestedLink customerId={c.id} count={c.opportunities} />
-                  </p>
-                ) : null}
-              </ListRow>
+              />
             ))}
             {total > PAGE_SIZE ? (
-              <Panel>
-                <Pager offset={offset} limit={PAGE_SIZE} total={total} onChange={(o) => update({ page: o / PAGE_SIZE + 1 })} />
-              </Panel>
+              <Pager offset={offset} limit={PAGE_SIZE} total={total} onChange={(o) => update({ page: o / PAGE_SIZE + 1 })} />
             ) : null}
-          </div>
+          </Panel>
         </>
       )}
 

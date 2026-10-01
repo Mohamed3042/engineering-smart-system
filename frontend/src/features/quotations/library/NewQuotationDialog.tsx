@@ -9,7 +9,7 @@ import { workTypeLabel } from "@/lib/labels";
 import { quotationHref } from "@/lib/routes";
 import { Button, Dialog, EmptyState, Field, InlineError, LoadingRows, SearchInput, Segmented, Select, toast } from "@/ui";
 import { useInvalidate, useProject, useProjects, useTemplates, type Quote } from "../api";
-import { explainError } from "../lib";
+import { explainError, templateEnabled } from "../lib";
 
 /** One radio row inside a bordered list. */
 function RadioRow({
@@ -99,6 +99,7 @@ export function NewQuotationDialog({
   }, [project.data, enquiryId]);
 
   const chosenTemplate = templates.data?.find((t) => t.key === templateKey);
+  const selectedDisabled = Boolean(templateKey && templates.data && !templateEnabled(chosenTemplate, language === "auto" ? defaultLanguage : language));
   const arabicMissing = chosenTemplate ? !chosenTemplate.languages.includes("ar") : false;
   useEffect(() => {
     if (arabicMissing && language === "ar") setLanguage("en");
@@ -134,7 +135,7 @@ export function NewQuotationDialog({
   const templateOptions = [
     { value: "", label: "Let the template rules choose (recommended)" },
     ...(templates.data ?? [])
-      .filter((t) => t.settings?.[language === "auto" ? defaultLanguage : language]?.enabled !== false)
+      .filter((t) => templateEnabled(t, language === "auto" ? defaultLanguage : language))
       .map((t) => ({ value: t.key, label: `${t.label.en}${t.languages.includes("ar") ? "" : " (English only)"}` })),
   ];
 
@@ -150,13 +151,14 @@ export function NewQuotationDialog({
           <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={create.isPending}>
             Cancel
           </Button>
-          <Button onClick={() => create.mutate()} disabled={!projectId} loading={create.isPending}>
+          <Button onClick={() => !selectedDisabled && create.mutate()} disabled={!projectId || selectedDisabled || templates.isError} loading={create.isPending}>
             Create draft
           </Button>
         </>
       }
     >
       <div className="space-y-6">
+        {selectedDisabled ? <p role="alert" className="text-sm text-review">The selected template is switched off for this language. Choose an enabled template, or let the template rules choose.</p> : null}
         <section className="space-y-2">
           <h3 className="text-base font-semibold text-ink">Project</h3>
           <SearchInput value={search} onChange={setSearch} placeholder="Search projects" label="Search projects" />
