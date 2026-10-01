@@ -328,20 +328,22 @@ export interface ProjectChange {
 }
 
 export interface Blocker {
-  kind?: string;
-  title: string;
-  detail?: string;
-  severity?: string;
+  kind?: string; // missing_files | expired_link | missing_drawing | user | ...
+  text: string;
+  source?: string; // derived | user | scan | ai
+  link_id?: string;
   resolved?: boolean;
   [k: string]: unknown;
 }
 
+/** kind: review_change | resolve_link | collect_files | analyze | wait | engineer_review | prepare_quotation | send | follow_up | none */
 export interface NextAction {
   kind?: string;
   label?: string;
   detail?: string;
   source?: string;
-  target?: string;
+  change_index?: number;
+  link_id?: string;
   [k: string]: unknown;
 }
 
