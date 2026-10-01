@@ -6,7 +6,13 @@ WeTransfer, Dropbox, OneDrive), studies them, drafts the company's official quot
 at a **human engineer gate** before anything leaves the building.
 
 ```
-frontend/  React + TypeScript + Vite + Tailwind (served by the backend in production)
+frontend/src/
+  app/             shell (sidebar / phone tabs), router, setup wizard and settings frames, search, notifications
+  ui/              component kit (see DESIGN.md) — every screen uses these
+  api/             fetch client, entity types, session hooks (TanStack Query)
+  lib/             formatting, status vocabulary (labels.ts), URL contract (routes.ts)
+  features/<area>/ one folder per area: home, inbox, projects, quotations, customers,
+                   automations, connections, knowledge, settings — each exports its routes
 backend/ess/
   main.py          FastAPI app, serves /api and the built frontend
   config.py        paths (everything under data/, git-ignored)
@@ -106,3 +112,13 @@ from ess.customers.opportunities import match_services
 from ess.customers.research import research_customer, EVIDENCE_STANDARDS
 from ess.customers.search import get_search_provider
 ```
+
+## Frontend
+
+React 19 + TypeScript + Vite + Tailwind v4 + Radix primitives + TanStack Query, IBM Plex Sans /
+IBM Plex Sans Arabic (self-hosted). `./run.sh` builds `frontend/dist`; the backend serves it at
+`http://127.0.0.1:8765`. For development run the backend, then `cd frontend && npm run dev`
+(Vite on :5173 proxies `/api` and `/mcp` to :8765; `ESS_BACKEND=http://host:port` points it
+elsewhere). `npm run typecheck` checks types. Design rules: `PRODUCT.md`, `DESIGN.md` and the
+vendored Impeccable skill (`.claude/skills/impeccable`); visual reference: `docs/ui-mockups/`.
+Screens link to each other only through `src/lib/routes.ts`.

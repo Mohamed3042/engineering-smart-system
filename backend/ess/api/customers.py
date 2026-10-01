@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
+from sqlalchemy import exists, func, true
 from sqlmodel import Session, col, or_, select
 
 from .. import jobs
@@ -31,32 +32,55 @@ router = APIRouter(prefix="/api", tags=["customers"])
 
 @router.get("/customers")
 def list_customers(q: Optional[str] = None, tag: Optional[str] = None, kind: Optional[str] = None,
-                   sort: str = "last_seen", work_only: bool = True, session: Session = Depends(get_session),
+                   status: Optional[str] = None, profile_status: Optional[str] = None,
+                   monitoring: Optional[bool] = None, sort: str = "last_seen", work_only: bool = True,
+                   page: int = 1, page_size: int = 100, session: Session = Depends(get_session),
                    ws: Workspace = Depends(ws_dep)) -> dict:
-    query = select(Customer).where(Customer.workspace_id == ws.id)
+    """Paged customer directory, built for ~10,000 companies: filters, sort and paging run in SQL;
+    the tag facets cover the whole filtered set."""
+    conds = [Customer.workspace_id == ws.id]
     if q:
         like = f"%{q}%"
-        query = query.where(or_(col(Customer.name).ilike(like), col(Customer.domain).ilike(like)))
+        conds.append(or_(col(Customer.name).ilike(like), col(Customer.domain).ilike(like)))
     if kind:
-        query = query.where(col(Customer.kind).in_(kind.split(",")))
-    rows = session.exec(query).all()
+        conds.append(col(Customer.kind).in_(kind.split(",")))
+    if status:
+        conds.append(col(Customer.status).in_(status.split(",")))
+    if profile_status:
+        conds.append(col(Customer.profile_status).in_(profile_status.split(",")))
+    if monitoring is not None:
+        conds.append(Customer.monitoring == monitoring)
     if work_only:
-        rows = [c for c in rows if c.enquiry_count or c.project_count or c.kind not in ("other", "supplier")]
-    if tag:
-        rows = [c for c in rows if any(t.get("tag") == tag for t in c.tags or [])]
-    key = {"name": lambda c: c.name.lower(), "enquiries": lambda c: -c.enquiry_count}.get(
-        sort, lambda c: -(c.last_seen.timestamp() if c.last_seen else 0))
-    rows = sorted(rows, key=key)
-    opps = session.exec(select(Opportunity).where(Opportunity.workspace_id == ws.id, Opportunity.status == "suggested")).all()
-    opp_count: dict[str, int] = {}
-    for o in opps:
-        opp_count[o.customer_id] = opp_count.get(o.customer_id, 0) + 1
-    tag_counts: dict[str, int] = {}
-    for c in rows:
-        for t in c.tags or []:
-            tag_counts[t.get("tag")] = tag_counts.get(t.get("tag"), 0) + 1
-    return {"items": [{**c.model_dump(exclude={"notes"}), "opportunities": opp_count.get(c.id, 0)} for c in rows],
-            "total": len(rows), "tags": sorted(tag_counts.items(), key=lambda kv: -kv[1])}
+        conds.append(or_(Customer.enquiry_count > 0, Customer.project_count > 0,
+                         col(Customer.kind).not_in(["other", "supplier"])))
+    if tag:  # tags is a JSON list of {"tag": ...}
+        tags_each = func.json_each(Customer.tags).table_valued("value").alias("t")
+        conds.append(exists(select(1).select_from(tags_each)
+                            .where(func.json_extract(tags_each.c.value, "$.tag") == tag)))
+    name_key = func.lower(Customer.name)
+    order = {"name": [name_key],
+             "enquiries": [col(Customer.enquiry_count).desc(), name_key],
+             "projects": [col(Customer.project_count).desc(), name_key]}.get(
+        sort, [col(Customer.last_seen).is_(None), col(Customer.last_seen).desc(), name_key])
+    page_size = max(1, min(page_size, 500))
+    page = max(1, page)
+    total = session.exec(select(func.count()).select_from(Customer).where(*conds)).one()
+    window = session.exec(select(Customer).where(*conds).order_by(*order)
+                          .offset((page - 1) * page_size).limit(page_size)).all()
+    ids = [c.id for c in window]
+    opp_count = dict(session.exec(
+        select(Opportunity.customer_id, func.count()).where(Opportunity.workspace_id == ws.id,
+                                                            Opportunity.status == "suggested",
+                                                            col(Opportunity.customer_id).in_(ids))
+        .group_by(Opportunity.customer_id)).all()) if ids else {}
+    facet_each = func.json_each(Customer.tags).table_valued("value").alias("f")
+    tag_key = func.json_extract(facet_each.c.value, "$.tag")
+    facets = session.exec(select(tag_key, func.count()).select_from(Customer).join(facet_each, true())
+                          .where(*conds, tag_key.is_not(None)).group_by(tag_key)
+                          .order_by(func.count().desc()).limit(100)).all()
+    return {"items": [{**c.model_dump(exclude={"notes"}), "opportunities": opp_count.get(c.id, 0)} for c in window],
+            "total": total, "page": page, "page_size": page_size,
+            "tags": [[t, n] for t, n in facets]}
 
 
 @router.post("/customers")
@@ -196,10 +220,17 @@ def retag_all(session: Session = Depends(get_session), ws: Workspace = Depends(w
 
 
 @router.get("/opportunities")
-def opportunities(status: str = "suggested", session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> list[dict]:
-    rows = session.exec(select(Opportunity).where(Opportunity.workspace_id == ws.id, Opportunity.status == status)
-                        .order_by(col(Opportunity.score).desc())).all()
-    customers = {c.id: c for c in session.exec(select(Customer).where(Customer.workspace_id == ws.id)).all()}
+def opportunities(status: str = "suggested", customer_id: Optional[str] = None, service_key: Optional[str] = None,
+                  limit: int = 500, session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> list[dict]:
+    query = select(Opportunity).where(Opportunity.workspace_id == ws.id, Opportunity.status == status)
+    if customer_id:
+        query = query.where(Opportunity.customer_id == customer_id)
+    if service_key:
+        query = query.where(Opportunity.service_key == service_key)
+    rows = session.exec(query.order_by(col(Opportunity.score).desc()).limit(max(1, min(limit, 2000)))).all()
+    ids = {o.customer_id for o in rows}
+    customers = {c.id: c for c in session.exec(select(Customer).where(Customer.workspace_id == ws.id,
+                                                                      col(Customer.id).in_(ids))).all()} if ids else {}
     return [{**o.model_dump(), "customer": {"id": o.customer_id, "name": customers[o.customer_id].name}
              if o.customer_id in customers else None} for o in rows]
 

@@ -19,7 +19,8 @@ backend/.venv/bin/python -c "import playwright" && { backend/.venv/bin/python -m
 
 if [ -f frontend/package.json ] && command -v npm >/dev/null 2>&1; then
   echo "• Building the interface"
-  (cd frontend && npm install --silent && npm run build --silent)
+  (cd frontend && npm install --silent && npm run build --silent) \
+    || echo "! Interface build failed (see docs/HANDOFF.md); the API and MCP endpoint still start"
 fi
 
 if [ -d ../medmack-quotation-builder/app/assets ] && [ ! -f data/private/letterhead/header.jpg ]; then
