@@ -32,6 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ess.knowledge.ai_bridge import AITaskUnavailable, as_plain, call_ai_task
 from ess.knowledge.base import (
+    WORK_TYPE_PHRASES,
     WORK_TYPES,
     TermEntry,
     TermIndex,
@@ -55,7 +56,6 @@ from ess.knowledge.base import (
 from ess.knowledge.corpus import (
     CUSTOMER_SOURCE_TYPES,
     DELIVERED_SOURCE_TYPES,
-    OWN_SOURCE_TYPES,
     SOURCE_WEIGHTS,
     CorpusDoc,
 )
@@ -74,7 +74,6 @@ from ess.knowledge.text import (
     find_verbatim,
     is_contact_line,
     quoted_cut,
-    registrable_domain,
     squash,
 )
 
@@ -524,8 +523,6 @@ def _init_concept_acc(acc: _Acc, e: TermEntry, family: str | None, wt: str | Non
                          "category": family or wt or e.category or None})
         acc.extra_synonyms = [t for t in ctx.concept_terms.get(e.concept, []) if t != e.term][:8]
         if not acc.extra_synonyms and e.origin == "work_type":
-            from ess.knowledge.base import WORK_TYPE_PHRASES
-
             acc.extra_synonyms = [t for t, _r, _l in WORK_TYPE_PHRASES.get(e.concept, []) if t != e.term][:8]
 
 
@@ -1410,6 +1407,27 @@ def _segments(text: str, s: int, e: int) -> list[tuple[int, int]]:
     return [(a, b) for a, b in out if b > a]
 
 
+_LEGAL_FORM_WORDS = frozenset(
+    "ltd limited llc l c w wll co company corp corporation inc gmbh plc fze fzco k s p a b v ag spa srl est "
+    "establishment group holding general gen trading trad contracting cont contractors and for the of trd "
+    "شركه للتجاره العامه والمقاولات ذ م م ش".split())
+
+
+def _distinctive(norm: str) -> bool:
+    return any(w not in _LEGAL_FORM_WORDS and not w.isdigit() and len(w) >= 2 for w in norm.split())
+
+
+def _near_domain(norm: str, domain_tokens: set[str]) -> bool:
+    if not domain_tokens:
+        return False
+    try:
+        from rapidfuzz import fuzz
+    except Exception:  # pragma: no cover
+        return bool(domain_tokens & set(norm.split()))
+    words = [w for w in norm.split() if len(w) >= 3]
+    return any(fuzz.ratio(w, t) >= 80 for w in words for t in domain_tokens)
+
+
 def _identity_lines(d: _Doc) -> list[tuple[int, int]]:
     lines = _line_spans(d.text, 0, d.limit)
     picked: dict[tuple[int, int], None] = {}
@@ -1518,7 +1536,11 @@ def _mine_identity(docs: list[_Doc], reg: _Registry) -> None:
             acc.hit(d, s, e, surface=d.text[s:e])
         return acc
 
-    legal = best("legal_name", bonus=lambda n: 2.0 if domain_tokens & set(n.split()) else 0.0)
+    for dom in list(cls_docs["email"]):
+        domain_tokens |= {t for t in re.split(r"[\W_]+", dom.split("@", 1)[1].split(".")[0]) if len(t) >= 3}
+    for norm in [n for n in cls_docs["legal_name"] if not _distinctive(n)]:
+        del cls_docs["legal_name"][norm]  # "GEN. TRAD. & CONT. W.L.L." alone is a legal form, not a name
+    legal = best("legal_name", bonus=lambda n: 2.0 if _near_domain(n, domain_tokens) else 0.0)
     address = best("address")
     website = best("website")
     values: dict[str, Any] = {}

@@ -1,7 +1,6 @@
 """ess.customers.opportunities: service-gap suggestions that never leave our own services."""
 from __future__ import annotations
 
-import itertools
 import random
 from datetime import datetime, timezone
 from pathlib import Path

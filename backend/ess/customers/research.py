@@ -35,7 +35,6 @@ from ess.knowledge.text import (
     FREE_MAIL_DOMAINS,
     extract_signature,
     find_verbatim,
-    quote_in_text,
     registrable_domain,
     sentence_spans,
     squash,

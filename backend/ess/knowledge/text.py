@@ -378,7 +378,7 @@ def find_phones(text: str) -> list[tuple[str, str, int, int]]:
     out: list[tuple[str, str, int, int]] = []
     taken: list[tuple[int, int]] = []
     for m in PHONE_LABELED_RE.finditer(text or ""):
-        num = normalize_phone(m.group("num"))
+        num = normalize_phone(re.sub(r"\s*/\s*\d{1,2}\s*\)?\s*$", "", m.group("num")))  # "22642661/2" = two lines
         if 7 <= len(num.lstrip("+")) <= 15:
             label = m.group("label").lower()
             kind = "fax" if label in ("fax", "f", "فاكس", "факс") else "mobile" if label.startswith(("mob", "m", "cell", "جوال", "نقال", "моб", "whatsapp")) else "phone"

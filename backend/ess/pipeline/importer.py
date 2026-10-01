@@ -137,7 +137,9 @@ def import_snapshot(session: Session, ws: Workspace, snap: dict[str, Any], *, fi
         cust = cust_by_ref.get(ref) or Customer(workspace_id=ws.id, ref=ref, name=c.get("name") or ref)
         cust.name = c.get("name") or cust.name
         cust.domain = c.get("domain") or cust.domain or (ref if "." in ref else "")
-        cust.kind = c.get("kind") or cust.kind
+        if c.get("kind"):
+            cust.kind = c["kind"]
+            cust.kind_confidence = max(cust.kind_confidence or 0.0, 0.8)  # read from the mail by the scanner
         cust.country = c.get("country") or cust.country
         cust.city = c.get("city") or cust.city
         cust.website = c.get("website") or cust.website

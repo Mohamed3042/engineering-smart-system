@@ -116,22 +116,29 @@ def edit_customer(customer_id: str, data: dict = Body(...), session: Session = D
 
 
 def _our_services(session: Session, ws: Workspace) -> list[dict]:
-    items = session.exec(select(KnowledgeItem).where(KnowledgeItem.workspace_id == ws.id,
-                                                     KnowledgeItem.kind == "service_family",
-                                                     KnowledgeItem.status != "rejected")).all()
-    if items:
-        seen, out = set(), []
-        for k in sorted(items, key=lambda i: -i.confidence):
-            key = (k.value or {}).get("category") if isinstance(k.value, dict) else None
-            key = key or k.key
-            if key not in seen:
-                seen.add(key)
-                out.append({"key": key, "label": k.label})
-        return out
+    """What we sell, as short mail-category keys/labels. Rejected service families are left out."""
     from ..models import Category
 
-    return [{"key": c.key, "label": c.label} for c in session.exec(
-        select(Category).where(Category.workspace_id == ws.id, Category.group == "work")).all() if c.key != "other_work"]
+    rejected = set()
+    for k in session.exec(select(KnowledgeItem).where(KnowledgeItem.workspace_id == ws.id,
+                                                      KnowledgeItem.kind == "service_family",
+                                                      KnowledgeItem.status == "rejected")).all():
+        key = (k.value or {}).get("category") if isinstance(k.value, dict) else None
+        rejected.add(key or k.key)
+    cats = session.exec(select(Category).where(Category.workspace_id == ws.id, Category.group == "work")
+                        .order_by(Category.order)).all()
+    return [{"key": c.key, "label": c.label} for c in cats if c.key != "other_work" and c.key not in rejected]
+
+
+def _signature_block(body: str) -> str:
+    """The sender's own sign-off, not the RFQ text above it (which names consultants and owners)."""
+    import re
+
+    first = re.split(r"\n\s*(?:-{3,}\s*Forwarded message|From:\s|On .+ wrote:)", body, maxsplit=1)[0]
+    m = None
+    for m in re.finditer(r"(?im)^\s*(?:best\s+regards|kind\s+regards|regards|thanks(?: and regards)?|sincerely|yours (?:faithfully|truly))\b.*$", first):
+        pass
+    return first[m.start():][:600] if m else first[-400:]
 
 
 def retag_customer(session: Session, ws: Workspace, c: Customer) -> dict:
@@ -146,8 +153,8 @@ def retag_customer(session: Session, ws: Workspace, c: Customer) -> dict:
     project_dicts = [{"name": p.name, "service_family": p.service_family, "summary": p.summary, "location": p.location,
                       "owner_client": p.owner_client, "request_kind": p.request_kind} for p in projects]
     services = _our_services(session, ws)
-    signatures = [(e.body_text or "")[-1500:] for e in emails[:10]]
-    if c.kind in ("other", "") or c.kind_confidence < 0.6:
+    signatures = [_signature_block(e.body_text or "") for e in emails[:10]]
+    if c.kind in ("other", "") or c.kind_confidence < 0.5:
         kind, conf, _reason = infer_customer_kind(c.domain, c.name, signatures)
         c.kind, c.kind_confidence = kind, conf
     customer = {"name": c.name, "domain": c.domain, "kind": c.kind, "country": c.country}
