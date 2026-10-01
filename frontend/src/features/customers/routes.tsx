@@ -1,7 +1,35 @@
-import type { RouteObject } from "react-router";
-import { Placeholder } from "@/app/Placeholder";
+import { Navigate, useParams, type RouteObject } from "react-router";
+import { customerHref } from "@/lib/routes";
+import { PageLoading } from "@/ui";
 
+/** /customers/:id/<unknown> falls back to the profile. */
+function ToProfile() {
+  const { customerId = "" } = useParams();
+  return <Navigate to={customerHref(customerId)} replace />;
+}
+
+/**
+ * Tabs are routes (lib/routes.ts customerHref): profile is the index; projects, research, updates and
+ * opportunities match customerHref(id, tab); lessons is /customers/:id/lessons.
+ */
 export const customerRoutes: RouteObject[] = [
-  { path: "customers", element: <Placeholder title="Customers" /> },
-  { path: "customers/:customerId/*", element: <Placeholder title="Customer" /> },
+  {
+    path: "customers",
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./DirectoryPage")).DirectoryPage }),
+  },
+  {
+    path: "customers/:customerId",
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./CustomerLayout")).CustomerLayout }),
+    children: [
+      { index: true, lazy: async () => ({ Component: (await import("./ProfileTab")).ProfileTab }) },
+      { path: "projects", lazy: async () => ({ Component: (await import("./ProjectsTab")).ProjectsTab }) },
+      { path: "research", lazy: async () => ({ Component: (await import("./ResearchTab")).ResearchTab }) },
+      { path: "updates", lazy: async () => ({ Component: (await import("./UpdatesTab")).UpdatesTab }) },
+      { path: "opportunities", lazy: async () => ({ Component: (await import("./OpportunitiesTab")).OpportunitiesTab }) },
+      { path: "lessons", lazy: async () => ({ Component: (await import("./LessonsTab")).LessonsTab }) },
+      { path: "*", element: <ToProfile /> },
+    ],
+  },
 ];

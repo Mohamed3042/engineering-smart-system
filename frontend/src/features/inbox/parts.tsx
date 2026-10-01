@@ -1,5 +1,5 @@
 /** Small pieces shared by the inbox table, the phone list and the email page. */
-import { MailMinus, Paperclip } from "lucide-react";
+import { Link2, MailMinus, Paperclip } from "lucide-react";
 import { useCategories } from "@/api/session";
 import type { Email } from "@/api/types";
 import { cn } from "@/lib/cn";
@@ -47,6 +47,7 @@ export function SenderCell({ email }: { email: EmailListItem }) {
 
 export function SubjectCell({ email, clamp = 1 }: { email: EmailListItem; clamp?: 1 | 2 }) {
   const files = email.attachments?.length ?? 0;
+  const links = email.links?.length ?? 0;
   return (
     <div className="min-w-0">
       <p className="flex items-start gap-1.5">
@@ -58,6 +59,13 @@ export function SubjectCell({ email, clamp = 1 }: { email: EmailListItem; clamp?
             <Paperclip className="size-3.5" aria-hidden />
             <span className="tabular">{files}</span>
             <span className="sr-only">attachments</span>
+          </span>
+        ) : null}
+        {links ? (
+          <span className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 text-xs text-ink-3" title={`${links} link${links === 1 ? "" : "s"} in the message`}>
+            <Link2 className="size-3.5" aria-hidden />
+            <span className="tabular">{links}</span>
+            <span className="sr-only">links</span>
           </span>
         ) : null}
       </p>

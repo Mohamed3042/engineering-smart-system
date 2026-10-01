@@ -157,7 +157,7 @@ export function CustomerLayout() {
               Re-tag
             </Button>
             <Button icon={<Search />} onClick={() => setResearchOpen(true)} loading={researchRunning} disabled={researchRunning}>
-              {researchRunning ? "Researching" : "Research company"}
+              {researchRunning ? "Researching" : "Run research"}
             </Button>
           </>
         }
@@ -170,6 +170,7 @@ export function CustomerLayout() {
           { to: customerHref(c.id, "research"), label: "Research" },
           { to: customerHref(c.id, "updates"), label: "Updates", count: unread || undefined, countTone: "brand" },
           { to: customerHref(c.id, "opportunities"), label: "Suggested services", count: suggested || undefined, countTone: "review" },
+          { to: `${customerHref(c.id)}/lessons`, label: "Lessons" },
         ]}
       />
       <div className="pt-6">

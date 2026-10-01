@@ -4,7 +4,7 @@
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { Attachment, Category, Customer, Email, Enquiry, OmitKnown, Project } from "@/api/types";
+import type { Attachment, Category, Customer, Email, Enquiry, OmitKnown, Project, ProjectFile, ProjectLink } from "@/api/types";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -145,10 +145,23 @@ export function useProjectEnquiries(projectId: string | null | undefined) {
   });
 }
 
+/**
+ * Links and saved files of the project an email belongs to: this is what says whether a link was
+ * downloaded or an attachment saved. Same request and cache key as the project page.
+ */
+export function useProjectParts(projectId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => api.get<{ links: ProjectLink[]; files: ProjectFile[] }>(`/projects/${encodeURIComponent(projectId ?? "")}`),
+    enabled: !!projectId,
+    staleTime: 30_000,
+  });
+}
+
 /* ------------------------------------------------------------------ writes */
 
 /** Everything an email change can affect: lists, the detail, counts, the control center, activity. */
-const MAIL_KEYS = ["emails", "email", "inbox-summary", "categories", "dashboard", "notifications"] as const;
+const MAIL_KEYS = ["emails", "email", "inbox-summary", "categories", "dashboard", "notifications", "learning"] as const;
 
 export function useInvalidateMail() {
   const qc = useQueryClient();
@@ -167,7 +180,11 @@ export function useUpdateEmail() {
   });
 }
 
-export type BulkAction = { ids: string[]; action: "archive" } | { ids: string[]; action: "set_category"; category: string };
+/** "mark_reviewed" moves mail back to open: Linked when it has a project, else Needs review. A bulk category change teaches like a single one. */
+export type BulkAction =
+  | { ids: string[]; action: "archive" }
+  | { ids: string[]; action: "mark_reviewed" }
+  | { ids: string[]; action: "set_category"; category: string };
 
 export function useBulkEmails() {
   const invalidate = useInvalidateMail();
@@ -218,7 +235,7 @@ export function useSetCategoryVisibility() {
   const invalidate = useInvalidateMail();
   return useMutation({
     mutationFn: ({ key, visible }: { key: string; visible: boolean }) =>
-      api.patch<Category>(`/categories/${encodeURIComponent(key)}`, { visible }),
+      api.put<Visibility>("/visibility", { categories: { [key]: visible } }),
     onMutate: async ({ key, visible }) => {
       await qc.cancelQueries({ queryKey: ["visibility"] });
       const prev = qc.getQueryData<Visibility>(["visibility"]);
@@ -250,6 +267,18 @@ export function hostOf(url: string): string {
   } catch {
     return url;
   }
+}
+
+/**
+ * The addresses in a List-Unsubscribe header (RFC 2369: <https://…>, <mailto:…>). The backend only
+ * ever uses the first https address (backend/ess/api/inbox.py _first_https).
+ */
+export function parseUnsubscribe(header: string | null | undefined): { https: string | null; mailto: string | null } {
+  const parts = (header ?? "").split(",").map((p) => p.trim().replace(/^<|>$/g, ""));
+  return {
+    https: parts.find((p) => p.startsWith("https://")) ?? null,
+    mailto: parts.find((p) => p.toLowerCase().startsWith("mailto:")) ?? null,
+  };
 }
 
 export function canUnsubscribe(e: Pick<Email, "list_unsubscribe" | "unsubscribed_at">): boolean {

@@ -2,15 +2,16 @@
  * Unsubscribing contacts a third party, so it is a gate (mockup 53):
  * 1. POST /emails/{id}/unsubscribe {}            → what would happen (nothing is contacted)
  * 2. POST /emails/{id}/unsubscribe {confirm:true} → only after the person confirms here.
+ * The dialog names the exact address from the message's List-Unsubscribe header.
  */
 import { CircleAlert, Info } from "lucide-react";
 import { useEffect } from "react";
 import type { Email } from "@/api/types";
 import { ConfirmDialog, InlineError, KeyValue, Skeleton, toast } from "@/ui";
-import { useUnsubscribe, useUnsubscribeCheck, type UnsubscribeMethod } from "./api";
+import { parseUnsubscribe, useEmail, useUnsubscribe, useUnsubscribeCheck, type UnsubscribeMethod } from "./api";
 import { dirOf, senderName } from "./parts";
 
-export type UnsubscribeTarget = Pick<Email, "id" | "from_name" | "from_email" | "subject">;
+export type UnsubscribeTarget = Pick<Email, "id" | "from_name" | "from_email" | "subject"> & Partial<Pick<Email, "list_unsubscribe">>;
 
 const METHOD_TEXT: Record<UnsubscribeMethod, string> = {
   one_click:
@@ -31,18 +32,33 @@ export function UnsubscribeDialog({
   const check = useUnsubscribeCheck();
   const run = useUnsubscribe();
   const open = !!target;
+  // The header is on the message itself; rows from the sender list do not carry it.
+  const detail = useEmail(target?.id ?? "");
+  const header = target?.list_unsubscribe ?? detail.data?.email.list_unsubscribe ?? null;
+  const addr = parseUnsubscribe(header);
+  const where = addr.https ?? addr.mailto;
   const { mutate: runCheck, reset: resetCheck } = check;
   const { reset: resetRun } = run;
 
+  // Keyed on the id: a refetch of the message must not restart the check or reset a request in flight.
+  const targetId = target?.id;
   useEffect(() => {
-    if (!target) return;
+    if (!targetId) return;
     resetRun();
-    runCheck(target.id);
+    runCheck(targetId);
     return () => resetCheck();
-  }, [target, runCheck, resetCheck, resetRun]);
+  }, [targetId, runCheck, resetCheck, resetRun]);
 
   const method = check.data?.method;
   const canConfirm = method === "one_click" || method === "link";
+  const targetNote =
+    method === "one_click"
+      ? "The app sends the sender’s one-click request to this address."
+      : method === "link"
+        ? "You finish on this page; the app only opens it for you."
+        : method === "mailto"
+          ? "An email to this address would be needed. The app never sends mail."
+          : undefined;
   const sender = target ? check.data?.sender || target.from_email : "";
 
   const confirm = () => {
@@ -93,6 +109,15 @@ export function UnsubscribeDialog({
             labelWidth="sm"
             items={[
               { label: "Sender", value: <span className="break-all">{sender}</span> },
+              {
+                label: "Request goes to",
+                value: where ? (
+                  <span className="break-all">{where}</span>
+                ) : detail.isLoading && !header ? (
+                  <Skeleton className="w-3/4" />
+                ) : null,
+                hint: targetNote,
+              },
               {
                 label: "Source email",
                 value: (

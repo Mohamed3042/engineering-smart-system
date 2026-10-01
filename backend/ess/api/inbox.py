@@ -175,22 +175,29 @@ def get_email(email_id: str, session: Session = Depends(get_session), ws: Worksp
     }
 
 
+def _correct_category(session: Session, ws: Workspace, email: Email, category: str, user: TeamMember) -> None:
+    """A person files a message under another category: logged, and learned for the next similar mail."""
+    if category == email.category:
+        return
+    if not session.get(Category, f"{ws.id}:{category}"):
+        raise HTTPException(400, {"code": "bad_category", "message": "Unknown category"})
+    log_activity(session, ws.id, "category_corrected", f"Category corrected: {email.subject[:60]}",
+                 detail=f"{email.category} → {category}", actor=user.name, email_id=email.id)
+    from ..learning import on_category_corrected
+
+    on_category_corrected(session, ws, email, email.category, category, user.name)
+    email.category = category
+    email.category_source = "user"
+    email.category_confidence = 1.0
+    email.category_reason = f"Corrected by {user.name}"
+
+
 @router.patch("/emails/{email_id}")
 def update_email(email_id: str, data: dict = Body(...), session: Session = Depends(get_session),
                  ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> Email:
     email = get_or_404(session, Email, email_id, ws)
-    if "category" in data and data["category"] != email.category:
-        if not session.get(Category, f"{ws.id}:{data['category']}"):
-            raise HTTPException(400, {"code": "bad_category", "message": "Unknown category"})
-        log_activity(session, ws.id, "category_corrected", f"Category corrected: {email.subject[:60]}",
-                     detail=f"{email.category} → {data['category']}", actor=user.name, email_id=email.id)
-        from ..learning import on_category_corrected
-
-        on_category_corrected(session, ws, email, email.category, data["category"], user.name)
-        email.category = data["category"]
-        email.category_source = "user"
-        email.category_confidence = 1.0
-        email.category_reason = f"Corrected by {user.name}"
+    if "category" in data:
+        _correct_category(session, ws, email, data["category"], user)
     for field in ("state", "priority", "project_id", "customer_id"):
         if field in data:
             setattr(email, field, data[field])
@@ -201,7 +208,8 @@ def update_email(email_id: str, data: dict = Body(...), session: Session = Depen
 
 
 @router.post("/emails/bulk")
-def bulk_emails(data: dict = Body(...), session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
+def bulk_emails(data: dict = Body(...), session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep),
+                user: TeamMember = Depends(user_dep)) -> dict:
     ids = data.get("ids") or []
     action = data.get("action")
     rows = session.exec(select(Email).where(Email.workspace_id == ws.id, col(Email.id).in_(ids))).all()
@@ -211,7 +219,7 @@ def bulk_emails(data: dict = Body(...), session: Session = Depends(get_session),
         elif action == "mark_reviewed":
             e.state = "linked" if e.project_id else "needs_review"
         elif action == "set_category" and data.get("category"):
-            e.category, e.category_source, e.category_confidence = data["category"], "user", 1.0
+            _correct_category(session, ws, e, data["category"], user)  # same rule and lesson as one message
         session.add(e)
     session.commit()
     return {"updated": len(rows)}

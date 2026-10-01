@@ -100,9 +100,10 @@ function KeyDetails({ row }: { row: DashboardRow }) {
           </p>
         ) : null}
         {row.blockers.length ? (
-          <p className="pt-0.5">
+          <div className="pt-0.5">
             <BlockerLink row={row} />
-          </p>
+            <p className="mt-0.5 line-clamp-2 break-words text-xs text-ink-3">{row.blockers[0].text}</p>
+          </div>
         ) : null}
       </div>
     </div>

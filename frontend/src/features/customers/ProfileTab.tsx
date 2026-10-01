@@ -1,29 +1,26 @@
 /**
- * Customer profile (mockup 31): how the system tags the company and why, what people taught it
- * about this customer, notes, key numbers, news watch, contacts and company details.
+ * Customer profile (mockup 31): how the system tags the company and why, notes, key numbers,
+ * news watch, contacts and company details. What people taught the system about this customer
+ * has its own tab (LessonsTab).
  */
-import { ChevronRight, GraduationCap, Mail, Pencil, Phone, Plus, Tag as TagIcon, X } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { ChevronRight, Mail, Pencil, Phone, Plus, Tag as TagIcon, X } from "lucide-react";
+import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
-import { useCategoryLabel } from "@/api/session";
-import type { Customer, Lesson } from "@/api/types";
+import type { Customer } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { formatDate, formatRelative, pluralize } from "@/lib/format";
 import { customerKindLabel } from "@/lib/labels";
 import { automationHref, customerHref } from "@/lib/routes";
 import {
   Button,
-  Chip,
   Confidence,
   Dialog,
   EmptyState,
-  ErrorState,
   Field,
   IconButton,
   InlineError,
   Input,
   KeyValue,
-  LoadingRows,
   Panel,
   PanelBody,
   PanelHeader,
@@ -34,29 +31,9 @@ import {
   toast,
   toastError,
 } from "@/ui";
-import {
-  tagsOf,
-  useAutomationList,
-  useLessons,
-  useSetMonitoring,
-  useToggleLesson,
-  useUpdateCustomer,
-  type CustomerDetail,
-  type Tag,
-} from "./api";
+import { tagsOf, useAutomationList, useSetMonitoring, useUpdateCustomer, type CustomerDetail, type Tag } from "./api";
 import { useCustomerContext } from "./CustomerLayout";
-import {
-  CUSTOMER_KINDS,
-  customerStatusInfo,
-  domainFromInput,
-  lessonKindLabel,
-  lessonScopeLabel,
-  lessonValue,
-  locationLine,
-  TAG_GROUPS,
-  tagGroup,
-  userTag,
-} from "./lib";
+import { CUSTOMER_KINDS, customerStatusInfo, domainFromInput, locationLine, TAG_GROUPS, tagGroup, userTag } from "./lib";
 import { TagEvidenceList } from "./parts";
 
 export function ProfileTab() {
@@ -65,14 +42,13 @@ export function ProfileTab() {
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
       <div className="contents lg:block lg:space-y-6">
         <TagsPanel detail={detail} className="order-2" />
-        <LessonsPanel customer={detail.customer} className="order-5" />
-        <NotesPanel customer={detail.customer} className="order-6" />
+        <NotesPanel customer={detail.customer} className="order-5" />
       </div>
       <div className="contents lg:block lg:space-y-6">
         <GlancePanel detail={detail} className="order-1" />
         <WatchPanel customer={detail.customer} className="order-3" />
         <ContactsPanel detail={detail} className="order-4" />
-        <DetailsPanel customer={detail.customer} className="order-7" />
+        <DetailsPanel customer={detail.customer} className="order-6" />
       </div>
     </div>
   );
@@ -215,114 +191,6 @@ function TagsPanel({ detail, className }: { detail: CustomerDetail; className?: 
             </section>
           ))}
         </div>
-      )}
-    </Panel>
-  );
-}
-
-/* ------------------------------------------------------------------ lessons */
-
-/** Corrections people made that concern this customer: its own scope, its domain, its senders. */
-function useCustomerLessons(c: Customer) {
-  const domain = c.domain;
-  const own = useLessons({ scope: "customer", scope_key: c.id });
-  const dom = useLessons({ scope: "domain", scope_key: domain }, !!domain);
-  const senders = useLessons({ scope: "sender" }, !!domain);
-  const items = useMemo(() => {
-    const all: Lesson[] = [
-      ...(own.data?.items ?? []),
-      ...(dom.data?.items ?? []),
-      ...(senders.data?.items ?? []).filter((l) => !!domain && l.scope_key.toLowerCase().endsWith(`@${domain.toLowerCase()}`)),
-    ];
-    const seen = new Set<string>();
-    return all
-      .filter((l) => (seen.has(l.id) ? false : (seen.add(l.id), true)))
-      .sort((a, b) => new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime());
-  }, [own.data, dom.data, senders.data, domain]);
-  const queries = [own, ...(domain ? [dom, senders] : [])];
-  return {
-    items,
-    isLoading: queries.some((q) => q.isLoading),
-    error: queries.find((q) => q.isError)?.error,
-    refetch: () => queries.forEach((q) => q.refetch()),
-  };
-}
-
-function LessonsPanel({ customer, className }: { customer: Customer; className?: string }) {
-  const lessons = useCustomerLessons(customer);
-  const toggle = useToggleLesson();
-  const catLabel = useCategoryLabel();
-  const active = lessons.items.filter((l) => l.active).length;
-
-  return (
-    <Panel className={className}>
-      <PanelHeader
-        title="What we learned about this customer"
-        description={
-          lessons.items.length
-            ? `${pluralize(lessons.items.length, "correction")} people made · ${active} in use`
-            : "Corrections people made to the system’s work for this company."
-        }
-        actions={
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/settings/learning">All lessons</Link>
-          </Button>
-        }
-      />
-      {lessons.isLoading ? (
-        <LoadingRows rows={2} />
-      ) : lessons.error ? (
-        <ErrorState compact error={lessons.error} onRetry={lessons.refetch} />
-      ) : lessons.items.length === 0 ? (
-        <EmptyState compact icon={<GraduationCap />} title="Nothing learned yet">
-          When someone re-files a mail from this company, edits a draft or leaves a review note on one of its projects, the
-          lesson appears here. You can switch each one off.
-        </EmptyState>
-      ) : (
-        <ul className="divide-y divide-line">
-          {lessons.items.map((l) => {
-            const fmt = l.kind === "category_correction" ? catLabel : undefined;
-            const before = lessonValue(l.before, fmt);
-            const after = lessonValue(l.after, fmt);
-            return (
-              <li key={l.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start">
-                <div className={cn("min-w-0 flex-1 space-y-1", !l.active && "opacity-70")}>
-                  <p className="text-sm text-ink-3">
-                    {lessonKindLabel(l.kind)} · {lessonScopeLabel(l)}
-                  </p>
-                  {l.subject ? <p className="break-words font-medium text-ink">{l.subject}</p> : null}
-                  {before || after ? (
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                      {before ? <Chip size="sm" tone="muted">{before}</Chip> : null}
-                      {before && after ? <span aria-label="changed to" className="text-ink-3">→</span> : null}
-                      {after ? <Chip size="sm" tone="brand">{after}</Chip> : null}
-                    </p>
-                  ) : null}
-                  {l.note ? <p className="text-sm text-ink-2">“{l.note}”</p> : null}
-                  <p className="text-xs text-ink-3 tabular">
-                    {l.count > 1 ? `Corrected ${l.count} times` : "Corrected once"} · last {formatDate(l.last_seen_at)}
-                    {l.created_by ? ` · by ${l.created_by}` : ""}
-                  </p>
-                </div>
-                <Switch
-                  label="In use"
-                  checked={l.active}
-                  disabled={toggle.isPending && toggle.variables?.id === l.id}
-                  onChange={(v) =>
-                    toggle.mutate(
-                      { id: l.id, active: v },
-                      {
-                        onSuccess: () => toast.success(v ? "Lesson switched on" : "Lesson switched off"),
-                        onError: (err) => toastError(err, "The lesson was not changed"),
-                      },
-                    )
-                  }
-                  className="shrink-0 sm:w-28"
-                />
-              </li>
-            );
-          })}
-        </ul>
       )}
     </Panel>
   );

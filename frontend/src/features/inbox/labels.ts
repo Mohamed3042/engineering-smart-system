@@ -61,15 +61,20 @@ const CATEGORY_SOURCE: Record<string, string> = {
 };
 export const categorySourceLabel = (k?: string | null) => (k ? (CATEGORY_SOURCE[k] ?? humanize(k)) : "—");
 
+/** Kinds from backend/ess/sources/links.py LINK_KINDS. */
 const LINK_KIND: Record<string, string> = {
-  google_drive: "Google Drive",
   google_drive_file: "Google Drive file",
   google_drive_folder: "Google Drive folder",
-  sharepoint: "SharePoint",
-  onedrive: "OneDrive",
-  dropbox: "Dropbox",
+  google_docs: "Google Docs",
   wetransfer: "WeTransfer",
-  other: "Link",
+  dropbox: "Dropbox",
+  onedrive: "OneDrive",
+  sharepoint: "SharePoint",
+  box: "Box",
+  mega: "MEGA",
+  mediafire: "MediaFire",
+  direct_file: "Direct file link",
+  other: "Web link",
 };
 export const linkKindLabel = (k?: string | null) => (k ? (LINK_KIND[k] ?? humanize(k)) : "Link");
 

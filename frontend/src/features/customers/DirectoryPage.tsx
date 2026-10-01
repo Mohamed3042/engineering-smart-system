@@ -1,7 +1,7 @@
 /**
  * Customer directory (mockup 30): searchable, filterable, sortable and paged; cards on phones.
- * The backend returns the whole list; tag / status / research / watching filters, sorting and
- * paging run in the browser until the API pages server-side.
+ * Filters, sorting and paging all run on the server (GET /api/customers), so a workspace with
+ * thousands of companies loads one page at a time.
  */
 import { Plus, RefreshCw, SlidersHorizontal, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -41,9 +41,9 @@ import {
   toastError,
 } from "@/ui";
 import { AddCompanyDialog } from "./AddCompanyDialog";
-import { tagsOf, useCustomers, useOpportunities, useRetagAll, type CustomerRow } from "./api";
+import { tagsOf, useCustomers, useRetagAll } from "./api";
 import { CUSTOMER_KINDS, displayTags, locationLine } from "./lib";
-import { CustomersNav, KindLabel, ProfileChip, TagChips, WatchingMark } from "./parts";
+import { KindLabel, ProfileChip, SuggestedLink, TagChips, WatchingMark } from "./parts";
 
 const PAGE_SIZE = 25;
 
@@ -73,22 +73,6 @@ const WATCH_OPTIONS = [
   { value: "on", label: "Watching for news" },
   { value: "off", label: "Not watching" },
 ];
-
-const time = (v: string | null) => (v ? new Date(v).getTime() : 0);
-
-function sortRows(rows: CustomerRow[], sort: SortKey): CustomerRow[] {
-  const out = [...rows];
-  switch (sort) {
-    case "name":
-      return out.sort((a, b) => a.name.localeCompare(b.name));
-    case "enquiries":
-      return out.sort((a, b) => b.enquiry_count - a.enquiry_count || time(b.last_seen) - time(a.last_seen));
-    case "projects":
-      return out.sort((a, b) => b.project_count - a.project_count || time(b.last_seen) - time(a.last_seen));
-    default:
-      return out.sort((a, b) => time(b.last_seen) - time(a.last_seen));
-  }
-}
 
 /** Filters live in the URL so a filtered list can be shared and survives going back. */
 function useFilters() {
@@ -151,23 +135,29 @@ export function DirectoryPage() {
     }
   }, [f.q]);
 
-  const list = useCustomers({ q: f.q, kind: f.role, work_only: !f.all });
-  const suggested = useOpportunities("suggested");
+  const list = useCustomers({
+    q: f.q,
+    kind: f.role,
+    tag: f.tag,
+    profile_status: f.research,
+    status: f.status,
+    monitoring: f.watch ? f.watch === "on" : undefined,
+    sort: f.sort,
+    work_only: !f.all,
+    page: f.page,
+    page_size: PAGE_SIZE,
+  });
   const retagAll = useRetagAll();
 
-  const rows = useMemo(() => {
-    let r = list.data?.items ?? [];
-    if (f.tag) r = r.filter((c) => tagsOf(c).some((t) => t.tag === f.tag));
-    if (f.research) r = r.filter((c) => (c.profile_status || "none") === f.research);
-    if (f.status) r = r.filter((c) => c.status === f.status);
-    if (f.watch) r = r.filter((c) => !!c.monitoring === (f.watch === "on"));
-    return sortRows(r, f.sort);
-  }, [list.data, f.tag, f.research, f.status, f.watch, f.sort]);
+  const rows = list.data?.items ?? [];
+  const total = list.data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const offset = (f.page - 1) * PAGE_SIZE;
 
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const page = Math.min(f.page, pages);
-  const offset = (page - 1) * PAGE_SIZE;
-  const pageRows = rows.slice(offset, offset + PAGE_SIZE);
+  // A stale link (or a shrinking list) can point past the last page: go to the last one.
+  useEffect(() => {
+    if (list.data && !list.isPlaceholderData && total > 0 && f.page > pages) update({ page: pages });
+  }, [list.data, list.isPlaceholderData, total, pages, f.page]);
 
   const tagOptions = useMemo(() => {
     const opts = (list.data?.tags ?? []).map(([t, n]) => ({ value: t, label: `${t} (${n})` }));
@@ -182,10 +172,7 @@ export function DirectoryPage() {
     update({ q: "", role: "", tag: "", research: "", status: "", watch: "", all: false });
   };
 
-  const total = list.data?.total ?? 0;
-  const meta = list.data
-    ? `${pluralize(total, "company", "companies")}${f.all ? "" : " we work with"}`
-    : "Companies we work with, their roles and what they ask for";
+  const meta = "Companies we work with, their roles and what they ask for";
 
   const runRetagAll = () =>
     retagAll.mutate(undefined, {
@@ -253,7 +240,6 @@ export function DirectoryPage() {
           </>
         }
       />
-      <CustomersNav suggested={suggested.data?.length} />
 
       {/* toolbar */}
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end">
@@ -287,7 +273,7 @@ export function DirectoryPage() {
           <Select
             aria-label="Sort companies"
             value={f.sort}
-            onChange={(e) => update({ sort: e.target.value }, true)}
+            onChange={(e) => update({ sort: e.target.value })}
             options={SORTS}
             className="flex-1"
           />
@@ -297,7 +283,8 @@ export function DirectoryPage() {
       <div className="mb-3 flex min-h-6 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-3">
         {list.data ? (
           <span className="tabular">
-            {rows.length === total ? pluralize(total, "company", "companies") : `${rows.length} of ${pluralize(total, "company", "companies")} match`}
+            {pluralize(total, "company", "companies")}
+            {anyFilter ? " match" : f.all ? "" : " we work with"}
           </span>
         ) : (
           <Skeleton className="h-4 w-28" />
@@ -327,12 +314,13 @@ export function DirectoryPage() {
               <>
                 <AddCompanyDialog trigger={<Button icon={<Plus />}>Add company</Button>} />
                 <Button variant="secondary" asChild>
-                  <Link to="/automations#mailbox-scans">Scan the mailbox</Link>
+                  <Link to="/automations">Open automations</Link>
                 </Button>
               </>
             }
           >
-            Companies appear here when a mailbox scan finds their enquiries. You can also add one by hand.
+            Companies appear here once the mailbox has been read and an enquiry from them is found. An automation that reads new mail
+            does this, or you can add a company by hand.
           </EmptyState>
         </Panel>
       ) : rows.length === 0 ? (
@@ -377,7 +365,7 @@ export function DirectoryPage() {
                 </tr>
               </THead>
               <TBody>
-                {pageRows.map((c) => {
+                {rows.map((c) => {
                   const loc = locationLine(c.city, c.country);
                   return (
                     <TR key={c.id} onClick={() => navigate(customerHref(c.id))}>
@@ -407,6 +395,7 @@ export function DirectoryPage() {
                         <div className="flex flex-col items-start gap-1">
                           <ProfileChip status={c.profile_status} />
                           {c.monitoring ? <WatchingMark /> : null}
+                          <SuggestedLink customerId={c.id} count={c.opportunities} />
                         </div>
                       </TD>
                       <TD className="pt-5">
@@ -417,12 +406,12 @@ export function DirectoryPage() {
                 })}
               </TBody>
             </Table>
-            <Pager offset={offset} limit={PAGE_SIZE} total={rows.length} onChange={(o) => update({ page: o / PAGE_SIZE + 1 })} />
+            <Pager offset={offset} limit={PAGE_SIZE} total={total} onChange={(o) => update({ page: o / PAGE_SIZE + 1 })} />
           </Panel>
 
           {/* phone and tablet cards */}
           <div className="space-y-3 lg:hidden">
-            {pageRows.map((c) => (
+            {rows.map((c) => (
               <ListRow
                 key={c.id}
                 to={customerHref(c.id)}
@@ -437,11 +426,16 @@ export function DirectoryPage() {
                   {formatRelative(c.last_seen).toLowerCase()}
                   {c.monitoring ? " · Watching" : ""}
                 </p>
+                {c.opportunities ? (
+                  <p className="mt-1.5">
+                    <SuggestedLink customerId={c.id} count={c.opportunities} />
+                  </p>
+                ) : null}
               </ListRow>
             ))}
-            {rows.length > PAGE_SIZE ? (
+            {total > PAGE_SIZE ? (
               <Panel>
-                <Pager offset={offset} limit={PAGE_SIZE} total={rows.length} onChange={(o) => update({ page: o / PAGE_SIZE + 1 })} />
+                <Pager offset={offset} limit={PAGE_SIZE} total={total} onChange={(o) => update({ page: o / PAGE_SIZE + 1 })} />
               </Panel>
             ) : null}
           </div>
@@ -458,7 +452,7 @@ export function DirectoryPage() {
               Clear
             </Button>
             <Button className="flex-1" onClick={() => setFiltersOpen(false)}>
-              Show {pluralize(rows.length, "company", "companies")}
+              Show {pluralize(total, "company", "companies")}
             </Button>
           </>
         }

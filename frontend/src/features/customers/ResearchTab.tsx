@@ -70,7 +70,7 @@ export function ResearchTab() {
           title="No research yet"
           action={
             <Button icon={<Search />} onClick={openResearch}>
-              Research company
+              Run research
             </Button>
           }
         >

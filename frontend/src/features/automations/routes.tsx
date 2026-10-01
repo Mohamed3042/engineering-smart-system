@@ -1,8 +1,20 @@
 import type { RouteObject } from "react-router";
-import { Placeholder } from "@/app/Placeholder";
+import { PageLoading } from "@/ui";
 
 export const automationRoutes: RouteObject[] = [
-  { path: "automations", element: <Placeholder title="Automations" /> },
-  { path: "automations/runs/:runId", element: <Placeholder title="Automation run" /> },
-  { path: "automations/:automationId", element: <Placeholder title="Automation" /> },
+  {
+    path: "automations",
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./AutomationsPage")).AutomationsPage }),
+  },
+  {
+    path: "automations/runs/:runId",
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./RunPage")).RunPage }),
+  },
+  {
+    path: "automations/:automationId",
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./AutomationPage")).AutomationPage }),
+  },
 ];

@@ -3,7 +3,7 @@
  * (tag evidence, opportunity evidence, research sections) are narrowed here because their real
  * shape differs from the shared Evidence type.
  */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type {
   Automation,
@@ -25,10 +25,14 @@ export interface CustomerRow extends Customer {
   opportunities: number;
 }
 
+/** GET /api/customers: one page, filtered and sorted in SQL. */
 export interface CustomerList {
   items: CustomerRow[];
+  /** Companies matching the filters, over all pages. */
   total: number;
-  /** [tag label, number of companies] over the returned rows. */
+  page: number;
+  page_size: number;
+  /** [tag label, number of companies] over everything that matches (top 100), not just this page. */
   tags: [string, number][];
 }
 
@@ -97,10 +101,6 @@ export interface OpportunityReason {
   customer_kind?: string;
 }
 
-export interface OpportunityRow extends Opportunity {
-  customer?: { id: string; name: string } | null;
-}
-
 export interface ResearchSource {
   url: string;
   quote: string;
@@ -157,20 +157,22 @@ export function gapsOf(r: ResearchReport): ResearchGap[] {
 export interface CustomerListParams {
   q?: string;
   kind?: string;
+  tag?: string;
+  status?: string;
+  profile_status?: string;
+  monitoring?: boolean;
+  sort?: string;
   /** false includes suppliers and senders with no enquiries. */
   work_only?: boolean;
+  page?: number;
+  page_size?: number;
 }
 
 export function useCustomers(params: CustomerListParams) {
   return useQuery({
-    queryKey: ["customers", params],
-    queryFn: () =>
-      api.get<CustomerList>("/customers", {
-        q: params.q || undefined,
-        kind: params.kind || undefined,
-        work_only: params.work_only === false ? "false" : undefined,
-      }),
-    placeholderData: (prev) => prev,
+    queryKey: ["customers", "directory", params],
+    queryFn: () => api.get<CustomerList>("/customers", { ...params }),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -180,13 +182,6 @@ export function useCustomer(id: string | undefined, opts: { refetchInterval?: nu
     queryFn: () => api.get<CustomerDetail>(`/customers/${id}`),
     enabled: !!id,
     refetchInterval: opts.refetchInterval,
-  });
-}
-
-export function useOpportunities(status: string) {
-  return useQuery({
-    queryKey: ["opportunities", { status }],
-    queryFn: () => api.get<OpportunityRow[]>("/opportunities", { status }),
   });
 }
 
@@ -227,7 +222,6 @@ function useInvalidateCustomer() {
   const qc = useQueryClient();
   return (id?: string) => {
     qc.invalidateQueries({ queryKey: ["customers"] });
-    qc.invalidateQueries({ queryKey: ["opportunities"] });
     qc.invalidateQueries({ queryKey: ["customer-updates"] });
     if (id) qc.invalidateQueries({ queryKey: ["customer", id] });
     else qc.invalidateQueries({ queryKey: ["customer"] });
@@ -288,15 +282,16 @@ export function useSetMonitoring(id: string) {
   });
 }
 
-export function useUpdateOpportunity() {
+export type OpportunityStatus = "suggested" | "accepted" | "dismissed";
+
+/** PATCH /opportunities/{id}: accept, dismiss, or put a suggestion back for review. */
+export function useUpdateOpportunity(customerId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "suggested" | "accepted" | "dismissed"; customerId?: string }) =>
-      api.patch<Opportunity>(`/opportunities/${id}`, { status }),
-    onSuccess: (_d, v) => {
-      qc.invalidateQueries({ queryKey: ["opportunities"] });
+    mutationFn: ({ id, status }: { id: string; status: OpportunityStatus }) => api.patch<Opportunity>(`/opportunities/${id}`, { status }),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["customers"] });
-      if (v.customerId) qc.invalidateQueries({ queryKey: ["customer", v.customerId] });
+      qc.invalidateQueries({ queryKey: ["customer", customerId] });
     },
   });
 }

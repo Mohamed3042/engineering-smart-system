@@ -162,3 +162,25 @@ export function sortRows(rows: DashboardRow[], sort: SortState): DashboardRow[] 
     return compare(a, b, "due") || a.name.localeCompare(b.name);
   });
 }
+
+/* ------------------------------------------------------------------ waiting for approval */
+
+/** The backend words a pending link download "Download waits for approval: <host>" (pipeline/state.py _LINK_BLOCKING). */
+const DOWNLOAD_WAITS = /waits? for approval/i;
+
+/**
+ * What waits for a person's approval. Quotations come straight from the dashboard counts; the
+ * dashboard has no list of pending downloads, so they are read from the projects' blockers, which
+ * carry the link id.
+ */
+export function approvalsWaiting(data: Dashboard): { quotations: number; downloads: { row: DashboardRow; blocker: Blocker }[] } {
+  const downloads: { row: DashboardRow; blocker: Blocker }[] = [];
+  for (const bucket of BUCKETS) {
+    for (const row of data.buckets[bucket] ?? []) {
+      for (const blocker of row.blockers ?? []) {
+        if (blocker.link_id && DOWNLOAD_WAITS.test(blocker.text)) downloads.push({ row, blocker });
+      }
+    }
+  }
+  return { quotations: data.quotations?.needs_review ?? 0, downloads };
+}

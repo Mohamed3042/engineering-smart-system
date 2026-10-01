@@ -43,6 +43,7 @@ import {
   type SortKey,
   type SortState,
 } from "./dashboard";
+import { SetupBanner, WaitingForApproval } from "./Banners";
 import { ProjectCard, ProjectTable } from "./ProjectList";
 import { RecentActivity } from "./RecentActivity";
 
@@ -410,7 +411,13 @@ export function HomePage() {
           }
         />
 
-        {session.data ? <ConnectionBanner session={session.data} className="mb-6" /> : null}
+        {session.data && session.data.setup_step !== "done" ? (
+          <SetupBanner step={session.data.setup_step} className="mb-6" />
+        ) : session.data ? (
+          <ConnectionBanner session={session.data} className="mb-6" />
+        ) : null}
+
+        {data ? <WaitingForApproval data={data} className="mb-6" /> : null}
 
         <Tabs
           value={tab}

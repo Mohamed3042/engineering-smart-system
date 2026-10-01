@@ -55,6 +55,16 @@ def test_category_correction_becomes_a_rule(client):
     assert lessons["summary"]["total"] >= 1
 
 
+def test_bulk_category_change_teaches_like_a_single_one(client):
+    r = client.post("/api/emails/bulk", json={"ids": ["demo-v1", "demo-b1"], "action": "set_category", "category": "other"})
+    assert r.status_code == 200 and r.json()["updated"] == 2
+    assert client.get("/api/emails/demo-v1").json()["email"]["category_source"] == "user"
+    lessons = client.get("/api/learning", params={"kind": "category_correction"}).json()
+    assert lessons["summary"]["total"] >= 2
+    bad = client.post("/api/emails/bulk", json={"ids": ["demo-v1"], "action": "set_category", "category": "nope"})
+    assert bad.status_code == 400
+
+
 def test_template_rule_and_learned_preference(client):
     pytest.importorskip("ess.quotation.templates")
     projects = {p["name"]: p for p in client.get("/api/projects").json()["items"]}

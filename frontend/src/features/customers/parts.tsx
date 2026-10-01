@@ -6,22 +6,21 @@ import { Link } from "react-router";
 import { cn } from "@/lib/cn";
 import { customerKindLabel } from "@/lib/labels";
 import { customerHref } from "@/lib/routes";
-import { Chip, Confidence, EvidenceQuote, LinkTabs, StatusChip, Tooltip } from "@/ui";
+import { Chip, Confidence, EvidenceQuote, StatusChip, Tooltip } from "@/ui";
 import type { CustomerProjectRef, Tag, TagEvidence } from "./api";
 import { fitInfo, profileStatusInfo, tagEvidence } from "./lib";
 
-/** Section tabs shared by the three customer-wide pages. */
-export function CustomersNav({ suggested }: { suggested?: number }) {
+/** "2 suggested services" opens the customer's Suggested services tab. Words, not only colour. */
+export function SuggestedLink({ customerId, count }: { customerId: string; count: number }) {
+  if (!count) return null;
   return (
-    <LinkTabs
-      label="Customer views"
-      className="mb-6"
-      tabs={[
-        { to: "/customers", label: "Companies", end: true },
-        { to: "/customers/opportunities", label: "Suggested services", count: suggested, countTone: "review" },
-        { to: "/customers/updates", label: "News and updates" },
-      ]}
-    />
+    <Link
+      to={customerHref(customerId, "opportunities")}
+      onClick={(e) => e.stopPropagation()}
+      className="text-xs font-medium text-review hover:underline"
+    >
+      {count === 1 ? "1 suggested service" : `${count} suggested services`}
+    </Link>
   );
 }
 
