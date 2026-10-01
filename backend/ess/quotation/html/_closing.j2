@@ -3,6 +3,7 @@
 <div class="yours">{{ closing.signoff }}</div>
 <div class="sigwrap">
 {%- if closing.signature.src %}<img class="sig" src="{{ closing.signature.src }}" alt="">{% endif %}
+{%- if chrome.draft and not closing.signature.src %}<span class="unsigned">{% if rtl %}غير موقّع – مسودة{% else %}Not signed – draft{% endif %}</span>{% endif %}
 <div class="signee"><b>{{ closing.signature.name }}</b>{% for line in closing.signature.lines %}<div>{{ line }}</div>{% endfor %}</div>
 </div>
 </div>
@@ -14,6 +15,7 @@
 <p>{{ closing.signoff }}</p>
 <div class="signature">
 {%- if closing.signature.src %}<img class="sig" src="{{ closing.signature.src }}" alt="">{% endif %}
+{%- if chrome.draft and not closing.signature.src %}<span class="unsigned">{% if rtl %}غير موقّع – مسودة{% else %}Not signed – draft{% endif %}</span>{% endif %}
 <div class="identity"><b>{{ closing.signature.name }}</b>{% if closing.signature.title %}<br><span>{{ closing.signature.title }}</span>{% endif %}</div>
 </div>
 </div>

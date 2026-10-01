@@ -129,6 +129,9 @@ table.items tr { break-inside: avoid }
 .closing.tight { padding-top: 0 }
 .closing p { margin: 2.5mm 0 }
 .signature { position: relative; height: 30mm; padding-top: 18mm; line-height: 1.15 }
+/* a draft says in the signature space that nobody signed it: an empty space is not a sign-off */
+.unsigned { position: absolute; top: 4mm; inset-inline-start: 0; padding: 1mm 2.5mm; border: 0.3mm dashed #b3261e;
+  color: #b3261e; font-size: 9pt; letter-spacing: 0.02em }
 .signature img.sig { position: absolute; top: 0; inset-inline-start: 0; height: 19mm; width: auto }
 .letter-closing { margin-top: auto; padding-top: 8mm }
 .letter-closing.tight { padding-top: 3mm }
