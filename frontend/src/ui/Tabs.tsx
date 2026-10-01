@@ -61,12 +61,15 @@ function ScrollRow({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // the row and its content both change size (counts load later, fonts swap in)
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    document.fonts?.ready.then(measure).catch(() => undefined);
     return () => ro.disconnect();
   }, [measure]);
   const nudge = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.7, behavior: "smooth" });
-  const fade = "pointer-events-none absolute inset-y-0 w-10 from-canvas to-transparent";
+  const fade = "pointer-events-none absolute inset-y-0 w-12 from-canvas from-40% to-transparent";
   const btn =
     "pointer-events-auto absolute top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full border border-line bg-surface text-ink-2 shadow-panel hover:text-ink";
   return (
@@ -75,14 +78,14 @@ function ScrollRow({
         {children}
       </div>
       {edges.left ? (
-        <div className={cn(fade, "left-0 bg-gradient-to-r")} aria-hidden>
+        <div className={cn(fade, "left-0 bg-linear-to-r")} aria-hidden>
           <button type="button" tabIndex={-1} onClick={() => nudge(-1)} className={cn(btn, "left-0")}>
             <ChevronLeft className="size-4" />
           </button>
         </div>
       ) : null}
       {edges.right ? (
-        <div className={cn(fade, "right-0 bg-gradient-to-l")} aria-hidden>
+        <div className={cn(fade, "right-0 bg-linear-to-l")} aria-hidden>
           <button type="button" tabIndex={-1} onClick={() => nudge(1)} className={cn(btn, "right-0")}>
             <ChevronRight className="size-4" />
           </button>

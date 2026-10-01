@@ -43,7 +43,7 @@ import {
   type SortKey,
   type SortState,
 } from "./dashboard";
-import { SetupBanner, WaitingForApproval } from "./Banners";
+import { CompactNotice, SetupBanner, WaitingForApproval } from "./Banners";
 import { ProjectCard, ProjectTable } from "./ProjectList";
 import { RecentActivity } from "./RecentActivity";
 
@@ -85,7 +85,28 @@ const TAB_TEXT: Record<Bucket, { label: string; heading: (n: number) => string; 
 
 /* ------------------------------------------------------------------ connection banner */
 
+/** One line on phones, the full explanation on wide screens. */
 function ConnectionBanner({ session, className }: { session: SessionInfo; className?: string }) {
+  const mail = session.mail ?? null;
+  const ai = session.ai ?? null;
+  const short = !mail && !ai ? "Connect the mailbox and the AI engine" : !mail ? "Connect the company mailbox" : !ai
+    ? "Set up the AI engine" : mail.status !== "connected" ? `Mailbox: ${connectionStatusInfo(mail.status).label}` : null;
+  if (!short) return null;
+  return (
+    <>
+      <CompactNotice
+        to={!mail || mail.status !== "connected" ? "/settings/connections" : "/setup/engine"}
+        tone={mail && mail.status !== "connected" ? "review" : "neutral"}
+        className={cn("lg:hidden", className)}
+      >
+        {short}
+      </CompactNotice>
+      <ConnectionBannerFull session={session} className={cn("hidden lg:flex", className)} />
+    </>
+  );
+}
+
+function ConnectionBannerFull({ session, className }: { session: SessionInfo; className?: string }) {
   const mail = session.mail ?? null;
   const ai = session.ai ?? null;
   const mailLink = (
@@ -285,7 +306,13 @@ function BucketView({
   return (
     <div className="space-y-4">
       {familyOptions.length > 1 ? (
-        <FilterChips label="Filter by service family" value={active} onChange={onFamilies} options={familyOptions} />
+        <FilterChips
+          label="Filter by service family"
+          value={active}
+          onChange={onFamilies}
+          options={familyOptions}
+          className="max-lg:-mx-4 max-lg:flex-nowrap max-lg:overflow-x-auto max-lg:px-4 max-lg:[scrollbar-width:none] [&>*]:shrink-0"
+        />
       ) : null}
 
       {/* Phone and narrow screens: stacked cards */}
@@ -412,12 +439,12 @@ export function HomePage() {
         />
 
         {session.data && session.data.setup_step !== "done" ? (
-          <SetupBanner step={session.data.setup_step} className="mb-6" />
+          <SetupBanner step={session.data.setup_step} className="mb-3 lg:mb-6" />
         ) : session.data ? (
-          <ConnectionBanner session={session.data} className="mb-6" />
+          <ConnectionBanner session={session.data} className="mb-3 lg:mb-6" />
         ) : null}
 
-        {data ? <WaitingForApproval data={data} className="mb-6" /> : null}
+        {data ? <WaitingForApproval data={data} className="mb-5 lg:mb-6" /> : null}
 
         <Tabs
           value={tab}
