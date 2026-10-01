@@ -426,7 +426,7 @@ def _file_text(path: Path) -> str:
         return extract_document(path).text or ""
     except Exception:
         try:
-            return path.read_text(errors="ignore") if path.suffix.lower() in (".txt", ".md", ".csv") else ""
+            return path.read_text(encoding="utf-8", errors="ignore") if path.suffix.lower() in (".txt", ".md", ".csv") else ""
         except OSError:
             return ""
 

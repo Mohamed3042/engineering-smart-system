@@ -38,7 +38,7 @@ def cmd_init(a) -> None:
 
 
 def cmd_import(a) -> None:
-    snap = json.loads(Path(a.path).read_text())
+    snap = json.loads(Path(a.path).read_text(encoding="utf-8"))
     with session_scope() as s:
         result = import_snapshot(s, _ws(s), snap, files_root=Path(a.files_root) if a.files_root else Path(a.path).parent)
     print(json.dumps(result, indent=2))
@@ -46,7 +46,7 @@ def cmd_import(a) -> None:
 
 def cmd_knowledge(a) -> None:
     """Load an `ess-knowledge/1` file (business identity mined from mail and documents)."""
-    data = json.loads(Path(a.path).read_text())
+    data = json.loads(Path(a.path).read_text(encoding="utf-8"))
     items = []
     for fam in data.get("service_families", []):
         items.append({"kind": "service_family", **fam,
@@ -123,7 +123,7 @@ def cmd_demo(_a) -> None:
 
 def cmd_export(a) -> None:
     with session_scope() as s:
-        Path(a.path).write_text(json.dumps(export_snapshot(s, _ws(s)), indent=2, ensure_ascii=False, default=str))
+        Path(a.path).write_text(json.dumps(export_snapshot(s, _ws(s)), indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     print(f"written {a.path}")
 
 

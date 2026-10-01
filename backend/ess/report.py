@@ -187,7 +187,7 @@ def main(argv=None) -> None:
     ap.add_argument("--title")
     a = ap.parse_args(argv)
     init_db()
-    Path(a.out).write_text(build_report([f for f in a.families.split(",") if f] or None, a.title))
+    Path(a.out).write_text(build_report([f for f in a.families.split(",") if f] or None, a.title), encoding="utf-8")
     print(f"written {a.out}")
 
 

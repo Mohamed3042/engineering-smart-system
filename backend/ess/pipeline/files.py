@@ -207,7 +207,7 @@ def extract_file(session: Session, f: ProjectFile) -> ProjectFile:
     doc = extract_document(path)
     text = doc.text or ""
     text_path = path.with_suffix(path.suffix + ".txt")
-    text_path.write_text(text)
+    text_path.write_text(text, encoding="utf-8")
     pages = list(doc.pages or [])
     boq = list(doc.boq_items or [])
     f.pages = len(pages) or int((doc.meta or {}).get("pages") or 0)
@@ -261,7 +261,7 @@ def _register_children(session: Session, parent: ProjectFile, children: list) ->
 def file_text(f: ProjectFile) -> str:
     rel = (f.extraction or {}).get("text_path")
     p = abs_path(rel) if rel else None
-    return p.read_text(errors="ignore") if p and p.exists() else ""
+    return p.read_text(encoding="utf-8", errors="ignore") if p and p.exists() else ""
 
 
 def extract_project_files(project_id: str) -> dict:
