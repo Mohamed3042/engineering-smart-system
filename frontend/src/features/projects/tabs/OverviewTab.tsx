@@ -15,7 +15,6 @@ import {
   Banner,
   Button,
   ConfirmDialog,
-  EvidenceQuote,
   Input,
   KeyValue,
   Panel,
@@ -35,9 +34,9 @@ import {
   openChangeIndexes,
   responseFact,
   sendFact,
-  withSource,
   type Fact,
 } from "../lib";
+import { SourceQuote } from "../fileParts";
 import { Bidi, DueDate, NextActionButton } from "../parts";
 import type { TabProps } from "../ProjectLayout";
 
@@ -299,7 +298,6 @@ function BlockersPanel({ detail }: TabProps) {
         ) : (
           <ul className="divide-y divide-line">
             {blockers.map(({ b, i }) => {
-              const ev = b.evidence && typeof b.evidence === "object" ? withSource(b.evidence as never, detail.emails, detail.files) : null;
               const fixHref =
                 b.source === "derived"
                   ? `${projectHref(p.id, "inputs")}${b.link_id ? `?link=${b.link_id}` : ""}`
@@ -315,7 +313,9 @@ function BlockersPanel({ detail }: TabProps) {
                       <Bidi text={b.text} className="break-words" />
                     </p>
                     {blockerSource(b) ? <p className="mt-0.5 text-sm text-ink-3">{blockerSource(b)}</p> : null}
-                    {ev?.quote ? <EvidenceQuote evidence={ev} className="mt-2" /> : null}
+                    {b.evidence && typeof b.evidence === "object" && (b.evidence as { quote?: string }).quote ? (
+                      <SourceQuote evidence={b.evidence} detail={detail} className="mt-2" />
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 gap-2">
                     {fixHref ? (

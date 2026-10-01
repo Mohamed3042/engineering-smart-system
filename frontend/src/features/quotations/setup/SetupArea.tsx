@@ -18,7 +18,8 @@ export function SetupArea() {
       <PageHeader
         back={{ to: "/quotations", label: "Quotations" }}
         title="Quotation setup"
-        meta="Templates and the rules that choose them, company paper, signatories, stamp and catalogue."
+        // The list of tabs below says it; phones keep the first screen for the tab's own content.
+        meta={<span className="max-sm:hidden">Templates and the rules that choose them, company paper, signatories, stamp and catalogue.</span>}
       />
       <LinkTabs
         label="Quotation setup"

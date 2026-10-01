@@ -2,7 +2,17 @@
  * Helpers for the project screens: next-action wording and targets, change kinds, checklist and
  * link vocabulary that labels.ts does not cover, and the four separate status facts.
  */
-import type { Enquiry, Evidence, NextAction, ProjectChange, ProjectFile, ProjectLink, Quotation } from "@/api/types";
+import type {
+  ChecklistItem,
+  Enquiry,
+  Evidence,
+  NextAction,
+  ProjectChange,
+  ProjectFile,
+  ProjectLink,
+  Quotation,
+  Review,
+} from "@/api/types";
 import { formatDate, formatDateShort, humanize } from "@/lib/format";
 import {
   customerResponseInfo,
@@ -13,7 +23,7 @@ import {
   type Tone,
 } from "@/lib/labels";
 import { nextActionHref, projectHref } from "@/lib/routes";
-import type { DetailEmail } from "./api";
+import type { DetailEmail, ProjectDetail } from "./api";
 
 /* ------------------------------------------------------------------ service families */
 
@@ -129,6 +139,9 @@ export function openChangeIndexes(changes: ProjectChange[] | null | undefined): 
 
 export type CheckStatus = "pending" | "checked" | "needs_review" | "failed";
 
+/** What a person picks. "Not applicable" is stored as a checked item that carries `not_applicable: true`. */
+export type CheckChoice = CheckStatus | "not_applicable";
+
 /** The backend stores pending | checked | needs_review | failed; older data may say open / flagged. */
 export function normalizeCheck(s: string | null | undefined): CheckStatus {
   if (s === "checked") return "checked";
@@ -137,13 +150,106 @@ export function normalizeCheck(s: string | null | undefined): CheckStatus {
   return "pending";
 }
 
-const CHECK: Record<CheckStatus, StatusInfo> = {
+/** The server knows four statuses and approval needs every item "checked", so Not applicable is a checked item with a flag and a reason. */
+export function checkChoice(item: { status?: string | null; not_applicable?: unknown }): CheckChoice {
+  const s = normalizeCheck(item.status);
+  return s === "checked" && item.not_applicable === true ? "not_applicable" : s;
+}
+
+/** The item fields that a choice writes. */
+export function choicePatch(choice: CheckChoice): Partial<ChecklistItem> {
+  return choice === "not_applicable" ? { status: "checked", not_applicable: true } : { status: choice, not_applicable: false };
+}
+
+const CHECK: Record<CheckChoice, StatusInfo> = {
   pending: { label: "Open", tone: "neutral" },
   checked: { label: "Checked", tone: "brand" },
+  not_applicable: { label: "Not applicable", tone: "neutral" },
   needs_review: { label: "Needs review", tone: "review" },
   failed: { label: "Problem found", tone: "block" },
 };
-export const checklistStatusInfo = (s: string | null | undefined) => CHECK[normalizeCheck(s)];
+
+/** What an item still lacks before it counts as checked. */
+export type ChecklistIssue = "needs_note" | "needs_reason";
+
+/** The chip of an item: a check that nobody stood behind is not shown as Checked. */
+export function checklistItemInfo(item: ChecklistItem, issue: ChecklistIssue | null): StatusInfo {
+  if (issue === "needs_note") return { label: "Needs a note", tone: "review" };
+  if (issue === "needs_reason") return { label: "Needs a reason", tone: "review" };
+  return CHECK[checkChoice(item)];
+}
+
+/** What backs a checklist item up: quotes the system attached, or values it recorded for it. */
+export interface ChecklistBasis {
+  evidence: Evidence[];
+  /** Short lines, e.g. "Revision R03 read on Hoist-layout-R03.pdf, page 1". */
+  recorded: string[];
+}
+
+export const hasBasis = (b: ChecklistBasis) => b.evidence.length > 0 || b.recorded.length > 0;
+
+/** Revisions read from drawing sheets. */
+function drawingRevisions(files: ProjectFile[]): string[] {
+  const out: string[] = [];
+  for (const f of files) {
+    for (const [page, finding] of Object.entries(f.analysis ?? {})) {
+      if (!/^\d+$/.test(page) || !finding || typeof finding !== "object") continue;
+      const rev = (finding as { sheet?: { revision?: { value?: unknown; readable?: boolean } | null } }).sheet?.revision;
+      const value = rev && rev.readable !== false && rev.value !== null && rev.value !== undefined ? String(rev.value).trim() : "";
+      if (value) out.push(`Revision ${value} read on ${f.name}, page ${page}`);
+    }
+  }
+  return out;
+}
+
+export function checklistBasis(item: ChecklistItem, detail: ProjectDetail, review: Review | null | undefined): ChecklistBasis {
+  const evidence = (Array.isArray(item.evidence) ? item.evidence : []).filter((e) => !!e && (!!e.quote || !!e.source_id));
+  const recorded: string[] = [];
+  const value = item.value;
+  if ((typeof value === "string" || typeof value === "number") && String(value).trim()) recorded.push(String(value).trim());
+  if (item.key === "drawings") {
+    const rev = revisionText(review?.revision);
+    if (rev) recorded.push(`This round covers ${rev}`);
+    recorded.push(...drawingRevisions(detail.files));
+  }
+  if (item.key === "scope") {
+    const scope = detail.project.scope_items ?? [];
+    const sourced = scope.filter((s) => firstEvidence(s.evidence)?.verified === true);
+    if (scope.length > 0 && sourced.length === scope.length) {
+      recorded.push(`${scope.length} scope ${scope.length === 1 ? "item" : "items"}, each with its quote found in the source`);
+    }
+  }
+  return { evidence, recorded };
+}
+
+/**
+ * The note a person wrote. The system also puts a note on an item it flags ("No drawing received");
+ * that note, left as it is when the item is checked, is not what was checked, so it does not count.
+ */
+export function ownNote(item: ChecklistItem, flagNote?: string | null): string {
+  const note = (item.note ?? "").trim();
+  return note && note !== (flagNote ?? "").trim() ? note : "";
+}
+
+/**
+ * A checked item needs something to stand on: evidence, a recorded value or a note of what was
+ * checked. "Not applicable" needs the reason. A checkbox alone never counts as approval.
+ */
+export function checklistIssue(item: ChecklistItem, basis: ChecklistBasis, flagNote?: string | null): ChecklistIssue | null {
+  const note = ownNote(item, flagNote);
+  const choice = checkChoice(item);
+  if (choice === "not_applicable") return note ? null : "needs_reason";
+  if (choice === "checked" && !hasBasis(basis) && !note) return "needs_note";
+  return null;
+}
+
+/** What is saved: an item without its note or reason is saved as open, so the server never holds a check nobody stood behind. */
+export function checklistItemForSave(item: ChecklistItem, basis: ChecklistBasis, flagNote?: string | null): ChecklistItem {
+  const out: ChecklistItem = { ...item };
+  delete out.not_applicable;
+  if (checklistIssue(item, basis, flagNote)) return { ...out, status: "pending" };
+  return checkChoice(item) === "not_applicable" ? { ...out, not_applicable: true } : out;
+}
 
 export const ROLE_RANK: Record<string, number> = { viewer: 0, sales: 1, engineer: 2, admin: 3, owner: 4 };
 
@@ -208,6 +314,22 @@ export function fileReviewInfo(f: ProjectFile): StatusInfo {
   return f.reviewed_by ? { label: "Reviewed", tone: "brand" } : { label: "Not reviewed", tone: "muted" };
 }
 
+/** A PDF has pages the viewer can show one by one. */
+export const isPdfFile = (f: Pick<ProjectFile, "mime" | "name">) => /pdf/i.test(f.mime) || /\.pdf$/i.test(f.name);
+/** An image is shown whole. */
+export const isImageFile = (f: Pick<ProjectFile, "mime" | "name">) =>
+  f.mime.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name);
+
+/** The last part of a path: "Tender/Drawings.pdf" → "Drawings.pdf". */
+export const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+
+/** A page number written as 3, "3" or "p. 3"; anything else is no page. */
+export function pageNumber(v: unknown): number | null {
+  const found = typeof v === "number" ? [String(Math.trunc(v))] : typeof v === "string" ? v.match(/\d+/) : null;
+  const n = found ? Number(found[0]) : NaN;
+  return Number.isInteger(n) && n >= 1 ? n : null;
+}
+
 /* ------------------------------------------------------------------ evidence */
 
 /** Fill in a readable source label and resolve file names / thread ids to linkable ids. */
@@ -238,6 +360,44 @@ export function firstEvidence(ev: unknown): Evidence | null {
   if (Array.isArray(ev)) return (ev[0] as Evidence) ?? null;
   if (typeof ev === "object") return ev as Evidence;
   return null;
+}
+
+/**
+ * Evidence as the screens show it. A page reference is a whole number and only a PDF has pages:
+ * for a spreadsheet the number that the analysis stored is a row, so it reads "row 7", not "p7".
+ */
+export function readableEvidence(ev: Evidence, emails: DetailEmail[], files: ProjectFile[]): Evidence {
+  const e = withSource(ev, emails, files);
+  if (e.source_type !== "file") return e;
+  const file = files.find((f) => f.id === e.source_id);
+  const page = pageNumber(e.page);
+  if (!file || isPdfFile(file)) return { ...e, page };
+  if (isImageFile(file) || page === null) return { ...e, page: null };
+  return { ...e, page: null, source_label: `${e.source_label || file.name} · row ${page}` };
+}
+
+/* ------------------------------------------------------------------ closing-date history */
+
+/** One replaced closing date: `value` is the earlier date; the rest says when, by whom and why it changed. */
+export interface DateHistoryEntry {
+  value?: string | null;
+  changed_at?: string;
+  confirmed_by?: string;
+  source?: string;
+  note?: string;
+  evidence?: Evidence;
+}
+
+/** The dates an enquiry had before, newest first. */
+export function replacedDates(e: Pick<Enquiry, "due_date" | "due_date_history">): DateHistoryEntry[] {
+  return ((e.due_date_history ?? []) as DateHistoryEntry[]).filter((h) => h.value && h.value !== e.due_date).reverse();
+}
+
+/** Where an earlier date was replaced: "changed 29 Sep by Sarah". */
+export function historySource(h: DateHistoryEntry): string {
+  const when = h.changed_at ? `changed ${formatDateShort(h.changed_at)}` : null;
+  const who = h.confirmed_by ? `by ${h.confirmed_by}` : h.source ? `by ${humanize(h.source)}` : null;
+  return [when, who].filter(Boolean).join(" ") || "earlier date";
 }
 
 /* ------------------------------------------------------------------ four status facts */

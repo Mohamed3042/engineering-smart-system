@@ -4,10 +4,11 @@
  * switch, edit and delete. Learned preferences are listed below for reference.
  */
 import { useMutation } from "@tanstack/react-query";
-import { EllipsisVertical, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
+import { EllipsisVertical, ListChecks, Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 import { api } from "@/api/client";
-import { useCategoryLabel } from "@/api/session";
+import { useCategoryLabel, useWorkspace } from "@/api/session";
 import type { TemplateRule } from "@/api/types";
 import { formatDate } from "@/lib/format";
 import { workTypeLabel } from "@/lib/labels";
@@ -36,7 +37,7 @@ import {
 } from "@/ui";
 import { useCustomers, useInvalidate, usePapers, useSignatories, useTemplateLessons, useTemplateRules, useTemplates } from "../api";
 import { ExplainedError, Reason } from "../components";
-import { languageLabel, matchSummary, paperName, signatoryLabel, templateName, useRoleGate } from "../lib";
+import { languageLabel, matchSummary, paperName, signatoryLabel, TEMPLATES_SETUP, templateEnabled, templateName, useRoleGate } from "../lib";
 import { RuleDialog } from "../RuleDialog";
 
 export function RulesTab() {
@@ -52,6 +53,25 @@ export function RulesTab() {
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<TemplateRule | null>(null);
 
+  const ws = useWorkspace();
+  const defaultLanguage = (ws.settings?.quotations?.default_language as string | undefined) ?? "en";
+  /** A rule that points at a template the company switched off: drafting falls back to another template. */
+  const pointsAtOffTemplate = (r: TemplateRule) => {
+    const t = templates.data?.find((x) => x.key === r.template_key);
+    return Boolean(t) && !templateEnabled(t!, r.language || defaultLanguage);
+  };
+  const offNote = (r: TemplateRule) =>
+    pointsAtOffTemplate(r) ? (
+      <p className="mt-1 flex items-start gap-1.5 text-sm text-review">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <span>
+          This template is switched off, so drafts use another one.{" "}
+          <Link to={TEMPLATES_SETUP} className="font-medium text-brand-ink underline-offset-4 hover:underline">
+            Open Templates
+          </Link>
+        </span>
+      </p>
+    ) : null;
   const customerName = (id: string) => customers.data?.items.find((c) => c.id === id)?.name ?? "One customer";
   const applies = (r: TemplateRule) => matchSummary(r.match, customerName, familyLabel);
   const uses = (r: TemplateRule) =>
@@ -146,7 +166,10 @@ export function RulesTab() {
                           <div className="mt-1">{source(r)}</div>
                         </TD>
                         <TD className="max-w-64 text-sm text-ink-2">{applies(r)}</TD>
-                        <TD className="max-w-72 text-sm text-ink-2">{uses(r)}</TD>
+                        <TD className="max-w-72 text-sm text-ink-2">
+                          {uses(r)}
+                          {offNote(r)}
+                        </TD>
                         <TD className="text-right tabular">{r.priority}</TD>
                         <TD className="whitespace-nowrap text-right text-sm text-ink-2 tabular">
                           {r.hits} {r.hits === 1 ? "time" : "times"}
@@ -201,6 +224,7 @@ export function RulesTab() {
                       }
                     >
                       <p>Uses {uses(r)}</p>
+                      {offNote(r)}
                       <p className="mt-1 text-ink-3">
                         Priority {r.priority} · used {r.hits} {r.hits === 1 ? "time" : "times"}
                       </p>

@@ -3,10 +3,10 @@
  * person reads what each step really does before approving it.
  */
 import type { Automation } from "@/api/types";
-import { humanize } from "@/lib/format";
+import { formatDateTime, humanize } from "@/lib/format";
 import { runStatusInfo, type StatusInfo } from "@/lib/labels";
 import { emailHref, projectHref } from "@/lib/routes";
-import type { RunStep } from "./api";
+import type { RunStep, TriggerStatus } from "./api";
 
 /** What each step type does, in the words shown on the workflow and in the Continue dialog. */
 const STEP_DOES: Record<string, string> = {
@@ -47,12 +47,63 @@ export function intervalLabel(minutes: number | null | undefined): string | null
   return `Every ${minutes} minutes`;
 }
 
-/** How a workflow starts. Only schedules and "Run now" start runs today; new mail does not start one by itself. */
-export function triggerInfo(a: Pick<Automation, "trigger" | "interval_minutes">): { label: string; hint: string | null } {
-  if (a.trigger === "schedule") return { label: intervalLabel(a.interval_minutes) ?? "On a schedule", hint: "Starts by itself while a mailbox is connected" };
-  if (a.trigger === "new_email") return { label: "New mail", hint: "Starts with Run now" };
-  if (a.trigger === "manual") return { label: "By hand", hint: "Starts with Run now" };
-  return { label: humanize(a.trigger), hint: null };
+/** Where a person starts a new workflow (the route lives in this folder's routes.tsx). */
+export const NEW_WORKFLOW_PATH = "/automations/new";
+
+/** What the workflow is set to, in words: By hand, Every hour, When new mail arrives. Not whether it really starts by itself. */
+export function configuredTrigger(a: Pick<Automation, "trigger" | "interval_minutes">): string {
+  if (a.trigger === "schedule") return intervalLabel(a.interval_minutes) ?? "On a schedule";
+  if (a.trigger === "new_email") return "When new mail arrives";
+  if (a.trigger === "manual") return "By hand";
+  return humanize(a.trigger);
+}
+
+export interface TriggerSummary {
+  mode: string;
+  /** True only when the server says the workflow starts by itself right now. */
+  automatic: boolean;
+  label: string;
+  detail: string | null;
+  /** ISO time of the next automatic run, when there is one. */
+  next: string | null;
+  /** What it is set to, when that is not what really happens ("Every hour" while background runs are off). */
+  setTo: string | null;
+}
+
+/**
+ * How a workflow starts, from the server's own answer (trigger_status). Without that answer the
+ * safe words are used: it never says a workflow starts by itself unless the server said so.
+ */
+export function triggerSummary(a: Pick<Automation, "trigger" | "interval_minutes">, status?: TriggerStatus | null): TriggerSummary {
+  const configured = configuredTrigger(a);
+  if (!status) {
+    return {
+      mode: "manual",
+      automatic: false,
+      label: "Manual — Run now",
+      detail: "Whether it starts by itself could not be checked.",
+      next: null,
+      setTo: a.trigger === "manual" ? null : configured,
+    };
+  }
+  return {
+    mode: status.mode,
+    automatic: status.automatic === true,
+    label: status.label,
+    detail: status.detail ?? null,
+    next: status.automatic ? (status.next_run_at ?? null) : null,
+    setTo: status.automatic || a.trigger === "manual" ? null : configured,
+  };
+}
+
+/** "any moment now", "in 12 min", or the date and time. */
+export function formatNext(iso: string): string {
+  const at = new Date(iso).getTime();
+  if (!Number.isFinite(at)) return "soon";
+  const mins = Math.round((at - Date.now()) / 60_000);
+  if (mins <= 1) return "any moment now";
+  if (mins < 60) return `in ${mins} min`;
+  return formatDateTime(iso);
 }
 
 export const runTriggerLabel = (t?: string | null) =>

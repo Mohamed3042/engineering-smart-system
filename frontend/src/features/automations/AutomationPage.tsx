@@ -1,8 +1,10 @@
 /**
- * One workflow (mockup 37, read-only): how it starts, its ordered steps with the human gates marked,
- * "Run now", and its recent runs.
+ * One workflow (mockup 37): how it really starts (from the server, with the reason), its ordered
+ * steps with the human gates marked, "Run now", and its recent runs. An admin can edit it (name,
+ * how it starts, the steps), switch it off, or delete it when it is not built in.
  */
-import { Clock, History, Play } from "lucide-react";
+import { Clock, History, Pencil, Play, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { isApiError } from "@/api/client";
 import { useCurrentUser, useSession } from "@/api/session";
@@ -12,7 +14,9 @@ import {
   Banner,
   Button,
   Chip,
+  ConfirmDialog,
   EmptyState,
+  InlineError,
   KeyValue,
   ListRow,
   LoadingRows,
@@ -34,12 +38,20 @@ import {
   toast,
   toastError,
 } from "@/ui";
-import { useAutomation, useRunNow, type AutomationDetail, type Run } from "./api";
-import { formatDuration, isAdmin, runStateInfo, runTriggerLabel, stepDoes, stepEnabled, triggerInfo } from "./lib";
-import { EnabledSwitch, gateLabels, LastRun } from "./parts";
+import { useAutomation, useDeleteAutomation, useRunNow, useStepCatalog, type AutomationDetail, type CatalogStep, type Run } from "./api";
+import { configuredTrigger, formatDuration, isAdmin, runStateInfo, runTriggerLabel, stepDoes, stepEnabled, triggerSummary } from "./lib";
+import { EnabledSwitch, gateLabels, LastRun, TriggerStatusBlock } from "./parts";
+import { WorkflowEditor } from "./WorkflowEditor";
+
+/** The settings a person changed from the standard, in the catalogue's words: "Most threads per run: 200". */
+function changedSettings(step: { type: string; config?: Record<string, unknown> }, catalog: CatalogStep[] | undefined): string[] {
+  const defs = catalog?.find((c) => c.type === step.type)?.config ?? [];
+  return defs.filter((d) => step.config?.[d.key] !== undefined && step.config[d.key] !== "").map((d) => `${d.label}: ${String(step.config?.[d.key])}`);
+}
 
 function Steps({ data }: { data: AutomationDetail }) {
   const steps = data.automation.steps;
+  const catalog = useStepCatalog().data;
   return (
     <Panel>
       <PanelHeader
@@ -55,6 +67,7 @@ function Steps({ data }: { data: AutomationDetail }) {
           {steps.map((s, i) => {
             const on = stepEnabled(s);
             const does = stepDoes(s.type);
+            const settings = changedSettings(s, catalog);
             return (
               <li key={`${s.key}-${i}`} className="flex gap-4 px-5 py-4">
                 <span
@@ -81,6 +94,7 @@ function Steps({ data }: { data: AutomationDetail }) {
                     ) : null}
                   </div>
                   {does ? <p className="mt-1 text-sm text-ink-2">{does}</p> : null}
+                  {settings.length ? <p className="mt-1 text-sm text-ink-2">{settings.join(" · ")}</p> : null}
                   <p className="mt-1 text-xs text-ink-3">
                     Type <span className="font-mono">{s.type}</span>
                   </p>
@@ -97,8 +111,22 @@ function Steps({ data }: { data: AutomationDetail }) {
 function Settings({ data, canEdit }: { data: AutomationDetail; canEdit: boolean }) {
   const a = data.automation;
   const session = useSession();
-  const trigger = triggerInfo(a);
-  const noMailbox = a.trigger === "schedule" && !!session.data && !session.data.mail;
+  const navigate = useNavigate();
+  const del = useDeleteAutomation();
+  const [confirm, setConfirm] = useState(false);
+  const builtIn = !!data.built_in;
+  const needsMail = a.trigger === "new_email" || a.steps.some((s) => s.type === "sync_mail" && stepEnabled(s));
+  const noMailbox = needsMail && a.trigger !== "manual" && !!session.data && !session.data.mail;
+
+  const remove = () =>
+    del.mutate(a.id, {
+      onSuccess: () => {
+        toast.success(`Workflow deleted: ${a.name}`);
+        setConfirm(false);
+        navigate("/automations");
+      },
+    });
+
   return (
     <Panel>
       <PanelHeader title="Settings" />
@@ -110,20 +138,47 @@ function Settings({ data, canEdit }: { data: AutomationDetail; canEdit: boolean 
         <KeyValue
           labelWidth="sm"
           items={[
-            { label: "Starts", value: trigger.label, hint: trigger.hint },
+            { label: "Set to", value: configuredTrigger(a) },
             { label: "Last run", value: <LastRun run={data.runs[0]} /> },
             { label: "Runs", value: <span className="tabular">{a.runs_count}</span> },
           ]}
         />
         {noMailbox && a.enabled ? (
           <p className="rounded-lg bg-review-soft px-3 py-2 text-sm text-review">
-            No mailbox is connected, so scheduled runs do not start.{" "}
+            No mailbox is connected, so this workflow does not start by itself.{" "}
             <Link to="/settings/connections" className="font-medium underline underline-offset-2">
               Connect the mailbox
             </Link>
           </p>
         ) : null}
+        {builtIn ? (
+          <p className="text-sm text-ink-3">This workflow is built in. It can be switched off but not deleted.</p>
+        ) : canEdit ? (
+          <Button variant="quiet-danger" icon={<Trash2 />} onClick={() => setConfirm(true)} className="w-full sm:w-auto">
+            Delete workflow
+          </Button>
+        ) : null}
       </PanelBody>
+      <ConfirmDialog
+        open={confirm}
+        onOpenChange={(o) => {
+          setConfirm(o);
+          if (!o) del.reset();
+        }}
+        title={`Delete ${a.name}?`}
+        description="The workflow is removed for everyone in this workspace."
+        confirmLabel="Delete workflow"
+        variant="danger"
+        loading={del.isPending}
+        onConfirm={remove}
+      >
+        <div className="space-y-3">
+          <p className="text-base text-ink-2">
+            It will no longer run, and its past runs will no longer be listed here. This cannot be undone. To keep it for later, switch it off instead.
+          </p>
+          <InlineError error={del.error} />
+        </div>
+      </ConfirmDialog>
     </Panel>
   );
 }
@@ -202,8 +257,10 @@ function Detail({ data, id }: { data: AutomationDetail; id: string }) {
   const navigate = useNavigate();
   const run = useRunNow(id);
   const canEdit = isAdmin(useCurrentUser()?.role);
+  const [editing, setEditing] = useState(false);
   const waiting = data.runs.filter((r) => r.status === "waiting_approval");
   const gates = gateLabels(a);
+  const summary = triggerSummary(a, data.trigger_status);
 
   const start = () =>
     run.mutate(undefined, {
@@ -219,12 +276,24 @@ function Detail({ data, id }: { data: AutomationDetail; id: string }) {
       <PageHeader
         back={{ to: "/automations", label: "Automations" }}
         title={a.name}
-        status={<StatusChip info={a.enabled ? { label: "Enabled", tone: "brand" } : { label: "Paused", tone: "muted" }} size="md" />}
-        meta={a.description || undefined}
+        status={<StatusChip info={a.enabled ? { label: "Switched on", tone: "brand" } : { label: "Switched off", tone: "muted" }} size="md" />}
+        meta={
+          <>
+            {a.description ? <p>{a.description}</p> : null}
+            <TriggerStatusBlock summary={summary} className={a.description ? "mt-3" : undefined} />
+          </>
+        }
         actions={
-          <Button icon={<Play />} loading={run.isPending} onClick={start}>
-            Run now
-          </Button>
+          <>
+            <Button icon={<Play />} loading={run.isPending} onClick={start}>
+              Run now
+            </Button>
+            {canEdit && !editing ? (
+              <Button variant="secondary" icon={<Pencil />} onClick={() => setEditing(true)}>
+                Edit workflow
+              </Button>
+            ) : null}
+          </>
         }
       />
       {waiting.length ? (
@@ -241,10 +310,25 @@ function Detail({ data, id }: { data: AutomationDetail; id: string }) {
           It stopped at a step that needs a person{gates.length ? `: ${gates.join(", ")}` : ""}. Nothing moves on until someone continues it.
         </Banner>
       ) : null}
-      <div className="mb-8 flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <Steps data={data} />
-        <Settings data={data} canEdit={canEdit} />
-      </div>
+      {editing ? (
+        <div className="mb-8">
+          <WorkflowEditor
+            mode="edit"
+            automation={a}
+            status={summary}
+            onCancel={() => setEditing(false)}
+            onSaved={() => {
+              setEditing(false);
+              toast.success("Workflow saved", { description: "Run now and the schedule use the new steps from the next run." });
+            }}
+          />
+        </div>
+      ) : (
+        <div className="mb-8 flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <Steps data={data} />
+          <Settings data={data} canEdit={canEdit} />
+        </div>
+      )}
       <RunsList runs={data.runs} />
     </>
   );
@@ -265,7 +349,7 @@ export function AutomationPage() {
             </Button>
           }
         >
-          The link may be from another workspace.
+          The link may be from another workspace, or the workflow was deleted.
         </EmptyState>
       </Page>
     );

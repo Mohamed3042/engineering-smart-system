@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import type { MouseEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { cn } from "@/lib/cn";
+import { workTypeLabel } from "@/lib/labels";
 import { emailHref, projectHref } from "@/lib/routes";
 import { Checkbox, Chip, RowChevron, Table, TBody, TD, TH, THead, TR } from "@/ui";
 import type { EmailListItem } from "./api";
@@ -109,7 +110,7 @@ export function EmailTable({ items, group, selected, onToggle, onToggleAll, onUn
               </TD>
               {cols.project ? (
                 <TD className="max-w-[13rem]">
-                  <ProjectCell email={e} />
+                  <ProjectCell email={e} group={group} />
                 </TD>
               ) : null}
               {cols.unsubscribe ? (
@@ -135,10 +136,21 @@ function StateNote({ state }: { state: string }) {
   return <p className={cn("mt-1 text-xs", info.tone === "review" ? "font-medium text-review" : "text-ink-3")}>{info.label}</p>;
 }
 
-function ProjectCell({ email }: { email: EmailListItem }) {
+function ProjectCell({ email, group }: { email: EmailListItem; group: MailGroup }) {
   if (!email.project) {
-    return email.customer ? <p className="line-clamp-2 text-sm text-ink-3">{email.customer.name}</p> : <span className="text-sm text-ink-3">—</span>;
+    // Work mail without a project waits for a person; for bills and other mail that is normal, so only work says it.
+    return (
+      <div className="min-w-0">
+        {group === "work" ? <p className="text-sm text-ink-3">Not linked</p> : null}
+        {email.customer ? (
+          <p className="line-clamp-2 text-sm text-ink-3">{email.customer.name}</p>
+        ) : group !== "work" ? (
+          <span className="text-sm text-ink-3">—</span>
+        ) : null}
+      </div>
+    );
   }
+  const second = [email.customer?.name, email.project.work_type ? workTypeLabel(email.project.work_type) : null].filter(Boolean).join(" · ");
   return (
     <div className="min-w-0">
       <Link
@@ -150,7 +162,7 @@ function ProjectCell({ email }: { email: EmailListItem }) {
       >
         {email.project.name}
       </Link>
-      {email.customer ? <p className="line-clamp-1 text-xs text-ink-3">{email.customer.name}</p> : null}
+      {second ? <p className="line-clamp-1 text-xs text-ink-3">{second}</p> : null}
     </div>
   );
 }
@@ -216,7 +228,10 @@ export function EmailCards({ items, group, selected, onToggle, onUnsubscribe, ic
                     <span className="font-medium text-ink" dir={dirOf(e.project.name)}>
                       {e.project.name}
                     </span>
+                    {e.project.work_type ? <span className="text-ink-3"> · {workTypeLabel(e.project.work_type)}</span> : null}
                   </p>
+                ) : group === "work" ? (
+                  <p className="mt-2 text-sm text-ink-3">Not linked to a project</p>
                 ) : null}
               </Link>
               <ChevronRight className="mt-0.5 size-5 shrink-0 text-ink-3" aria-hidden />

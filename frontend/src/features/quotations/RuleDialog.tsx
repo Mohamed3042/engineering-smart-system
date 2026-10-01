@@ -6,13 +6,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { useCategories, useCategoryLabel } from "@/api/session";
+import { useCategories, useCategoryLabel, useWorkspace } from "@/api/session";
 import type { TemplateRule } from "@/api/types";
 import { requestKindLabel, workTypeLabel } from "@/lib/labels";
 import { Button, Checkbox, Dialog, Field, Input, Select, Switch, toast } from "@/ui";
 import { useCustomers, useInvalidate, usePapers, useSignatories, useTemplates } from "./api";
-import { ExplainedError, Reason } from "./components";
-import { matchSummary, paperModeLabel, templateName, useRoleGate } from "./lib";
+import { ExplainedError, Reason, SwitchedOffNote } from "./components";
+import { matchSummary, paperModeLabel, templateName, templateOptions, useRoleGate } from "./lib";
 
 const WORK_TYPES = [
   "supply_installation",
@@ -68,6 +68,7 @@ export function RuleDialog({
 }) {
   const invalidate = useInvalidate();
   const roleGate = useRoleGate();
+  const ws = useWorkspace();
   const familyLabel = useCategoryLabel();
   const categories = useCategories();
   const templates = useTemplates();
@@ -132,6 +133,8 @@ export function RuleDialog({
   const customerName = (id: string) =>
     id === prefill?.customer?.id ? prefill.customer.name : (customers.data?.items.find((c) => c.id === id)?.name ?? "One customer");
   const chosenTemplate = templates.data?.find((t) => t.key === f.template_key);
+  // The language the rule's quotations start in: its own, else the workspace default.
+  const ruleLanguage = f.language || ((ws.settings?.quotations?.default_language as string | undefined) ?? "en");
 
   const submit = () => {
     if (!ready) return;
@@ -243,15 +246,18 @@ export function RuleDialog({
         <fieldset className="space-y-3">
           <legend className="text-base font-semibold text-ink">Use</legend>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Template" required htmlFor="rule-template">
-              <Select
-                id="rule-template"
-                value={f.template_key}
-                placeholder="Choose a template"
-                options={(templates.data ?? []).map((t) => ({ value: t.key, label: t.label.en }))}
-                onChange={(e) => set("template_key", e.target.value)}
-              />
-            </Field>
+            <div className="space-y-2">
+              <Field label="Template" required htmlFor="rule-template">
+                <Select
+                  id="rule-template"
+                  value={f.template_key}
+                  placeholder="Choose a template"
+                  options={templateOptions(templates.data, ruleLanguage, f.template_key)}
+                  onChange={(e) => set("template_key", e.target.value)}
+                />
+              </Field>
+              <SwitchedOffNote templates={templates.data} language={ruleLanguage} current={f.template_key} rule />
+            </div>
             <Field label="Language" htmlFor="rule-language">
               <Select
                 id="rule-language"

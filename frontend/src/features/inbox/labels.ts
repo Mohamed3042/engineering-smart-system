@@ -50,6 +50,28 @@ export const STATE_FILTERS: { value: string; label: string; param?: string }[] =
   { value: "all", label: "All mail" },
 ];
 
+/** Mail intents in the order the filter offers them: work signals first. Labels come from lib/labels intentInfo(). */
+export const INTENT_FILTERS = [
+  "rfq",
+  "addendum",
+  "deadline_change",
+  "revision",
+  "reminder",
+  "clarification",
+  "award",
+  "purchase_order",
+  "invoice",
+  "offer",
+  "newsletter",
+  "notification",
+  "internal",
+  "other",
+] as const;
+
+/** Work types and request kinds a project can have (backend/ess/ai/tasks.py WORK_TYPES, REQUEST_KINDS). */
+export const WORK_TYPES = ["supply_installation", "annual_maintenance", "equipment_rental", "service_repair", "inspection_certification"];
+export const REQUEST_KINDS = ["tender_rfq", "direct_rfq", "o_and_m", "info_request", "revision"];
+
 /** Who decided the category (Email.category_source). */
 const CATEGORY_SOURCE: Record<string, string> = {
   rules: "Keyword rules",

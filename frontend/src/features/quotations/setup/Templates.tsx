@@ -306,7 +306,7 @@ function TemplateSettings({ t, lang }: { t: TemplateInfo; lang: string }) {
           disabled={Boolean(denied)}
           onChange={(v) => setF({ ...f, enabled: v })}
           label={`Offer this template in ${languageLabel(lang)}`}
-          description="Off: new quotations cannot choose it in this language. Existing quotations keep it."
+          description="Off: new quotations cannot use it in this language, and drafting picks another template and says why. Existing quotations keep it."
         />
         {area("Introduction", f.intro, (v) => setF({ ...f, intro: v }), def.intro.join("\n\n"), "tpl-intro", 4, "Separate paragraphs with an empty line.")}
 

@@ -10,14 +10,19 @@ import {
   FileSpreadsheet,
   FileText,
   FolderSearch,
+  LoaderCircle,
   PencilRuler,
+  RefreshCw,
 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { ApiError } from "@/api/client";
 import type { Blocker, NextAction, ProjectChange, ProjectFile } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { daysUntil, dueLabel, formatDate, isRtl } from "@/lib/format";
-import { Button, Chip, EmptyState, ErrorState, Page, Skeleton, Tooltip, type ButtonProps } from "@/ui";
+import { Banner, Button, Chip, EmptyState, ErrorState, Page, Skeleton, Tooltip, type ButtonProps } from "@/ui";
+import { useProjectWork, type ProjectWork } from "./api";
+import { formatElapsed, useElapsed } from "./hooks";
 import { actionButtonLabel, actionHref, dueTone } from "./lib";
 
 /* ------------------------------------------------------------------ text */
@@ -141,6 +146,73 @@ export function ChangesChip({ changes, size = "sm" }: { changes: ProjectChange[]
     <Chip tone="review" size={size} icon={<PencilRuler aria-hidden />}>
       {open.length} {open.length === 1 ? "change" : "changes"} to review
     </Chip>
+  );
+}
+
+/* ------------------------------------------------------------------ background work */
+
+function workText(w: ProjectWork): string {
+  const parts: string[] = [];
+  if (w.attachments) parts.push("Downloading attachments from the mailbox");
+  if (w.downloads.length) {
+    parts.push(w.downloads.length === 1 ? "Downloading the files of a shared link" : `Downloading the files of ${w.downloads.length} shared links`);
+  }
+  if (w.extracting) parts.push("Reading the files");
+  if (w.analyzing) parts.push("Studying the documents");
+  return parts.join(" · ");
+}
+
+/**
+ * Shown while anything runs in the background for the project: what, and for how long. The screen
+ * refreshes itself until the work is over; Refresh does it by hand.
+ */
+export function WorkStatus({ projectId, className }: { projectId: string; className?: string }) {
+  const { work, since, refresh } = useProjectWork(projectId);
+  const elapsed = useElapsed(since);
+  const [refreshing, setRefreshing] = useState(false);
+  if (!work?.busy) return null;
+  const long = (elapsed ?? 0) >= 5 * 60_000;
+  return (
+    <Banner
+      tone="neutral"
+      className={className}
+      icon={<LoaderCircle className="animate-spin" aria-hidden />}
+      title={
+        <>
+          Still working…
+          {elapsed !== null ? (
+            <>
+              {" "}
+              <span aria-live="off" className="font-normal text-ink-3 tabular">
+                ({formatElapsed(elapsed)})
+              </span>
+            </>
+          ) : null}
+        </>
+      }
+      actions={
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<RefreshCw />}
+          loading={refreshing}
+          className="w-full sm:w-auto"
+          onClick={async () => {
+            setRefreshing(true);
+            try {
+              await refresh();
+            } finally {
+              setRefreshing(false);
+            }
+          }}
+        >
+          Refresh
+        </Button>
+      }
+    >
+      {workText(work)}.{" "}
+      {long ? "This takes longer than usual. It keeps running if you leave this page." : "This page updates by itself."}
+    </Banner>
   );
 }
 

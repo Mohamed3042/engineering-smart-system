@@ -1,8 +1,9 @@
 /**
- * Shared links of a project (mockups 19, 64): the list, the download approval gate, reject /
- * mark resolved, retry, and the Add link dialog. Nothing downloads before a person approves it.
+ * Shared links of a project (mockups 19, 64): the list, the download approval gate, reject,
+ * "Mark resolved" (the files came another way: not a rejection), retry, and the Add link dialog.
+ * Nothing downloads before a person approves it.
  */
-import { Download, Ellipsis, ExternalLink, Link2, RefreshCw } from "lucide-react";
+import { Ban, CircleCheck, Download, Ellipsis, ExternalLink, Link2, RefreshCw } from "lucide-react";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { api } from "@/api/client";
@@ -35,13 +36,15 @@ import {
   Textarea,
   type MenuItem,
 } from "@/ui";
-import { markBusy, useProjectMutation, type ProjectDetail } from "../api";
+import { useProjectMutation, type ProjectDetail } from "../api";
 import { detectHost, LINK_NEEDS_DECISION, LINK_NEEDS_RECOVERY, linkSourceLabel } from "../lib";
 import { Bidi } from "../parts";
 
 export interface LinkActions {
   approve: (l: ProjectLink) => void;
+  /** A deliberate decision not to download from this link. */
   reject: (l: ProjectLink) => void;
+  /** The files came another way: asks how, then records it. Not a rejection. */
   resolve: (l: ProjectLink) => void;
   retry: (l: ProjectLink) => void;
   /** Link whose retry request is running. */
@@ -52,14 +55,11 @@ export interface LinkActions {
 export function useLinkActions(detail: ProjectDetail) {
   const p = detail.project;
   const [approving, setApproving] = useState<ProjectLink | null>(null);
-  const [rejecting, setRejecting] = useState<{ link: ProjectLink; resolve: boolean } | null>(null);
+  const [rejecting, setRejecting] = useState<ProjectLink | null>(null);
+  const [resolving, setResolving] = useState<ProjectLink | null>(null);
 
   const approve = useProjectMutation(
-    async (l: ProjectLink) => {
-      const r = await api.post<{ started: boolean }>(`/links/${encodeURIComponent(l.id)}/approve`);
-      markBusy(p.id);
-      return r;
-    },
+    (l: ProjectLink) => api.post<{ started: boolean }>(`/links/${encodeURIComponent(l.id)}/approve`),
     {
       projectId: p.id,
       invalidate: [["approvals"]],
@@ -67,21 +67,24 @@ export function useLinkActions(detail: ProjectDetail) {
       onSuccess: () => setApproving(null),
     },
   );
-  const reject = useProjectMutation(
-    ({ link }: { link: ProjectLink; resolve: boolean }) => api.post<ProjectLink>(`/links/${encodeURIComponent(link.id)}/reject`),
+  const reject = useProjectMutation((link: ProjectLink) => api.post<ProjectLink>(`/links/${encodeURIComponent(link.id)}/reject`), {
+    projectId: p.id,
+    invalidate: [["approvals"]],
+    success: (_r, l) => `Link rejected: ${l.host || "link"}`,
+    onSuccess: () => setRejecting(null),
+  });
+  const resolve = useProjectMutation(
+    ({ link, note }: { link: ProjectLink; note: string }) => api.post<ProjectLink>(`/links/${encodeURIComponent(link.id)}/resolve`, { note }),
     {
       projectId: p.id,
       invalidate: [["approvals"]],
-      success: (_r, v) => (v.resolve ? `Marked resolved: ${v.link.host || "link"}` : `Link rejected: ${v.link.host || "link"}`),
-      onSuccess: () => setRejecting(null),
+      toastErrors: false,
+      success: (_r, v) => `Obtained another way: ${v.link.host || "link"}. The project is not blocked by it any more.`,
+      onSuccess: () => setResolving(null),
     },
   );
   const retry = useProjectMutation(
-    async (l: ProjectLink) => {
-      const r = await api.post<{ started: boolean }>(`/links/${encodeURIComponent(l.id)}/retry`);
-      markBusy(p.id);
-      return r;
-    },
+    (l: ProjectLink) => api.post<{ started: boolean }>(`/links/${encodeURIComponent(l.id)}/retry`),
     {
       projectId: p.id,
       success: (r, l) => (r.started ? `Downloading again from ${l.host || "the link"}` : "This download is already running."),
@@ -90,13 +93,15 @@ export function useLinkActions(detail: ProjectDetail) {
 
   const actions: LinkActions = {
     approve: setApproving,
-    reject: (link) => setRejecting({ link, resolve: false }),
-    resolve: (link) => setRejecting({ link, resolve: true }),
+    reject: setRejecting,
+    resolve: (link) => {
+      resolve.reset();
+      setResolving(link);
+    },
     retry: (l) => retry.mutate(l),
     retrying: retry.isPending ? (retry.variables?.id ?? null) : null,
   };
 
-  const r = rejecting;
   const dialogs = (
     <>
       <ApproveLinkDialog
@@ -107,21 +112,24 @@ export function useLinkActions(detail: ProjectDetail) {
         onConfirm={() => approving && approve.mutate(approving)}
       />
       <ConfirmDialog
-        open={!!r}
+        open={!!rejecting}
         onOpenChange={(o) => !o && setRejecting(null)}
-        title={r?.resolve ? `Mark the ${r.link.host || "link"} download as resolved?` : `Reject the download from ${r?.link.host || "this link"}?`}
-        description={
-          r?.resolve
-            ? "Use this when you got these files another way, for example you uploaded them. The link stays listed as rejected and stops blocking the project."
-            : "Nothing is downloaded from this link. It stays listed as rejected; you can approve it later."
-        }
-        confirmLabel={r?.resolve ? "Mark resolved" : "Reject link"}
-        variant={r?.resolve ? "primary" : "danger"}
+        title={`Reject the download from ${rejecting?.host || "this link"}?`}
+        description="Nothing is downloaded from this link. It stays listed as rejected; you can approve it later. If you already have the files, use Mark resolved instead."
+        confirmLabel="Reject link"
+        variant="danger"
         loading={reject.isPending}
-        onConfirm={() => r && reject.mutate(r)}
+        onConfirm={() => rejecting && reject.mutate(rejecting)}
       >
-        {r ? <p className="break-all rounded-lg bg-sunken px-3 py-2 font-mono text-sm text-ink-2">{r.link.url}</p> : null}
+        {rejecting ? <p className="break-all rounded-lg bg-sunken px-3 py-2 font-mono text-sm text-ink-2">{rejecting.url}</p> : null}
       </ConfirmDialog>
+      <ResolveLinkDialog
+        link={resolving}
+        loading={resolve.isPending}
+        error={resolve.error}
+        onClose={() => setResolving(null)}
+        onSubmit={(note) => resolving && resolve.mutate({ link: resolving, note })}
+      />
     </>
   );
   return { actions, dialogs };
@@ -149,9 +157,19 @@ export function LinkOrigin({ link, detail, className }: { link: ProjectLink; det
 }
 
 function statusDetail(l: ProjectLink): string | null {
+  if (l.status === "resolved") return `Marked ${formatDateShort(l.updated_at)}`;
   if (l.status === "downloaded") return `${l.files_count} ${l.files_count === 1 ? "file" : "files"}`;
   if (l.approved_by && l.status !== "rejected") return `Approved by ${l.approved_by}${l.approved_at ? ` · ${formatDateShort(l.approved_at)}` : ""}`;
   return null;
+}
+
+/**
+ * The status of a link. "Obtained another way" (the files are here) and "Rejected" (a decision not
+ * to download) carry different icons as well as different words.
+ */
+export function LinkChip({ link }: { link: ProjectLink }) {
+  const icon = link.status === "resolved" ? <CircleCheck aria-hidden /> : link.status === "rejected" ? <Ban aria-hidden /> : undefined;
+  return <StatusChip info={linkStatusInfo(link.status)} size="sm" icon={icon} />;
 }
 
 /** Opens the shared link in the person's own browser (to download by hand). */
@@ -177,10 +195,12 @@ function linkMenu(l: ProjectLink, actions: LinkActions): MenuItem[] {
     items.push({ label: "Retry download", icon: <RefreshCw />, onSelect: () => actions.retry(l) });
   }
   items.push({ label: "Open link in browser", icon: <ExternalLink />, onSelect: () => window.open(l.url, "_blank", "noopener") });
+  // Mark resolved: the files came another way. Reject: a deliberate decision not to download.
+  if (LINK_NEEDS_DECISION.has(l.status) || LINK_NEEDS_RECOVERY.has(l.status)) {
+    items.push({ label: "Mark resolved", icon: <CircleCheck />, separatorBefore: true, onSelect: () => actions.resolve(l) });
+  }
   if (LINK_NEEDS_DECISION.has(l.status)) {
-    items.push({ label: "Reject link", danger: true, separatorBefore: true, onSelect: () => actions.reject(l) });
-  } else if (LINK_NEEDS_RECOVERY.has(l.status)) {
-    items.push({ label: "Mark resolved", separatorBefore: true, onSelect: () => actions.resolve(l) });
+    items.push({ label: "Reject link", icon: <Ban />, danger: true, onSelect: () => actions.reject(l) });
   }
   return items;
 }
@@ -276,7 +296,7 @@ export function LinksSection({
                       <LinkOrigin link={l} detail={detail} className="mt-0.5" />
                     </TD>
                     <TD>
-                      <StatusChip info={linkStatusInfo(l.status)} size="sm" />
+                      <LinkChip link={l} />
                       {statusDetail(l) ? <p className="mt-1 whitespace-nowrap text-xs text-ink-3">{statusDetail(l)}</p> : null}
                     </TD>
                     <TD className="max-w-[20rem]">
@@ -324,7 +344,7 @@ export function LinksSection({
                     footer={action ?? undefined}
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusChip info={linkStatusInfo(l.status)} size="sm" />
+                      <LinkChip link={l} />
                       {statusDetail(l) ? <span className="text-xs text-ink-3">{statusDetail(l)}</span> : null}
                     </div>
                     <a href={l.url} target="_blank" rel="noreferrer noopener" className="mt-2 block break-all text-brand-ink hover:underline">
@@ -411,6 +431,107 @@ function ApproveLinkDialog({
         </div>
       ) : null}
     </ConfirmDialog>
+  );
+}
+
+const RESOLVE_ANSWERS = ["I uploaded the files here", "The customer sent the files again", "I downloaded them from the link myself"];
+
+/**
+ * "Mark resolved": the files of this link were obtained another way. It asks how, so the record
+ * says so; the link is then listed as "Obtained another way", never as rejected.
+ */
+function ResolveLinkDialog({
+  link,
+  loading,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  link: ProjectLink | null;
+  loading: boolean;
+  error: unknown;
+  onClose: () => void;
+  onSubmit: (note: string) => void;
+}) {
+  const id = useId();
+  const [note, setNote] = useState("");
+  const [missing, setMissing] = useState(false);
+  const linkId = link?.id;
+  useEffect(() => {
+    if (linkId) {
+      setNote("");
+      setMissing(false);
+    }
+  }, [linkId]);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const text = note.trim();
+    if (!text) {
+      setMissing(true);
+      return;
+    }
+    onSubmit(text);
+  };
+  return (
+    <Dialog
+      open={!!link}
+      onOpenChange={(o) => !o && !loading && onClose()}
+      title={`Files from ${link?.host || "this link"} obtained another way`}
+      description="Use this when you have these files already. The link is listed as “Obtained another way”, not as rejected, and it stops blocking the project. Nothing is downloaded."
+      hideClose={loading}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" form={id} icon={<CircleCheck />} loading={loading}>
+            Mark resolved
+          </Button>
+        </>
+      }
+    >
+      {link ? (
+        <form id={id} onSubmit={submit} noValidate className="space-y-4">
+          <p className="break-all rounded-lg bg-sunken px-3 py-2 font-mono text-sm text-ink-2">{link.url}</p>
+          <Field
+            label="How did you get the files?"
+            required
+            htmlFor={`${id}-note`}
+            error={missing ? "Say how you got the files." : null}
+            hint="Saved with your name and the date."
+          >
+            <Textarea
+              id={`${id}-note`}
+              rows={3}
+              autoFocus
+              value={note}
+              invalid={missing}
+              onChange={(e) => {
+                setNote(e.target.value);
+                if (missing) setMissing(false);
+              }}
+              placeholder="For example: the customer sent them again by email"
+            />
+          </Field>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Common answers">
+            {RESOLVE_ANSWERS.map((answer) => (
+              <button
+                key={answer}
+                type="button"
+                onClick={() => {
+                  setNote(answer);
+                  setMissing(false);
+                }}
+                className="min-h-8 rounded-full border border-line-strong bg-surface px-3 py-1 text-left text-sm text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+              >
+                {answer}
+              </button>
+            ))}
+          </div>
+          <InlineError error={error} />
+        </form>
+      ) : null}
+    </Dialog>
   );
 }
 

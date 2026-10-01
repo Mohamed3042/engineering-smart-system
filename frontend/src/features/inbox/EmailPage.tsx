@@ -1,9 +1,11 @@
 /**
  * One message (mockup 13): the original sender and the receiving mailbox as separate fields, the
  * text, attachments and links with their status, how it was filed and why, the linked project and
- * customer, and unsubscribe behind a confirmation. Nothing here sends, replies or deletes mail.
+ * customer, and unsubscribe behind a confirmation. Mail that no project claims gets human recovery
+ * actions: file it under a project, or open a project from it. Reply and Forward hand the message to
+ * the person's own mail program; nothing here sends, replies or deletes mail.
  */
-import { Archive, ArchiveRestore, MailMinus } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowRightLeft, Clock, FolderInput, FolderPlus, MailMinus, Unlink2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
 import { isApiError } from "@/api/client";
@@ -14,6 +16,7 @@ import {
   Button,
   Chip,
   EmptyState,
+  ErrorState,
   KeyValue,
   LoadingRows,
   Page,
@@ -21,43 +24,78 @@ import {
   Panel,
   PanelBody,
   PanelHeader,
-  QueryState,
   StatusChip,
   toast,
   toastError,
 } from "@/ui";
-import { parseUnsubscribe, useEmail, useProjectParts, useUpdateEmail, type EmailDetail } from "./api";
+import { parseUnsubscribe, useEmail, useUpdateEmail, type EmailDetail } from "./api";
 import { CategoryPanel } from "./CategoryPanel";
-import { AttachmentsPanel, LinksPanel, MessagePanel, ThreadPanel } from "./EmailMessage";
+import { AttachmentsPanel, LinksPanel, MessagePanel, ThreadPanel, type FileState } from "./EmailMessage";
+import { HandOff } from "./HandOff";
 import { emailStateInfo } from "./labels";
+import { CreateProjectDialog, ProjectPickerDialog } from "./LinkDialogs";
 import { IntentLabel, dirOf, senderName } from "./parts";
 import { UnsubscribeDialog } from "./UnsubscribeDialog";
 
-function ProjectPanel({ detail }: { detail: EmailDetail }) {
-  const { email, project, customer } = detail;
+/**
+ * Where the message is filed, and how a person changes that. Unlinked work mail waits for a person,
+ * so the actions sit right beside the status (and, on a phone, ahead of the message text).
+ */
+function ProjectPanel({ detail, onFile, onCreate }: { detail: EmailDetail; onFile: () => void; onCreate: () => void }) {
+  const { email, project, customer, category } = detail;
+  const work = category?.group === "work";
   return (
-    <Panel>
+    <Panel className={!project && work ? "order-first lg:order-none" : undefined}>
       <PanelHeader title="Project and customer" />
       <PanelBody className="space-y-4">
         {project ? (
-          <div className="space-y-1.5">
-            <Link to={projectHref(project.id)} className="block break-words font-semibold text-ink hover:text-brand-ink hover:underline" dir={dirOf(project.name)}>
-              {project.name}
-            </Link>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <StatusChip info={stageInfo(project.stage)} size="sm" />
-              {project.due_date ? (
-                <span className="text-sm text-ink-2 tabular">
-                  Closes {formatDate(project.due_date)} · {dueLabel(project.due_date)}
-                </span>
-              ) : null}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Link to={projectHref(project.id)} className="block break-words font-semibold text-ink hover:text-brand-ink hover:underline" dir={dirOf(project.name)}>
+                {project.name}
+              </Link>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <StatusChip info={stageInfo(project.stage)} size="sm" />
+                {project.due_date ? (
+                  <span className="text-sm text-ink-2 tabular">
+                    Closes {formatDate(project.due_date)} · {dueLabel(project.due_date)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="secondary" size="sm">
+                <Link to={projectHref(project.id)}>Open project</Link>
+              </Button>
+              <Button variant="ghost" size="sm" icon={<ArrowRightLeft />} onClick={onFile}>
+                Move to another project
+              </Button>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-ink-2">
-            Not linked to a project yet. Work mail is linked when the mailbox scan matches it to an enquiry
-            {email.state === "needs_review" ? "; this one is waiting for a person to check it" : ""}.
-          </p>
+          <div className="space-y-3">
+            <Chip tone={work ? "review" : "neutral"} icon={work ? <Clock aria-hidden /> : <Unlink2 aria-hidden />}>
+              Not linked to a project
+            </Chip>
+            <p className="text-sm text-ink-2">
+              {work ? (
+                <>
+                  The mailbox scan did not match this message to an enquiry{email.state === "needs_review" ? ", so it is waiting for a person" : ""}. File it
+                  under an open project, or open a new project from it.
+                </>
+              ) : (
+                "This is not work mail, so it does not need a project. If it belongs to one, you can still file it."
+              )}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:flex-col">
+              <Button variant={work ? "primary" : "secondary"} icon={<FolderInput />} onClick={onFile} className="w-full sm:w-auto lg:w-full">
+                File under a project
+              </Button>
+              <Button variant="secondary" icon={<FolderPlus />} onClick={onCreate} className="w-full sm:w-auto lg:w-full">
+                Create project from this message
+              </Button>
+            </div>
+          </div>
         )}
         {customer ? (
           <KeyValue
@@ -75,7 +113,9 @@ function ProjectPanel({ detail }: { detail: EmailDetail }) {
             ]}
           />
         ) : (
-          <p className="text-sm text-ink-3">No customer on file for {email.from_email || "this sender"}.</p>
+          <p className="text-sm text-ink-3">
+            No customer on file for <span className="break-all">{email.from_email || "this sender"}</span>.
+          </p>
         )}
       </PanelBody>
     </Panel>
@@ -121,11 +161,20 @@ function UnsubscribePanel({ detail, onOpen }: { detail: EmailDetail; onOpen: () 
   );
 }
 
-function Detail({ detail, backTo }: { detail: EmailDetail; backTo: string }) {
+function Detail({
+  detail,
+  backTo,
+  refresh,
+}: {
+  detail: EmailDetail;
+  backTo: string;
+  /** The last refresh of this message: when it failed, file and link state is not shown as fact. */
+  refresh: { failed: boolean; fetching: boolean; retry: () => void };
+}) {
   const { email, thread, project } = detail;
-  const parts = useProjectParts(email.project_id);
   const update = useUpdateEmail();
   const [unsub, setUnsub] = useState(false);
+  const [dialog, setDialog] = useState<"file" | "create" | null>(null);
   const archived = email.state === "archived";
   const state = emailStateInfo(email.state);
 
@@ -137,6 +186,18 @@ function Detail({ detail, backTo }: { detail: EmailDetail; backTo: string }) {
         onError: (err) => toastError(err, "That change did not save"),
       },
     );
+
+  const files: FileState = {
+    known: !refresh.failed && Array.isArray(detail.files) && Array.isArray(detail.links),
+    files: detail.files ?? [],
+    links: detail.links ?? [],
+    hasProject: !!project,
+    projectId: project?.id ?? null,
+    emailId: email.id,
+    refreshing: refresh.fetching,
+    onRetryStatus: refresh.retry,
+    onFileUnder: () => setDialog("file"),
+  };
 
   return (
     <>
@@ -155,32 +216,29 @@ function Detail({ detail, backTo }: { detail: EmailDetail; backTo: string }) {
           </span>
         }
         meta={
-          <span className="break-words">
-            {senderName(email)} · <span className="tabular">{formatDateTime(email.date)}</span>
-          </span>
+          <>
+            <span className="break-words">
+              <bdi dir="auto">{senderName(email)}</bdi> · <span dir="ltr" className="tabular">{formatDateTime(email.date)}</span>
+            </span>
+            <HandOff email={email} className="mt-3" />
+          </>
         }
         actions={
-          <Button variant="secondary" icon={archived ? <ArchiveRestore /> : <Archive />} onClick={move} loading={update.isPending}>
+          <Button variant="secondary" icon={archived ? <ArchiveRestore /> : <Archive />} onClick={move} loading={update.isPending} className="w-full md:w-auto">
             {archived ? "Move back to inbox" : "Archive"}
           </Button>
         }
       />
 
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-        <div className="min-w-0 space-y-6">
+        <div className="contents lg:block lg:min-w-0 lg:space-y-6">
           <MessagePanel email={email} />
-          <AttachmentsPanel
-            email={email}
-            parts={{ hasProject: !!project, loading: parts.isLoading, files: parts.data?.files, links: parts.data?.links, projectId: project?.id }}
-          />
-          <LinksPanel
-            email={email}
-            parts={{ hasProject: !!project, loading: parts.isLoading, files: parts.data?.files, links: parts.data?.links, projectId: project?.id }}
-          />
+          <AttachmentsPanel email={email} state={files} />
+          <LinksPanel email={email} state={files} />
         </div>
-        <aside className="space-y-6">
+        <aside aria-label="How this message is filed" className="contents lg:block lg:space-y-6">
           <CategoryPanel detail={detail} />
-          <ProjectPanel detail={detail} />
+          <ProjectPanel detail={detail} onFile={() => setDialog("file")} onCreate={() => setDialog("create")} />
           <UnsubscribePanel detail={detail} onOpen={() => setUnsub(true)} />
         </aside>
       </div>
@@ -190,6 +248,13 @@ function Detail({ detail, backTo }: { detail: EmailDetail; backTo: string }) {
       </div>
 
       <UnsubscribeDialog target={unsub ? email : null} onOpenChange={(o) => !o && setUnsub(false)} />
+      <ProjectPickerDialog
+        detail={detail}
+        open={dialog === "file"}
+        onOpenChange={(o) => setDialog(o ? "file" : null)}
+        onCreateInstead={() => setDialog("create")}
+      />
+      <CreateProjectDialog detail={detail} open={dialog === "create"} onOpenChange={(o) => setDialog(o ? "create" : null)} />
     </>
   );
 }
@@ -223,16 +288,15 @@ export function EmailPage() {
 
   return (
     <Page>
-      <QueryState
-        query={q}
-        loading={
-          <Panel>
-            <LoadingRows rows={6} />
-          </Panel>
-        }
-      >
-        {(detail) => <Detail detail={detail} backTo={backTo} />}
-      </QueryState>
+      {q.data ? (
+        <Detail detail={q.data} backTo={backTo} refresh={{ failed: q.isRefetchError, fetching: q.isFetching, retry: () => void q.refetch() }} />
+      ) : q.isError ? (
+        <ErrorState error={q.error} onRetry={() => void q.refetch()} />
+      ) : (
+        <Panel>
+          <LoadingRows rows={6} />
+        </Panel>
+      )}
     </Page>
   );
 }

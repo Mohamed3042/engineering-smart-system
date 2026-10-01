@@ -466,3 +466,19 @@ export function useQuoteUpdated() {
 export function pdfUrl(id: string, version?: string | null): string {
   return `/api/quotations/${encodeURIComponent(id)}/pdf${version ? `?v=${encodeURIComponent(version)}` : ""}`;
 }
+
+/** GET /quotations/{id}/pages: how many pages the current PDF has (it is rendered first when stale). */
+export interface PagesInfo {
+  count: number;
+  rendered_at: string | null;
+}
+
+/** One page of the current PDF as a PNG (dpi 40 to 200). `version` changes when the PDF is rendered again. */
+export function pageUrl(id: string, page: number, dpi: number, version?: string | null): string {
+  return `/api/quotations/${encodeURIComponent(id)}/pages/${page}.png?dpi=${dpi}${version ? `&v=${encodeURIComponent(version)}` : ""}`;
+}
+
+/** A reference photo of the quotation (index into quotation.data.photos). */
+export function photoUrl(id: string, index: number, version?: string | null): string {
+  return `/api/quotations/${encodeURIComponent(id)}/photos/${index}${version ? `?v=${encodeURIComponent(version)}` : ""}`;
+}

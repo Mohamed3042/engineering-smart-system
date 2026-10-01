@@ -16,15 +16,51 @@ export interface Run extends OmitKnown<AutomationRun, "steps"> {
   steps: RunStep[];
 }
 
-/** GET /api/automations: each row carries its latest run. */
-export interface AutomationRow extends Automation {
-  last_run: Run | null;
+/**
+ * How a workflow really starts on this installation right now (backend/ess/automations/runner.py
+ * trigger_status): never more than the truth. `automatic` is false for "Manual — Run now", for a
+ * workflow that is switched off, and for one the workspace has paused.
+ */
+export interface TriggerStatus {
+  mode: "automatic" | "manual" | "off" | "paused" | string;
+  automatic: boolean;
+  label: string;
+  /** Why: "Background runs are off: the server was started without the scheduler." */
+  detail?: string;
+  next_run_at?: string;
 }
 
-/** GET /api/automations/{id}: the workflow and its 30 newest runs. */
+/** GET /api/automations: each row carries its latest run and how it starts. */
+export interface AutomationRow extends Automation {
+  last_run: Run | null;
+  trigger_status?: TriggerStatus;
+  /** Built-in workflows can be switched off but not deleted. */
+  built_in?: boolean;
+}
+
+/** GET /api/automations/{id}: the workflow, its 30 newest runs and how it starts. */
 export interface AutomationDetail {
   automation: Automation;
   runs: Run[];
+  trigger_status?: TriggerStatus;
+  built_in?: boolean;
+}
+
+/** One setting of a step, as GET /api/automations/step-catalog describes it. */
+export interface CatalogConfig {
+  key: string;
+  label: string;
+  type: "number" | "text" | "boolean" | string;
+  default?: unknown;
+}
+
+/** A step type a person can add to a workflow, with plain words. `locked` steps keep their human gate. */
+export interface CatalogStep {
+  type: string;
+  label: string;
+  description: string;
+  config?: CatalogConfig[];
+  locked?: boolean;
 }
 
 /** GET /api/runs/{id} */
@@ -83,6 +119,61 @@ export function useToggleAutomation() {
   return useMutation({
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => api.patch<Automation>(`/automations/${encodeURIComponent(id)}`, { enabled }),
     onSuccess: (_a, v) => invalidate(v.id),
+  });
+}
+
+export function useStepCatalog() {
+  return useQuery({
+    queryKey: ["automation-step-catalog"],
+    queryFn: () => api.get<CatalogStep[]>("/automations/step-catalog"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** A step as the server takes it. A step that was already in the workflow keeps its `key`; a new one has none. */
+export interface StepPayload {
+  key?: string;
+  type: string;
+  label: string;
+  enabled: boolean;
+  requires_approval: boolean;
+  config: Record<string, unknown>;
+}
+
+export interface WorkflowPayload {
+  name: string;
+  description: string;
+  trigger: "manual" | "schedule" | "new_email";
+  /** Minutes, at least 15; null unless the workflow runs on a schedule. */
+  interval_minutes: number | null;
+  steps: StepPayload[];
+  enabled?: boolean;
+}
+
+/** POST /automations: needs the admin role. Errors (name_required, steps_required, bad_step, bad_trigger) come back with a message. */
+export function useCreateAutomation() {
+  const invalidate = useInvalidateAutomations();
+  return useMutation({
+    mutationFn: (body: WorkflowPayload) => api.post<Automation>("/automations", body),
+    onSuccess: (a) => invalidate(a.id),
+  });
+}
+
+/** PATCH /automations/{id}: name, description, trigger, interval and the whole step list. The engineer review step is always kept on by the server. */
+export function useUpdateAutomation(id: string) {
+  const invalidate = useInvalidateAutomations();
+  return useMutation({
+    mutationFn: (body: Partial<WorkflowPayload>) => api.patch<Automation>(`/automations/${encodeURIComponent(id)}`, body),
+    onSuccess: () => invalidate(id),
+  });
+}
+
+/** DELETE /automations/{id}: custom workflows only (409 built_in otherwise). */
+export function useDeleteAutomation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del<{ deleted: boolean }>(`/automations/${encodeURIComponent(id)}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["automations"] }),
   });
 }
 

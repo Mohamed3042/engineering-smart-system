@@ -1,9 +1,12 @@
 /**
  * Approval and sending: the unmet conditions next to Approve, and the gates as ConfirmDialogs that
  * name the exact revision (approve, request changes, send, create revision). History of decisions.
+ *
+ * `useApprovalFlow` owns the actions and dialogs once per editor; the approval card and the sticky bar
+ * on phones both show the same next step from it.
  */
 import { useMutation } from "@tanstack/react-query";
-import { Check, CircleCheck, CircleX, ExternalLink, GitBranch, Mail, PenOff, Send } from "lucide-react";
+import { Check, CircleCheck, CircleX, Eye, ExternalLink, GitBranch, Mail, PenOff, Send } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { api } from "@/api/client";
@@ -11,12 +14,11 @@ import { useCurrentUser, useSession, useWorkspace } from "@/api/session";
 import type { Approval } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { formatDate, formatDateTime, isRtl } from "@/lib/format";
-import { quotationHref } from "@/lib/routes";
+import { quotationHref, quotationPreviewHref } from "@/lib/routes";
 import {
   Banner,
   Button,
   ChoiceCards,
-  CollapsibleSection,
   ConfirmDialog,
   Dialog,
   Field,
@@ -30,20 +32,28 @@ import {
   toast,
   type TimelineItem,
 } from "@/ui";
-import { pdfUrl, useInvalidate, useQuotations, useQuoteUpdated, quoteKeys, type Quote, type QuoteDetail, type SendResult } from "../api";
-import { ExplainedError, GateList, QuoteStatusChip, Reason } from "../components";
+import { pdfUrl, useInvalidate, useQuotations, useQuoteUpdated, quoteKeys, type ApprovalBlocker, type Quote, type QuoteDetail, type SendResult } from "../api";
+import { ExplainedError, GateList, ImpactChip, QuoteStatusChip, Reason } from "../components";
 import {
   blockerGates,
   blockersOf,
+  CONNECTIONS_SETTINGS,
   describeApproval,
   EMAIL_RE,
+  mailboxGate,
   money,
   pdfFileName,
+  pendingTermChanges,
   revisionLabel,
   splitAddresses,
   totals,
   useRoleGate,
+  type Gate,
+  type JumpFocus,
+  type MailboxGate,
 } from "../lib";
+import { EditorSection } from "./sections";
+import type { DraftLine } from "./useDraft";
 
 /** The newest revision of the same enquiry, for a superseded quotation. */
 function useCurrentRevision(q: Quote) {
@@ -55,18 +65,84 @@ function useCurrentRevision(q: Quote) {
 
 const DRAFT_NOTICE =
   "Draft PDFs carry no signature and no stamp. An empty signature space means the quotation is not signed off yet.";
+const DRAFT_NOTICE_SHORT = "Drafts carry no signature and no stamp: an empty signature space means not signed off.";
 
-export function ApprovalPanel({
+/* ------------------------------------------------------------------ the next step */
+
+/** The one thing to do next: shown on the approval card and, on phones, on the sticky bar. */
+export interface NextStep {
+  key: string;
+  /** Button text. */
+  label: string;
+  /** Shorter text for the narrow bar. */
+  short?: string;
+  /** Opens another screen. */
+  to?: string;
+  /** Scrolls to a section of this page (and into an empty field). */
+  jump?: { id: string; focus?: JumpFocus };
+  /** Does it here. */
+  run?: () => void;
+  loading?: boolean;
+}
+
+/** Short button texts for the narrow bar (the full text stays as the accessible name). */
+const SHORT_LABEL: Record<string, string> = {
+  "Enter quantities": "Quantities",
+  "Decide the terms": "Decide terms",
+  "Open engineering review": "Review",
+  "Review the revision": "Review",
+  "Submit for approval": "Submit",
+  "Save changes": "Save",
+  "Send quotation": "Send",
+  "Connect a mailbox": "Connect",
+};
+
+function step(key: string, label: string, how: Pick<NextStep, "to" | "jump" | "run" | "loading">): NextStep {
+  return { key, label, short: SHORT_LABEL[label], ...how };
+}
+
+/** A checklist row's fix link as a step. */
+function stepFromFix(fix: NonNullable<Gate["fix"]>): NextStep {
+  return fix.to.startsWith("#")
+    ? step(fix.label, fix.label, { jump: { id: fix.to.slice(1), focus: fix.focus } })
+    : step(fix.label, fix.label, { to: fix.to });
+}
+
+export interface ApprovalFlow {
+  q: Quote;
+  rev: string;
+  blockers: ApprovalBlocker[];
+  gates: Gate[];
+  mailbox: MailboxGate;
+  /** The one next step, or null when nothing is left for this person to do. */
+  next: NextStep | null;
+  /** One short line about where the quotation stands, with its tone. */
+  state: { text: string; tone: "review" | "brand" | "muted" };
+  submit: { mutate: () => void; isPending: boolean; error: unknown };
+  openApprove: () => void;
+  openChanges: () => void;
+  openSend: () => void;
+  roleGate: ReturnType<typeof useRoleGate>;
+  /** The newest revision, when this one is superseded. */
+  current: ReturnType<typeof useCurrentRevision>;
+  /** The approve, request-changes and send dialogs: render them once. */
+  dialogs: ReactNode;
+}
+
+export function useApprovalFlow({
   detail,
   dirty,
-  onRevise,
-  className,
+  lines,
+  save,
+  saving,
 }: {
   detail: QuoteDetail;
   dirty: boolean;
-  onRevise: () => void;
-  className?: string;
-}) {
+  /** The lines as they are on screen (unsaved edits included). */
+  lines: DraftLine[];
+  save: () => void;
+  saving: boolean;
+}): ApprovalFlow {
   const q = detail.quotation;
   const session = useSession();
   const roleGate = useRoleGate();
@@ -74,7 +150,9 @@ export function ApprovalPanel({
   const current = useCurrentRevision(q);
   const rev = revisionLabel(q);
   const blockers = blockersOf(q, detail);
+  const gates = blockerGates(blockers, q, true);
   const n = blockers.length;
+  const mailbox = mailboxGate(session.data?.mail);
   const [approveOpen, setApproveOpen] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -87,6 +165,100 @@ export function ApprovalPanel({
     },
   });
 
+  // What is left, from the lines on screen (so a price typed a second ago counts) and the saved term decisions.
+  const live = totals(lines);
+  const termsWaiting = pendingTermChanges(q.data).length;
+
+  let next: NextStep | null = null;
+  let state: ApprovalFlow["state"] = { text: "", tone: "muted" };
+  switch (q.status) {
+    case "draft":
+    case "changes_requested":
+      next =
+        lines.length === 0
+          ? step("lines", "Add lines", { jump: { id: "line-items" } })
+          : live.missingPrice > 0
+          ? step("prices", "Enter prices", { jump: { id: "line-items", focus: "price" } })
+          : live.missingQty > 0
+            ? step("qty", "Enter quantities", { jump: { id: "line-items", focus: "qty" } })
+            : termsWaiting > 0
+              ? step("terms", "Decide the terms", { jump: { id: "term-changes" } })
+              : dirty
+                ? step("save", "Save changes", { run: save, loading: saving })
+                : step("submit", "Submit for approval", { run: () => submit.mutate(), loading: submit.isPending });
+      state = dirty
+        ? { text: "Unsaved", tone: "review" }
+        : n > 0
+          ? { text: `${n} open`, tone: "review" }
+          : { text: "All clear", tone: "brand" };
+      break;
+    case "needs_review":
+      if (n > 0 && gates[0]?.fix) next = stepFromFix(gates[0].fix);
+      else if (n === 0 && !roleGate("engineer", "Approving a quotation"))
+        next = dirty ? step("save", "Save changes", { run: save, loading: saving }) : step("approve", "Approve", { run: () => setApproveOpen(true) });
+      // The status chip already says it waits for approval.
+      state = dirty ? { text: "Unsaved", tone: "review" } : n > 0 ? { text: `${n} open`, tone: "review" } : { text: "", tone: "muted" };
+      break;
+    case "approved":
+      if (!roleGate("engineer", "Sending a quotation"))
+        next = mailbox.ready
+          ? step("send", "Send quotation", { run: () => setSendOpen(true) })
+          : step("mailbox", "Connect a mailbox", { to: CONNECTIONS_SETTINGS });
+      state = mailbox.ready ? { text: "Ready to send", tone: "brand" } : { text: "No mailbox", tone: "review" };
+      break;
+    case "sent":
+      state = { text: "Waits for the customer", tone: "muted" };
+      break;
+    case "superseded":
+      if (current) next = step("current", `Open v${current.version}`, { to: quotationHref(current.id) });
+      state = { text: "Replaced", tone: "muted" };
+      break;
+  }
+
+  const dialogs = (
+    <>
+      <ApproveDialog open={approveOpen} onOpenChange={setApproveOpen} detail={detail} />
+      <RequestChangesDialog open={changesOpen} onOpenChange={setChangesOpen} q={q} />
+      <SendDialog open={sendOpen} onOpenChange={setSendOpen} detail={detail} />
+    </>
+  );
+
+  return {
+    q,
+    rev,
+    blockers,
+    gates,
+    mailbox,
+    next,
+    state,
+    submit: { mutate: () => submit.mutate(), isPending: submit.isPending, error: submit.error },
+    openApprove: () => setApproveOpen(true),
+    openChanges: () => setChangesOpen(true),
+    openSend: () => setSendOpen(true),
+    roleGate,
+    current,
+    dialogs,
+  };
+}
+
+/* ------------------------------------------------------------------ the card */
+
+export function ApprovalPanel({
+  flow,
+  detail,
+  dirty,
+  onRevise,
+  className,
+}: {
+  flow: ApprovalFlow;
+  detail: QuoteDetail;
+  dirty: boolean;
+  onRevise: () => void;
+  className?: string;
+}) {
+  const { q, rev, blockers, gates, mailbox, roleGate, submit, current } = flow;
+  const n = blockers.length;
+
   const saveFirst = dirty ? "Save your changes first." : null;
   const checklist =
     n > 0 ? (
@@ -94,7 +266,7 @@ export function ApprovalPanel({
         <p className="text-sm font-medium text-ink">
           Before {rev} can be approved ({n} open):
         </p>
-        <GateList gates={blockerGates(blockers, q, true)} compact className="mt-1" />
+        <GateList gates={gates} compact className="mt-1" />
       </div>
     ) : (
       <p className="flex items-center gap-2 text-sm font-medium text-brand-ink">
@@ -123,13 +295,16 @@ export function ApprovalPanel({
       error = submit.error;
       body = (
         <div className="space-y-4">
-          {requestNote ?? <p className="text-sm text-ink-2">Submit it for approval when the lines, prices and terms are ready.</p>}
+          {requestNote ?? (
+            // The checklist below says what is left; phones skip the sentence.
+            <p className="text-sm text-ink-2 max-lg:hidden">Submit it for approval when the lines, prices and terms are ready.</p>
+          )}
           {checklist}
         </div>
       );
       actions = (
         <>
-          <Button className="w-full" icon={<Send />} onClick={() => submit.mutate()} loading={submit.isPending} disabled={Boolean(saveFirst)}>
+          <Button className="w-full" icon={<Send />} onClick={submit.mutate} loading={submit.isPending} disabled={Boolean(saveFirst)}>
             Submit for approval
           </Button>
           <Reason>{saveFirst ?? (n ? "You can submit now; approval stays blocked until every condition is met." : null)}</Reason>
@@ -149,11 +324,11 @@ export function ApprovalPanel({
       );
       actions = (
         <>
-          <Button className="w-full" icon={<CircleCheck />} onClick={() => setApproveOpen(true)} disabled={Boolean(reason)}>
+          <Button className="w-full" icon={<CircleCheck />} onClick={flow.openApprove} disabled={Boolean(reason)}>
             Approve {rev}
           </Button>
           <Reason>{reason}</Reason>
-          <Button variant="secondary" className="w-full" onClick={() => setChangesOpen(true)} disabled={Boolean(saveFirst)}>
+          <Button variant="secondary" className="w-full" onClick={flow.openChanges} disabled={Boolean(saveFirst)}>
             Request changes
           </Button>
         </>
@@ -161,10 +336,7 @@ export function ApprovalPanel({
       break;
     }
     case "approved": {
-      const mail = session.data?.mail;
-      const reason =
-        roleGate("engineer", "Sending a quotation") ??
-        (mail && mail.status !== "connected" ? "Connect a mailbox first (Settings, Connections)." : null);
+      const reason = roleGate("engineer", "Sending a quotation");
       body = (
         <div className="space-y-2 text-sm text-ink-2">
           <p>
@@ -182,10 +354,20 @@ export function ApprovalPanel({
       );
       actions = (
         <>
-          <Button className="w-full" icon={<Send />} onClick={() => setSendOpen(true)} disabled={Boolean(reason)}>
+          {/* Sending needs a connected mailbox: say so here, before the dialog can open. */}
+          <Button className="w-full" icon={<Send />} onClick={flow.openSend} disabled={Boolean(reason) || !mailbox.ready}>
             Send quotation
           </Button>
-          <Reason>{reason}</Reason>
+          {reason ? (
+            <Reason>{reason}</Reason>
+          ) : !mailbox.ready ? (
+            <Reason>
+              {mailbox.reason}{" "}
+              <Link to={CONNECTIONS_SETTINGS} className="font-medium text-brand-ink underline-offset-4 hover:underline">
+                Open connections
+              </Link>
+            </Reason>
+          ) : null}
           <Button variant="secondary" className="w-full" icon={<GitBranch />} onClick={onRevise}>
             Create revision
           </Button>
@@ -225,26 +407,42 @@ export function ApprovalPanel({
   const final = q.status === "approved" || q.status === "sent";
   return (
     <Panel className={className}>
-      <PanelHeader title="Approval and sending" description={`Revision ${rev}`} actions={<QuoteStatusChip q={q} />} />
+      <PanelHeader
+        className="max-lg:py-3"
+        title="Approval and sending"
+        description={<span className="max-lg:hidden">Revision {rev}</span>}
+        actions={
+          <>
+            <span className="lg:hidden">
+              <ImpactChip q={q} />
+            </span>
+            <QuoteStatusChip q={q} />
+          </>
+        }
+      />
       <PanelBody className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="min-w-0 space-y-4">
           {body}
           {!final && q.status !== "superseded" ? (
             <p className="flex items-start gap-2 text-sm text-ink-3">
               <PenOff className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {DRAFT_NOTICE}
+              <span className="lg:hidden">{DRAFT_NOTICE_SHORT}</span>
+              <span className="max-lg:hidden">{DRAFT_NOTICE}</span>
             </p>
           ) : null}
         </div>
         <div className="flex flex-col gap-2">
           {actions}
+          {/* The header buttons are not on phones: the PDF preview is one tap from here. */}
+          <Button variant="secondary" className="w-full lg:hidden" asChild>
+            <Link to={quotationPreviewHref(q.id)}>
+              <Eye className="size-[1.125rem]" aria-hidden />
+              Preview PDF
+            </Link>
+          </Button>
           <ExplainedError error={error} q={q} />
         </div>
       </PanelBody>
-
-      <ApproveDialog open={approveOpen} onOpenChange={setApproveOpen} detail={detail} />
-      <RequestChangesDialog open={changesOpen} onOpenChange={setChangesOpen} q={q} />
-      <SendDialog open={sendOpen} onOpenChange={setSendOpen} detail={detail} />
     </Panel>
   );
 }
@@ -595,7 +793,9 @@ function approvalItem(a: Approval, showRevision = true): TimelineItem {
 export function HistoryPanel({ detail }: { detail: QuoteDetail }) {
   const rows = [...detail.approvals].sort((a, b) => b.created_at.localeCompare(a.created_at));
   return (
-    <CollapsibleSection
+    <EditorSection
+      id="history"
+      collapsible="always"
       title="Approval history"
       summary={rows.length ? `${rows.length} ${rows.length === 1 ? "record" : "records"}` : "No decisions yet"}
     >
@@ -606,6 +806,6 @@ export function HistoryPanel({ detail }: { detail: QuoteDetail }) {
       ) : (
         <Timeline items={rows.map((a) => approvalItem(a))} />
       )}
-    </CollapsibleSection>
+    </EditorSection>
   );
 }

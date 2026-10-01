@@ -2,7 +2,7 @@
  * One project: header (name, references, stage), URL tabs and the nested tab screens.
  * Tabs: Overview · Enquiries · Inputs · Analysis · Review · Documents, plus /changes/:index.
  */
-import { Archive, ArchiveRestore, Ellipsis } from "lucide-react";
+import { Archive, ArchiveRestore, Ellipsis, RefreshCw } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import { api } from "@/api/client";
@@ -26,9 +26,9 @@ import {
   Textarea,
   toast,
 } from "@/ui";
-import { useProject, useProjectMutation, type ProjectDetail } from "./api";
+import { useProject, useProjectMutation, useProjectWork, type ProjectDetail } from "./api";
 import { actionHref } from "./lib";
-import { Bidi, DueDate, NextActionButton, NotFoundOrError, PanelSkeleton } from "./parts";
+import { Bidi, DueDate, NextActionButton, NotFoundOrError, PanelSkeleton, WorkStatus } from "./parts";
 
 const OverviewTab = lazy(() => import("./tabs/OverviewTab").then((m) => ({ default: m.OverviewTab })));
 const EnquiriesTab = lazy(() => import("./tabs/EnquiriesTab").then((m) => ({ default: m.EnquiriesTab })));
@@ -85,6 +85,7 @@ function ProjectFrame({ detail }: { detail: ProjectDetail }) {
   const location = useLocation();
   const navigate = useNavigate();
   const categoryLabel = useCategoryLabel();
+  const { refresh } = useProjectWork(p.id);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [reason, setReason] = useState("");
 
@@ -151,13 +152,12 @@ function ProjectFrame({ detail }: { detail: ProjectDetail }) {
                   <Ellipsis />
                 </IconButton>
               }
-              items={
+              items={[
+                { label: "Refresh", icon: <RefreshCw />, onSelect: () => void refresh() },
                 p.archived_at
-                  ? [{ label: "Restore project", icon: <ArchiveRestore />, onSelect: () => restore.mutate() }]
-                  : [
-                      { label: "Archive project", icon: <Archive />, onSelect: () => setArchiveOpen(true) },
-                    ]
-              }
+                  ? { label: "Restore project", icon: <ArchiveRestore />, onSelect: () => restore.mutate(), separatorBefore: true }
+                  : { label: "Archive project", icon: <Archive />, onSelect: () => setArchiveOpen(true), separatorBefore: true },
+              ]}
             />
           </>
         }
@@ -175,6 +175,8 @@ function ProjectFrame({ detail }: { detail: ProjectDetail }) {
           { to: projectHref(p.id, "documents"), label: "Documents", count: quotations.length },
         ]}
       />
+
+      <WorkStatus projectId={p.id} className="mb-6" />
 
       {p.archived_at ? (
         <Banner

@@ -15,11 +15,12 @@ import {
 import type { ScopeItem } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { formatNumber, isRtl } from "@/lib/format";
-import { Button, Chip, Count, EmptyState, IconButton, Input, Menu, Panel, PanelHeader, Select, Switch, type MenuItem } from "@/ui";
+import { Button, Chip, Count, EmptyState, IconButton, Input, Menu, Select, Switch, type MenuItem } from "@/ui";
 import type { PriceHint, TemplateInfo } from "../api";
 import { EvidenceButton } from "../components";
-import { lineEvidence, lineTotal, money, parseAmount, totals } from "../lib";
+import { lineEvidence, lineItemsSummary, lineTotal, money, parseAmount, totals } from "../lib";
 import { AmountInput, AutoTextarea } from "./inputs";
+import { EditorSection } from "./sections";
 import { lineKey, type DraftLine } from "./useDraft";
 
 export const UNIT_SUGGESTIONS = ["No.", "Nos", "Set", "Lot", "Each", "Unit", "m", "m²", "Day", "Week", "Month", "Visit", "Lump sum"];
@@ -183,22 +184,25 @@ export function LineItems({
     </>
   );
 
+  const summary = lineItemsSummary(lines, currency);
   return (
-    <Panel>
-      <PanelHeader
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            {title}
-            {missing > 0 ? (
-              <Chip tone="review" size="sm" icon={<CircleDashed aria-hidden />}>
-                {missing} {missing === 1 ? "needs" : "need"} a price
-              </Chip>
-            ) : null}
-          </span>
-        }
-        description={description}
-        actions={actions}
-      />
+    <EditorSection
+      id="line-items"
+      flush
+      // On phones the lines are open only while something is left to do: a price, a quantity, or no line at all.
+      defaultOpen={lines.length === 0 || t.missingPrice > 0 || t.missingQty > 0}
+      title={title}
+      flag={
+        missing > 0 ? (
+          <Chip tone="review" size="sm" icon={<CircleDashed aria-hidden />}>
+            {missing} {missing === 1 ? "needs" : "need"} a price
+          </Chip>
+        ) : null
+      }
+      description={description}
+      summary={summary}
+      actions={actions}
+    >
       <datalist id="quote-units">
         {UNIT_SUGGESTIONS.map((u) => (
           <option key={u} value={u} />
@@ -266,7 +270,7 @@ export function LineItems({
                   const total = lineTotal(l);
                   const hint = l.catalog_id ? priceHints.get(String(l.catalog_id)) : undefined;
                   return (
-                    <tr key={l._k} id={`line-${i + 1}`} className={cn("align-top", l.optional && "bg-canvas")}>
+                    <tr key={l._k} id={`line-${i + 1}`} className={cn("scroll-mt-36 align-top", l.optional && "bg-canvas")}>
                       <td className="py-3 pl-5 pr-2 pt-5 text-sm text-ink-3 tabular">{typeof l.no === "string" && !/^\d+$/.test(l.no) ? l.no : i + 1}</td>
                       <td className="px-2 py-3">
                         {readOnly ? (
@@ -395,7 +399,7 @@ export function LineItems({
               const total = lineTotal(l);
               const hint = l.catalog_id ? priceHints.get(String(l.catalog_id)) : undefined;
               return (
-                <li key={l._k} id={`line-m-${i + 1}`} className={cn("px-4 py-4 sm:px-5", l.optional && "bg-canvas")}>
+                <li key={l._k} id={`line-m-${i + 1}`} className={cn("scroll-mt-36 px-4 py-4 sm:px-5", l.optional && "bg-canvas")}>
                   <div className="flex items-start gap-2">
                     <span className="mt-2 w-6 shrink-0 text-sm font-medium text-ink-3 tabular">{i + 1}</span>
                     <div className="min-w-0 flex-1">
@@ -568,6 +572,6 @@ export function LineItems({
           </div>
         </>
       )}
-    </Panel>
+    </EditorSection>
   );
 }

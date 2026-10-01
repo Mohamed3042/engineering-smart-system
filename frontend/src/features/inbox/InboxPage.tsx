@@ -29,13 +29,23 @@ import { groupCount, useEmails, useInboxSummary, type EmailQuery } from "./api";
 import { BulkBar } from "./BulkBar";
 import { Candidates } from "./Candidates";
 import { EmailCards, EmailTable } from "./EmailList";
+import { MoreFilters, type ExtraFilters } from "./Filters";
 import { GROUP_HINT, GROUP_LABEL, MAIL_GROUPS, STATE_FILTERS, isMailGroup, type MailGroup } from "./labels";
 import { UnsubscribeDialog, type UnsubscribeTarget } from "./UnsubscribeDialog";
 import { VisibilityDrawer } from "./VisibilityDrawer";
 
 const PAGE_SIZE = 50;
 
-type Patch = Partial<Record<"group" | "category" | "state" | "q" | "sort" | "hidden" | "page", string | number | boolean | null>>;
+type Patch = Partial<
+  Record<"group" | "category" | "state" | "q" | "sort" | "hidden" | "page" | "intent" | "work_type" | "unlinked", string | number | boolean | null>
+>;
+
+/** A comma list from the address, kept to plain keys (letters, digits, underscore). */
+const keyList = (value: string | null) =>
+  (value ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter((x) => /^[a-z0-9_]+$/i.test(x));
 
 /** Filters live in the URL, so the list survives going back from a message and can be shared. */
 function useInboxFilters() {
@@ -45,6 +55,9 @@ function useInboxFilters() {
   const f = {
     group: (isMailGroup(g) ? g : "work") as MailGroup,
     category: (params.get("category") ?? "").split(",").filter(Boolean),
+    intent: keyList(params.get("intent")),
+    workType: keyList(params.get("work_type")),
+    unlinked: params.get("unlinked") === "1",
     state: s && STATE_FILTERS.some((x) => x.value === s) ? s : "open",
     q: params.get("q") ?? "",
     sort: params.get("sort") === "oldest" ? "oldest" : "newest",
@@ -111,6 +124,9 @@ export function InboxPage() {
     page: f.page,
     page_size: PAGE_SIZE,
     include_hidden: f.hidden || undefined,
+    intent: f.intent.join(",") || undefined,
+    work_type: f.workType.join(",") || undefined,
+    unlinked: f.unlinked || undefined,
   };
   const emails = useEmails(query);
   const items = emails.data?.items ?? [];
@@ -123,12 +139,21 @@ export function InboxPage() {
   const groupCats = groupInfo?.categories ?? [];
   const chipCats = groupCats.filter((c) => c.count > 0 && (c.visible || f.hidden || groupHidden || f.category.includes(c.key)));
   const hiddenCount = groupHidden ? 0 : groupCats.filter((c) => !c.visible).reduce((n, c) => n + c.count, 0);
-  const anyFilter = !!f.q || f.category.length > 0 || f.state !== "open";
+  const anyFilter = !!f.q || f.category.length > 0 || f.state !== "open" || f.intent.length > 0 || f.workType.length > 0 || f.unlinked;
   const clearFilters = () => {
     pushedQ.current = "";
     setQInput("");
-    update({ q: "", category: "", state: "open" });
+    update({ q: "", category: "", state: "open", intent: "", work_type: "", unlinked: false });
   };
+  // Work type belongs to the project a message is filed under, so it cannot go together with "not linked".
+  const setExtra = (p: Partial<ExtraFilters>) =>
+    update({
+      ...(p.intent !== undefined ? { intent: p.intent.join(",") } : {}),
+      ...(p.workType !== undefined ? { work_type: p.workType.join(",") } : {}),
+      ...(p.unlinked !== undefined ? { unlinked: p.unlinked } : {}),
+      ...(p.unlinked ? { work_type: "" } : {}),
+      ...(p.workType?.length ? { unlinked: false } : {}),
+    });
 
   const onToggle = (id: string, on: boolean) =>
     setSelected((cur) => {
@@ -178,7 +203,7 @@ export function InboxPage() {
         </Button>
       }
     >
-      Try a shorter search, another category, or choose All mail in the filter next to the search box.
+      Try a shorter search, fewer filters, or choose All mail in the filter next to the search box.
     </EmptyState>
   ) : (
     <EmptyState icon={<InboxIcon />} title={`No ${GROUP_LABEL[f.group].toLowerCase()} mail`}>
@@ -253,6 +278,13 @@ export function InboxPage() {
           ) : null}
         </div>
       ) : null}
+
+      <MoreFilters
+        className="mt-3"
+        value={{ intent: f.intent, workType: f.workType, unlinked: f.unlinked }}
+        onChange={setExtra}
+        total={emails.data?.total}
+      />
 
       <div className="mt-5">
         {f.group === "promotions" && !f.q && summary.data ? (

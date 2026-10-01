@@ -6,9 +6,9 @@ import { CalendarClock, Ellipsis, FilePlus2, History, MessageSquareReply, UsersR
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "@/api/client";
-import type { Evidence, Quotation } from "@/api/types";
+import type { Quotation } from "@/api/types";
 import { cn } from "@/lib/cn";
-import { formatDate, formatDateShort, formatDateTime, humanize } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { customerResponseInfo, enquiryStatusInfo, quotationStatusInfo } from "@/lib/labels";
 import { customerHref, quotationHref } from "@/lib/routes";
 import {
@@ -37,22 +37,12 @@ import {
   type MenuItem,
 } from "@/ui";
 import { useProjectMutation, type EnquiryRow } from "../api";
-import { withSource } from "../lib";
+import { historySource, replacedDates, withSource } from "../lib";
 import { Bidi, DueDate } from "../parts";
 import type { TabProps } from "../ProjectLayout";
 
 const RESPONSES = ["none", "awaiting", "clarification", "accepted", "rejected"];
 const NEEDS_NOTE = new Set(["accepted", "rejected", "clarification"]);
-
-/** One replaced closing date: `value` is the earlier date; the rest says when, by whom and why it changed. */
-interface HistoryEntry {
-  value?: string | null;
-  changed_at?: string;
-  confirmed_by?: string;
-  source?: string;
-  note?: string;
-  evidence?: Evidence;
-}
 
 export function EnquiriesTab({ detail }: TabProps) {
   const p = detail.project;
@@ -314,16 +304,9 @@ function OurStatus({ e }: { e: EnquiryRow }) {
   );
 }
 
-/** Where an earlier date was replaced: "changed 29 Sep by Sarah". */
-function historySource(h: HistoryEntry): string {
-  const when = h.changed_at ? `changed ${formatDateShort(h.changed_at)}` : null;
-  const who = h.confirmed_by ? `by ${h.confirmed_by}` : h.source ? `by ${humanize(h.source)}` : null;
-  return [when, who].filter(Boolean).join(" ") || "earlier date";
-}
-
 function ClosingDate({ e, detail }: { e: EnquiryRow; detail: TabProps["detail"] }) {
-  // Each history entry holds a date that was replaced, newest last.
-  const earlier = ((e.due_date_history ?? []) as HistoryEntry[]).filter((h) => h.value && h.value !== e.due_date).reverse();
+  // Each history entry holds a date that was replaced, newest first.
+  const earlier = replacedDates(e);
   const withQuotes = earlier.some((h) => h.evidence?.quote || h.note);
   return (
     <div className="flex items-start gap-1">

@@ -3,6 +3,7 @@
  * and the query hooks / mutation helper every screen in this folder shares.
  */
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef } from "react";
 import { api } from "@/api/client";
 import type {
   Activity,
@@ -132,22 +133,94 @@ export interface BoqRow {
   row?: number;
   sheet?: string;
   page?: number;
+  /** For a file inside a ZIP: its path in the archive ("Tender/Drawings-and-specs.pdf"). */
+  source?: string | null;
 }
 
-/* ------------------------------------------------------------------ polling */
+/* ------------------------------------------------------------------ background work */
+
+/** GET /api/projects/{id}/work: what is still running for a project. */
+export interface ProjectWork {
+  attachments: boolean;
+  /** Ids of the links being downloaded. */
+  downloads: string[];
+  extracting: boolean;
+  analyzing: boolean;
+  busy: boolean;
+}
 
 /**
- * Background jobs (attachment fetch, extraction, link download) report no status of their own;
- * after starting one the project is polled for a while so new files and states show up.
+ * Downloads, reading files and the analysis run in the background for as long as they need. The
+ * work status is asked for every few seconds while something runs and the project is refreshed with
+ * it; when nothing runs any more the polling stops and the project is refreshed one last time.
  */
-const busyUntil = new Map<string, number>();
+const WORK_POLL_MS = 3_000;
+const PROJECT_POLL_MS = 5_000;
 
-export function markBusy(projectId: string, ms = 45_000) {
-  busyUntil.set(projectId, Date.now() + ms);
+const workKey = (id: string | undefined) => ["project-work", id] as const;
+
+/** When each project was first seen busy: how long it has been working. */
+const busySince = new Map<string, number>();
+/** When a project was last refreshed because its work ended (several screens watch the same project). */
+const refreshedAfterWork = new Map<string, number>();
+
+/** What a finished piece of work changes. */
+const afterWorkKeys = (projectId: string): QueryKey[] => [
+  ["project", projectId],
+  ["file"],
+  ["projects"],
+  ["dashboard"],
+  ["notifications"],
+  ["quotations"],
+];
+
+export function useProjectWork(projectId: string | undefined) {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: workKey(projectId),
+    queryFn: async () => {
+      const work = await api.get<ProjectWork>(`/projects/${encodeURIComponent(projectId ?? "")}/work`);
+      if (projectId) {
+        if (!work.busy) busySince.delete(projectId);
+        else if (!busySince.has(projectId)) busySince.set(projectId, Date.now());
+      }
+      return work;
+    },
+    enabled: !!projectId,
+    staleTime: 0,
+    refetchInterval: (q) => (q.state.data?.busy ? WORK_POLL_MS : false),
+  });
+
+  // busy -> idle: the work is over, so show what it did
+  const busy = query.data?.busy;
+  const wasBusy = useRef(busy);
+  useEffect(() => {
+    if (projectId && wasBusy.current && busy === false && Date.now() - (refreshedAfterWork.get(projectId) ?? 0) > 2_000) {
+      refreshedAfterWork.set(projectId, Date.now());
+      for (const queryKey of afterWorkKeys(projectId)) void qc.invalidateQueries({ queryKey });
+    }
+    wasBusy.current = busy;
+  }, [busy, projectId, qc]);
+
+  /** Manual refresh: the project and the work status, whatever they say. */
+  const refresh = useCallback(async () => {
+    if (!projectId) return;
+    await Promise.all([workKey(projectId), ...afterWorkKeys(projectId)].map((queryKey) => qc.invalidateQueries({ queryKey })));
+  }, [projectId, qc]);
+
+  return {
+    work: query.data,
+    /** Timestamp of the last answer (0 before the first). */
+    checkedAt: query.dataUpdatedAt,
+    /** When the work that is running now was first seen. */
+    since: busy && projectId ? (busySince.get(projectId) ?? null) : null,
+    failed: query.isError,
+    refresh,
+  };
 }
 
-function needsPolling(id: string, d: ProjectDetail | undefined): boolean {
-  if ((busyUntil.get(id) ?? 0) > Date.now()) return true;
+/** Fallback when the work status cannot be read: what the project itself says is running. */
+function looksBusy(d: ProjectDetail | undefined): boolean {
   if (!d) return false;
   if ((d.project.analysis as { status?: string } | undefined)?.status === "running") return true;
   if (d.links.some((l) => l.status === "approved" || l.status === "downloading")) return true;
@@ -164,11 +237,12 @@ export function useProjectList(params: { include_archived?: boolean } = {}) {
 }
 
 export function useProject(id: string | undefined) {
+  const { work, failed } = useProjectWork(id);
   return useQuery({
     queryKey: ["project", id],
     queryFn: () => api.get<ProjectDetail>(`/projects/${encodeURIComponent(id ?? "")}`),
     enabled: !!id,
-    refetchInterval: (q) => (id && needsPolling(id, q.state.data) ? 2500 : false),
+    refetchInterval: (q) => (work?.busy || (failed && looksBusy(q.state.data)) ? PROJECT_POLL_MS : false),
   });
 }
 
@@ -219,9 +293,18 @@ export function useTeam(enabled = true) {
 
 /* ------------------------------------------------------------------ mutations */
 
-/** Keys to refresh after a change to one project. */
+/**
+ * Keys to refresh after a change to one project. The work status is one of them: a change often
+ * starts a background job, and the screen then waits for it.
+ */
 export function projectKeys(projectId?: string, extra: QueryKey[] = []): QueryKey[] {
-  return [...(projectId ? [["project", projectId] as QueryKey] : []), ["projects"], ["dashboard"], ["notifications"], ...extra];
+  return [
+    ...(projectId ? ([["project", projectId], workKey(projectId)] as QueryKey[]) : []),
+    ["projects"],
+    ["dashboard"],
+    ["notifications"],
+    ...extra,
+  ];
 }
 
 export interface ProjectMutationOptions<TVars, TResult> {

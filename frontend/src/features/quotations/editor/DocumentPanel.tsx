@@ -2,8 +2,11 @@
  * How the PDF looks: template and language, company paper (full letterhead or pre-printed body
  * only), signatory (with or without a signature image) and the company stamp, per page.
  * Choices are part of the working copy and saved with "Save changes".
+ *
+ * Templates the company switched off stay in the picker as unavailable, with the reason and a link to
+ * Quotation setup; the placement dialog shows the real pages of the PDF.
  */
-import { BookmarkPlus, CircleAlert, Signature, Trash2 } from "lucide-react";
+import { BookmarkPlus, CircleAlert, Signature, Trash2, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
@@ -14,18 +17,31 @@ import {
   Field,
   IconButton,
   Input,
-  Panel,
-  PanelBody,
-  PanelHeader,
   Segmented,
   Select,
   Switch,
   toast,
 } from "@/ui";
 import { usePapers, useSignatories, type Quote, type StampPlacement, type StampSettings, type TemplateInfo } from "../api";
-import { PaperSchematic } from "../components";
-import { languageLabel, paperModeLabel, parseAmount, templateDefaults, templateName, termChanges, termStatus } from "../lib";
+import { dotted, PaperSchematic, SwitchedOffNote } from "../components";
+import {
+  isTemplateFallback,
+  languageLabel,
+  PAPERS_SETUP,
+  paperModeLabel,
+  parseAmount,
+  signatoryLabel,
+  templateDefaults,
+  templateEnabled,
+  templateName,
+  templateOptions,
+  termChanges,
+  termStatus,
+} from "../lib";
+import { PageStage, type StampMark } from "./PagePreview";
 import type { AreaProps } from "./QuotationArea";
+import { EditorSection } from "./sections";
+import type { Draft } from "./useDraft";
 
 const mm = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
 
@@ -60,27 +76,58 @@ export function stampSummary(s: StampSettings): string {
   return [show ? `On every page, at ${where}` : "Not printed on the pages", ...pageNotes].join(" · ");
 }
 
+/* ------------------------------------------------------------------ what the choices are */
+
+/** The template, paper and signatory the working copy points at, with one line that says so. */
+export function useDocumentChoices(d: Draft, templates: TemplateInfo[] | undefined) {
+  const papers = usePapers();
+  const sigs = useSignatories();
+  const template = templates?.find((t) => t.key === d.template_key);
+  const paperList = papers.data?.items ?? [];
+  const defaultPaperId = papers.data?.default ?? null;
+  const paperId = d.data.paper_id || defaultPaperId;
+  const paper = paperList.find((p) => p.id === paperId);
+  const sigList = sigs.data ?? [];
+  const sig = sigList.find((s) => s.id === d.signatory_id) ?? (d.signatory_id ? undefined : sigList.find((s) => s.is_default));
+  const templateOff = Boolean(template) && !templateEnabled(template as TemplateInfo, d.language);
+  const summary = dotted([
+    templateName(templates, d.template_key),
+    languageLabel(d.language),
+    paper ? <bdi>{paper.name}</bdi> : paperList.length || papers.isLoading ? null : "Specimen letterhead",
+    sig ? <bdi>{signatoryLabel(sig)}</bdi> : null,
+  ]);
+  return { papers, sigs, template, paperList, defaultPaperId, paperId, paper, sigList, sig, templateOff, summary };
+}
+
+export type DocumentChoices = ReturnType<typeof useDocumentChoices>;
+
+/* ------------------------------------------------------------------ panel */
+
 export function DocumentPanel({
   q,
   draft,
   readOnly,
   templates,
+  templatesError,
   currency,
+  choices,
   onSaveRule,
+  onEditStamp,
 }: {
   q: Quote;
   draft: AreaProps["draft"];
   readOnly: boolean;
   templates: TemplateInfo[] | undefined;
+  /** The template list could not be read. */
+  templatesError?: boolean;
   currency: string;
+  choices: DocumentChoices;
   onSaveRule: () => void;
+  onEditStamp: () => void;
 }) {
   const d = draft.draft;
   const saved = draft.base ?? d;
-  const papers = usePapers();
-  const sigs = useSignatories();
-  const [stampOpen, setStampOpen] = useState(false);
-  const template = templates?.find((t) => t.key === d.template_key);
+  const { papers, sigs, template, paperList, defaultPaperId, paper, sigList, sig, templateOff } = choices;
   const hasArabic = template ? template.languages.includes("ar") : true;
   const templateChanged = saved.template_key !== d.template_key || saved.language !== d.language;
 
@@ -104,34 +151,32 @@ export function DocumentPanel({
     });
   };
 
-  const templateOptions = (templates ?? [])
-    .filter((t) => t.key === d.template_key || t.settings?.[d.language]?.enabled !== false)
-    .map((t) => ({ value: t.key, label: `${t.label.en}${t.languages.includes("ar") ? "" : " (English only)"}` }));
-
-  const paperList = papers.data?.items ?? [];
-  const defaultPaperId = papers.data?.default ?? null;
-  const paperId = d.data.paper_id || defaultPaperId;
-  const paper = paperList.find((p) => p.id === paperId);
+  const options = templateOptions(templates, d.language, d.template_key);
   const defaultPaperName = paperList.find((p) => p.id === defaultPaperId)?.name;
-
-  const sigList = sigs.data ?? [];
-  const sig = sigList.find((s) => s.id === d.signatory_id) ?? (d.signatory_id ? undefined : sigList.find((s) => s.is_default));
-
   const stamp: StampSettings = d.data.stamp ?? {};
   const stampMissing = q.assets_status?.stamp === "missing";
+  const reason = saved.template_key === d.template_key ? q.template_reason : "";
 
   return (
-    <Panel>
-      <PanelHeader
-        title="Template, paper and signature"
-        description="How the PDF looks. Saved with the quotation."
-        actions={
-          <Button variant="ghost" size="sm" icon={<BookmarkPlus />} onClick={onSaveRule}>
-            Save as template rule
-          </Button>
-        }
-      />
-      <PanelBody className="space-y-5">
+    <EditorSection
+      id="document"
+      title="Template, paper and signature"
+      description="How the PDF looks. Saved with the quotation."
+      summary={choices.summary}
+      flag={
+        templateOff ? (
+          <Chip tone="review" size="sm" icon={<TriangleAlert aria-hidden />}>
+            Template switched off
+          </Chip>
+        ) : null
+      }
+      actions={
+        <Button variant="ghost" size="sm" icon={<BookmarkPlus />} onClick={onSaveRule}>
+          Save as template rule
+        </Button>
+      }
+    >
+      <div className="space-y-5">
         {templateChanged && !readOnly ? (
           <Banner
             tone="review"
@@ -150,12 +195,12 @@ export function DocumentPanel({
         <div className="grid gap-x-6 gap-y-6 md:grid-cols-2 xl:grid-cols-4">
           {/* Template and language */}
           <div className="space-y-3">
-            <Field label="Template" htmlFor="doc-template" hint={saved.template_key === d.template_key ? q.template_reason || undefined : "Not saved yet"}>
+            <Field label="Template" htmlFor="doc-template" hint={saved.template_key === d.template_key ? undefined : "Not saved yet"}>
               <Select
                 id="doc-template"
                 value={d.template_key}
                 disabled={readOnly}
-                options={templateOptions.length ? templateOptions : [{ value: d.template_key, label: templateName(templates, d.template_key) }]}
+                options={options.length ? options : [{ value: d.template_key, label: templateName(templates, d.template_key) }]}
                 onChange={(e) => {
                   const next = templates?.find((t) => t.key === e.target.value);
                   draft.setChoice({
@@ -165,6 +210,14 @@ export function DocumentPanel({
                 }}
               />
             </Field>
+            {templatesError ? <p className="text-sm text-block">The templates could not be read, so only this one is listed.</p> : null}
+            {reason ? (
+              <p className={isTemplateFallback(reason, templateName(templates, d.template_key)) ? "text-sm text-review" : "text-sm text-ink-3"}>
+                <span className="font-medium">Why this template: </span>
+                {reason}
+              </p>
+            ) : null}
+            <SwitchedOffNote templates={templates} language={d.language} current={d.template_key} changed={templateChanged} />
             <div className="space-y-1.5">
               <p className="text-sm font-medium text-ink">Language</p>
               {readOnly ? (
@@ -232,6 +285,11 @@ export function DocumentPanel({
                 {w}
               </p>
             ))}
+            {paperList.length > 1 ? (
+              <Link to={PAPERS_SETUP} className="inline-block text-sm font-medium text-brand-ink underline-offset-4 hover:underline">
+                Change the default paper
+              </Link>
+            ) : null}
           </div>
 
           {/* Signatory */}
@@ -286,24 +344,13 @@ export function DocumentPanel({
             />
             <p className="text-sm text-ink-3">{stampSummary(stamp)}</p>
             {stampMissing ? <p className="text-sm text-review">No stamp image is installed: PDFs print without a stamp.</p> : null}
-            <Button variant="link" size="sm" onClick={() => setStampOpen(true)}>
+            <Button variant="link" size="sm" onClick={onEditStamp}>
               {readOnly ? "View stamp placement" : "Edit stamp placement"}
             </Button>
           </div>
         </div>
-      </PanelBody>
-      <StampDialog
-        open={stampOpen}
-        onOpenChange={setStampOpen}
-        value={stamp}
-        readOnly={readOnly}
-        paperMode={paper?.mode}
-        onApply={(s) => {
-          draft.setField("stamp", s);
-          setStampOpen(false);
-        }}
-      />
-    </Panel>
+      </div>
+    </EditorSection>
   );
 }
 
@@ -317,9 +364,10 @@ interface PageRow {
   w: string;
 }
 
-function StampDialog({
+export function StampDialog({
   open,
   onOpenChange,
+  q,
   value,
   readOnly,
   paperMode,
@@ -327,6 +375,8 @@ function StampDialog({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  /** The quotation, for the real pages of its PDF. */
+  q: Quote;
   value: StampSettings;
   readOnly: boolean;
   paperMode?: string;
@@ -387,6 +437,19 @@ function StampDialog({
   const pw = parseAmount(def.w);
   const preview = px !== null && py !== null ? { x: px, y: py, width: pw ?? 36, show } : null;
   const widthOff = pw !== null && (pw < 18 || pw > 58);
+  const final = q.status === "approved" || q.status === "sent";
+
+  /** The stamp as the form has it now, on the page being shown (an approved PDF already carries the real one). */
+  const markFor = (page: number): StampMark | null => {
+    if (final) return null;
+    const row = pages.find((r) => r.page === String(page));
+    if (!(row ? row.show : show)) return null;
+    const x = parseAmount(row?.x) ?? px;
+    const y = parseAmount(row?.y) ?? py;
+    const w = parseAmount(row?.w) ?? pw;
+    return x !== null && y !== null ? { x, y, width: w ?? 36 } : null;
+  };
+
   const numberField = (label: string, v: string, set: (v: string) => void, id: string) => (
     <Field label={label} htmlFor={id}>
       <Input id={id} inputMode="decimal" value={v} disabled={readOnly} placeholder="Paper default" onChange={(e) => set(e.target.value)} />
@@ -415,16 +478,28 @@ function StampDialog({
         )
       }
     >
-      <div className="grid gap-6 sm:grid-cols-[10rem_1fr]">
-        <div className="mx-auto w-36 sm:w-full">
-          <PaperSchematic mode={paperMode} stamp={preview} label="Page layout with the stamp position" />
-          <p className="mt-2 text-xs text-ink-3">{preview ? "Custom position on every page" : "The paper's default position applies"}</p>
+      <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-4 sm:grid-cols-[13rem_minmax(0,1fr)] sm:gap-6">
+        {/* The real pages stay in view while the fields below are edited. */}
+        <div className="sticky top-0 self-start">
+          <PageStage
+            q={q}
+            enabled={open}
+            markFor={markFor}
+            fallback={
+              <div className="mx-auto w-28">
+                <PaperSchematic mode={paperMode} stamp={preview} label="Page layout with the stamp position" />
+              </div>
+            }
+          />
+          <p className="mt-2 text-xs text-ink-3">
+            {final ? "The approved PDF carries the stamp." : preview ? "The dashed circle is the stamp position." : "The paper's default position applies."}
+          </p>
         </div>
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <Switch checked={show} disabled={readOnly} onChange={setShow} label="Stamp every page" description="Pages listed below can differ." />
           <div>
             <p className="text-sm font-medium text-ink">Position on every page (millimetres)</p>
-            <div className="mt-2 grid grid-cols-3 gap-3">
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
               {numberField("From left", def.x, (x) => setDef({ ...def, x }), "stamp-x")}
               {numberField("From top", def.y, (y) => setDef({ ...def, y }), "stamp-y")}
               {numberField("Width", def.w, (w) => setDef({ ...def, w }), "stamp-w")}
@@ -465,7 +540,7 @@ function StampDialog({
                       ) : null}
                     </div>
                     {r.show ? (
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         {numberField("From left", r.x, (x) => set({ x }), `stamp-${r.page}-x`)}
                         {numberField("From top", r.y, (y) => set({ y }), `stamp-${r.page}-y`)}
                         {numberField("Width", r.w, (w) => set({ w }), `stamp-${r.page}-w`)}

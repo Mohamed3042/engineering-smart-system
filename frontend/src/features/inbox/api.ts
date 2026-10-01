@@ -10,7 +10,7 @@ import type { Attachment, Category, Customer, Email, Enquiry, OmitKnown, Project
 
 /** GET /api/emails item: the Email row without body_text, plus small joins. */
 export interface EmailListItem extends OmitKnown<Email, "body_text"> {
-  project: { id: string; name: string; service_family: string } | null;
+  project: { id: string; name: string; service_family: string; work_type?: string } | null;
   customer: { id: string; name: string } | null;
   category_label: string;
 }
@@ -71,9 +71,16 @@ export interface ThreadMessage {
   attachments: Attachment[];
 }
 
-/** GET /api/emails/{id} */
+/**
+ * GET /api/emails/{id}. `files` and `links` are what came with this message (saved attachments and
+ * registered shared links, with their transfer, extraction and review state). They are optional on
+ * purpose: when the server does not send them the page says "Status unavailable" instead of guessing.
+ */
 export interface EmailDetail {
   email: Email;
+  files?: ProjectFile[];
+  links?: ProjectLink[];
+  enquiry?: Enquiry | null;
   thread: ThreadMessage[];
   category: Category | null;
   project: Project | null;
@@ -107,7 +114,46 @@ export type EmailQuery = {
   page_size?: number;
   include_hidden?: boolean;
   thread_id?: string;
+  /** Comma list of mail intents (what the message is for). */
+  intent?: string;
+  /** Comma list of work types of the project a message is filed under. */
+  work_type?: string;
+  /** Inbound mail that is not filed under a project. */
+  unlinked?: boolean;
 };
+
+/** Row of GET /api/projects, as far as the project picker needs it. */
+export interface ProjectChoice {
+  id: string;
+  code: string;
+  name: string;
+  service_family: string;
+  stage: string;
+  customer: { id: string; name: string } | null;
+  due_date: string | null;
+  tender_no: string | null;
+  location: string | null;
+  archived_at: string | null;
+}
+
+/** Body of POST /api/emails/{id}/link: file under an existing project, or open a new one from the message. */
+export interface NewProjectSpec {
+  name: string;
+  service_family: string;
+  work_type: string;
+  request_kind: string;
+  tender_no?: string;
+  due_date?: string;
+  location?: string;
+}
+export type LinkTarget = { project_id: string } | { create: NewProjectSpec };
+
+export interface LinkResult {
+  email: Email;
+  project: Project;
+  enquiry: Enquiry | null;
+  created: boolean;
+}
 
 /* ------------------------------------------------------------------ reads */
 
@@ -128,11 +174,28 @@ export function useVisibility(enabled = true) {
   return useQuery({ queryKey: ["visibility"], queryFn: () => api.get<Visibility>("/visibility"), enabled });
 }
 
+/**
+ * A download runs in the background and reports no progress of its own, so after a retry the message
+ * is looked at again every few seconds (and while a file or link says it is downloading).
+ */
+const busyUntil = new Map<string, number>();
+
+export function markEmailBusy(id: string, ms = 45_000) {
+  busyUntil.set(id, Date.now() + ms);
+}
+
+function needsPolling(id: string, d: EmailDetail | undefined): boolean {
+  if ((busyUntil.get(id) ?? 0) > Date.now()) return true;
+  if (!d) return false;
+  return !!d.files?.some((f) => f.status === "downloading") || !!d.links?.some((l) => l.status === "downloading");
+}
+
 export function useEmail(id: string) {
   return useQuery({
     queryKey: ["email", id],
     queryFn: () => api.get<EmailDetail>(`/emails/${encodeURIComponent(id)}`),
     enabled: !!id,
+    refetchInterval: (q) => (id && needsPolling(id, q.state.data) ? 2500 : false),
   });
 }
 
@@ -146,15 +209,15 @@ export function useProjectEnquiries(projectId: string | null | undefined) {
 }
 
 /**
- * Links and saved files of the project an email belongs to: this is what says whether a link was
- * downloaded or an attachment saved. Same request and cache key as the project page.
+ * Open (not archived) projects, for filing a message under one. Same request and cache key as the
+ * project list, so the list opens at once when the Projects page was visited.
  */
-export function useProjectParts(projectId: string | null | undefined) {
+export function useProjectChoices(enabled: boolean) {
   return useQuery({
-    queryKey: ["project", projectId],
-    queryFn: () => api.get<{ links: ProjectLink[]; files: ProjectFile[] }>(`/projects/${encodeURIComponent(projectId ?? "")}`),
-    enabled: !!projectId,
-    staleTime: 30_000,
+    queryKey: ["projects", {}],
+    queryFn: () => api.get<{ items: ProjectChoice[]; total: number }>("/projects", {}),
+    enabled,
+    staleTime: 15_000,
   });
 }
 
@@ -177,6 +240,40 @@ export function useUpdateEmail() {
     mutationFn: ({ id, patch }: { id: string; patch: EmailPatch }) =>
       api.patch<Email>(`/emails/${encodeURIComponent(id)}`, patch),
     onSettled: () => invalidate(),
+  });
+}
+
+/**
+ * A person files a message under a project, or opens a new project from it (POST /emails/{id}/link).
+ * The whole conversation follows, with the sender's enquiry, attachments and shared links; filing
+ * non-work mail also corrects its category. Everything that shows mail or projects is refreshed.
+ */
+export function useLinkEmail() {
+  const invalidate = useInvalidateMail();
+  return useMutation({
+    mutationFn: ({ id, target }: { id: string; target: LinkTarget }) =>
+      api.post<LinkResult>(`/emails/${encodeURIComponent(id)}/link`, target),
+    onSuccess: () => invalidate(["projects", "project", "enquiries", "customers", "customer", "approvals"]),
+  });
+}
+
+/**
+ * Try a failed download again: POST /files/{id}/retry for an attachment (or the link it came from),
+ * POST /links/{id}/retry for a shared link without files. The server starts the download in the
+ * background; the message is looked at again at once and then while it runs.
+ */
+export function useRetryDownload(emailId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ kind, id }: { kind: "file" | "link"; id: string }) =>
+      api.post<{ started: boolean }>(`/${kind === "file" ? "files" : "links"}/${encodeURIComponent(id)}/retry`),
+    onSuccess: () => {
+      markEmailBusy(emailId);
+      qc.invalidateQueries({ queryKey: ["email", emailId] });
+      qc.invalidateQueries({ queryKey: ["project"] });
+      // The server needs a moment to start; look again shortly, then the page polls while it runs.
+      window.setTimeout(() => qc.invalidateQueries({ queryKey: ["email", emailId] }), 1200);
+    },
   });
 }
 

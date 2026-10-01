@@ -3,6 +3,7 @@
  */
 import { useMutation } from "@tanstack/react-query";
 import {
+  ChevronDown,
   CircleAlert,
   CircleCheck,
   CircleDashed,
@@ -14,7 +15,8 @@ import {
   RotateCcw,
   TriangleAlert,
 } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Collapsible } from "radix-ui";
 import { Link } from "react-router";
 import { api } from "@/api/client";
 import type { Evidence } from "@/api/types";
@@ -22,8 +24,9 @@ import { cn } from "@/lib/cn";
 import { quotationStatusInfo } from "@/lib/labels";
 import { emailHref, fileHref } from "@/lib/routes";
 import { Button, Chip, EvidenceQuote, InlineError, Popover, Skeleton, StatusChip, sourceLabel } from "@/ui";
-import type { Quote, TermChange } from "./api";
-import { explainError, TERM_STATUS, termStatus, type Gate } from "./lib";
+import type { Quote, TemplateInfo, TermChange } from "./api";
+import { jumpTo } from "./editor/sections";
+import { explainError, languageLabel, switchedOffTemplates, TEMPLATES_SETUP, TERM_STATUS, termStatus, type Gate } from "./lib";
 
 /* ------------------------------------------------------------------ status */
 
@@ -65,7 +68,15 @@ export function GateList({ gates, className, compact }: { gates: Gate[]; classNa
             <p className="text-sm text-ink-3">{g.detail}</p>
             {g.fix ? (
               g.fix.to.startsWith("#") ? (
-                <a href={g.fix.to} className={cn(fixCls, "mt-1 inline-block")}>
+                // A link to a section of this page: open it if it is folded, scroll below the sticky bars, then focus.
+                <a
+                  href={g.fix.to}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    jumpTo(g.fix!.to.slice(1), { focus: g.fix!.focus });
+                  }}
+                  className={cn(fixCls, "mt-1 inline-block")}
+                >
                   {g.fix.label}
                 </a>
               ) : (
@@ -94,6 +105,58 @@ const termIcons = {
 export function TermStatusChip({ change, size }: { change: TermChange; size?: "sm" | "md" }) {
   const s = termStatus(change);
   return <StatusChip info={TERM_STATUS[s]} icon={termIcons[s]} size={size} />;
+}
+
+/* ------------------------------------------------------------------ templates switched off */
+
+const textLink = "font-medium text-brand-ink underline-offset-4 hover:underline";
+
+/**
+ * Says which templates the company switched off for a language: they cannot be chosen, with the reason and
+ * a link to where they are switched on again. `current` is the template the quotation already uses; it keeps
+ * working for that quotation, but a change to it is refused (`changed`).
+ */
+export function SwitchedOffNote({
+  templates,
+  language,
+  current,
+  changed,
+  rule,
+  className,
+}: {
+  templates: TemplateInfo[] | undefined;
+  language: string;
+  current?: string | null;
+  /** The template or language was changed on screen and is not saved yet. */
+  changed?: boolean;
+  /** The picker is in a template rule, not a quotation. */
+  rule?: boolean;
+  className?: string;
+}) {
+  const off = switchedOffTemplates(templates, language);
+  if (!off.length) return null;
+  const own = current ? off.find((t) => t.key === current) : undefined;
+  const others = off.filter((t) => t.key !== own?.key).map((t) => t.label.en);
+  const lang = languageLabel(language);
+  return (
+    <div className={cn("flex items-start gap-2 text-sm text-ink-2", className)}>
+      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-review" aria-hidden />
+      <p>
+        {own
+          ? rule
+            ? `${own.label.en} is switched off for ${lang} in Quotation setup. New quotations that match this rule use another template until it is switched on.`
+            : changed
+              ? `${own.label.en} is switched off for ${lang} in Quotation setup. Saving is refused until it is switched on or you choose another template.`
+              : `${own.label.en} is switched off in Quotation setup. This quotation keeps it; new quotations cannot use it.`
+          : null}
+        {own && others.length ? " " : null}
+        {others.length ? `Switched off in Quotation setup, so it cannot be chosen: ${others.join(", ")}.` : null}{" "}
+        <Link to={TEMPLATES_SETUP} className={textLink}>
+          Open Templates
+        </Link>
+      </p>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ errors */
@@ -391,6 +454,48 @@ export function FileButton({
   );
 }
 
+/**
+ * Joins short facts with a middle dot. Text a person wrote (an Arabic subject, a company name) goes in
+ * <bdi> by the caller, so it cannot reorder the English words around it.
+ */
+export function dotted(parts: (ReactNode | null | undefined | false)[]): ReactNode {
+  const items = parts.filter(Boolean);
+  return items.map((part, i) => (
+    <Fragment key={i}>
+      {i ? " · " : null}
+      {part}
+    </Fragment>
+  ));
+}
+
+/* ------------------------------------------------------------------ disclosure */
+
+/**
+ * A heading that opens and closes its content, without a frame: for explanations and details inside a
+ * card that should not be the first thing a phone shows.
+ */
+export function Disclosure({
+  title,
+  defaultOpen,
+  children,
+  className,
+}: {
+  title: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Collapsible.Root defaultOpen={defaultOpen} className={className}>
+      <Collapsible.Trigger className="group flex min-h-10 w-full items-center gap-2 rounded-md py-1 text-left text-sm font-medium text-ink-2 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-brand">
+        <ChevronDown aria-hidden className="size-4 shrink-0 text-ink-3 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
+        {title}
+      </Collapsible.Trigger>
+      <Collapsible.Content className="space-y-2 pb-1 pl-6 pt-1">{children}</Collapsible.Content>
+    </Collapsible.Root>
+  );
+}
+
 /* ------------------------------------------------------------------ facts */
 
 /** Label above value; used in header fact rows (customer, project, template...). */
@@ -399,7 +504,7 @@ export function Fact({ label, children, hint, className }: { label: ReactNode; c
     <div className={cn("min-w-0", className)}>
       <p className="text-sm text-ink-3">{label}</p>
       <div className="mt-0.5 min-w-0 break-words text-base text-ink">{children}</div>
-      {hint ? <div className="mt-0.5 text-xs text-ink-3">{hint}</div> : null}
+      {hint ? <div className="mt-0.5 text-xs text-ink-3 [overflow-wrap:anywhere]">{hint}</div> : null}
     </div>
   );
 }

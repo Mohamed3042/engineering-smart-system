@@ -6,7 +6,6 @@
 import { CircleHelp, FileSearch, Info, ListChecks, LoaderCircle, Play, RefreshCw, ScrollText } from "lucide-react";
 import { Link } from "react-router";
 import { api } from "@/api/client";
-import type { Evidence } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatRelative, humanize } from "@/lib/format";
 import type { StatusInfo } from "@/lib/labels";
@@ -14,7 +13,6 @@ import { fileHref } from "@/lib/routes";
 import {
   Button,
   EmptyState,
-  EvidenceQuote,
   KeyValue,
   Panel,
   PanelBody,
@@ -27,9 +25,9 @@ import {
   THead,
   TR,
 } from "@/ui";
-import { markBusy, useProjectMutation, type ProjectAnalysis, type ProjectDetail } from "../api";
-import { DrawingFindings, drawingPages, QtyValue } from "../fileParts";
-import { displayValue, firstEvidence, withSource } from "../lib";
+import { useProjectMutation, type ProjectAnalysis } from "../api";
+import { DrawingFindings, drawingPages, QtyValue, SourceQuote } from "../fileParts";
+import { displayValue, firstEvidence } from "../lib";
 import { Bidi } from "../parts";
 import type { TabProps } from "../ProjectLayout";
 
@@ -48,11 +46,6 @@ export function AnalysisTab({ detail }: TabProps) {
   );
 }
 
-function evidenceOf(ev: unknown, detail: ProjectDetail): Evidence | null {
-  const e = firstEvidence(ev);
-  return e ? withSource(e, detail.emails, detail.files) : null;
-}
-
 /* ------------------------------------------------------------------ status + run */
 
 function engineText(engine?: string): string | null {
@@ -69,22 +62,14 @@ function AnalysisStatus({ detail }: TabProps) {
   const unread = ready.filter((f) => f.extraction_status === "pending");
 
   const run = useProjectMutation(
-    async () => {
-      const r = await api.post<{ started: boolean; running?: boolean }>(`/projects/${encodeURIComponent(p.id)}/analyze`);
-      markBusy(p.id, 120_000);
-      return r;
-    },
+    () => api.post<{ started: boolean; running?: boolean }>(`/projects/${encodeURIComponent(p.id)}/analyze`),
     {
       projectId: p.id,
       success: (r) => (r.started ? "Analysis started. Results appear here when it finishes." : "The analysis is already running."),
     },
   );
   const extract = useProjectMutation(
-    async () => {
-      const r = await api.post<{ started: boolean }>(`/projects/${encodeURIComponent(p.id)}/extract`);
-      markBusy(p.id);
-      return r;
-    },
+    () => api.post<{ started: boolean }>(`/projects/${encodeURIComponent(p.id)}/extract`),
     {
       projectId: p.id,
       success: (r) =>
@@ -238,18 +223,19 @@ function RequirementsPanel({ detail }: TabProps) {
         {reqs.length ? (
           <KeyValue
             labelWidth="lg"
-            items={reqs.map((r) => {
-              const ev = evidenceOf(r.evidence, detail);
-              return {
-                label: <Bidi text={r.label || humanize(r.field)} />,
-                value: (
-                  <>
-                    <ValueText value={r.value} />
-                    {ev?.quote ? <EvidenceQuote evidence={ev} className="mt-2" /> : <p className="mt-1 text-xs text-ink-3">No source quoted.</p>}
-                  </>
-                ),
-              };
-            })}
+            items={reqs.map((r) => ({
+              label: <Bidi text={r.label || humanize(r.field)} />,
+              value: (
+                <>
+                  <ValueText value={r.value} />
+                  {firstEvidence(r.evidence)?.quote ? (
+                    <SourceQuote evidence={r.evidence} detail={detail} className="mt-2" />
+                  ) : (
+                    <p className="mt-1 text-xs text-ink-3">No source quoted.</p>
+                  )}
+                </>
+              ),
+            }))}
           />
         ) : (
           <EmptyState compact icon={<ScrollText />} title="No requirements yet">
@@ -289,13 +275,12 @@ function ScopePanel({ detail }: TabProps) {
               </THead>
               <TBody>
                 {items.map((s, i) => {
-                  const ev = evidenceOf(s.evidence, detail);
                   return (
                     <TR key={i}>
                       <TD className="tabular text-ink-3">{String(s.no ?? i + 1)}</TD>
                       <TD>
                         <Bidi text={s.description} as="p" className="text-ink" />
-                        {ev?.quote ? <EvidenceQuote evidence={ev} className="mt-2" /> : null}
+                        {firstEvidence(s.evidence)?.quote ? <SourceQuote evidence={s.evidence} detail={detail} className="mt-2" /> : null}
                       </TD>
                       <TD className="text-right">
                         <QtyValue qty={s.qty} />
@@ -309,7 +294,6 @@ function ScopePanel({ detail }: TabProps) {
           </div>
           <ul className="divide-y divide-line lg:hidden">
             {items.map((s, i) => {
-              const ev = evidenceOf(s.evidence, detail);
               return (
                 <li key={i} className="px-5 py-4">
                   <Bidi text={s.description} as="p" className="font-medium text-ink" />
@@ -321,7 +305,7 @@ function ScopePanel({ detail }: TabProps) {
                     <dt className="text-ink-3">Unit</dt>
                     <dd className="text-ink">{s.unit || "—"}</dd>
                   </dl>
-                  {ev?.quote ? <EvidenceQuote evidence={ev} className="mt-2" /> : null}
+                  {firstEvidence(s.evidence)?.quote ? <SourceQuote evidence={s.evidence} detail={detail} className="mt-2" /> : null}
                 </li>
               );
             })}

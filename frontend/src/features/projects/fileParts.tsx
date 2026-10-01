@@ -2,16 +2,20 @@
  * File pieces shared by the Inputs tab, the Analysis tab and the file viewer: the three separate
  * file facts, upload, mark reviewed, and what the AI read on a drawing sheet.
  */
-import { Upload } from "lucide-react";
+import { Check, Download, ExternalLink, FileSearch, Upload } from "lucide-react";
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import { api } from "@/api/client";
 import { useCurrentUser } from "@/api/session";
-import type { ProjectFile } from "@/api/types";
+import type { Evidence, ProjectFile } from "@/api/types";
+import { cn } from "@/lib/cn";
 import { formatDateShort, humanize } from "@/lib/format";
 import { extractionStatusInfo, fileStatusInfo } from "@/lib/labels";
+import { fileHref } from "@/lib/routes";
 import {
   Button,
   ConfirmDialog,
+  EvidenceQuote,
   Field,
   InlineError,
   StatusChip,
@@ -20,8 +24,8 @@ import {
   toastError,
   type ButtonProps,
 } from "@/ui";
-import { markBusy, useProjectMutation, type BoqRow } from "./api";
-import { fileReviewInfo } from "./lib";
+import { useProjectMutation, type BoqRow, type ProjectDetail } from "./api";
+import { baseName, displayValue, fileReviewInfo, firstEvidence, isPdfFile, pageNumber, readableEvidence } from "./lib";
 import { Bidi } from "./parts";
 
 /* ------------------------------------------------------------------ three facts */
@@ -72,6 +76,92 @@ export function downloadOriginal(id: string) {
   a.click();
 }
 
+const PICTURE_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  bmp: "image/bmp",
+};
+
+/** The type a browser can show in a tab: a PDF or a picture. Anything else (a spreadsheet, a ZIP) is only downloaded. */
+function viewableType(file: Pick<ProjectFile, "name" | "mime">): string | null {
+  if (isPdfFile(file)) return "application/pdf";
+  const ext = /\.([a-z0-9]+)$/i.exec(file.name)?.[1]?.toLowerCase() ?? "";
+  if (/^image\/(png|jpe?g|gif|webp|bmp)$/i.test(file.mime)) return file.mime.toLowerCase();
+  return PICTURE_TYPES[ext] ?? null;
+}
+
+/**
+ * Open the original file in a new tab. The server sends every file as a download, so a PDF or a
+ * picture is read and shown from memory (the browser's own viewer, with its own zoom). Other file
+ * types are downloaded for the computer to open.
+ */
+export async function openOriginal(file: Pick<ProjectFile, "id" | "name" | "mime">) {
+  const href = fileContentUrl(file.id);
+  const type = viewableType(file);
+  if (!type) {
+    downloadOriginal(file.id);
+    return;
+  }
+  // opened inside the click, so that pop-up blockers allow it; filled in when the file has arrived
+  const tab = window.open("", "_blank");
+  if (!tab) {
+    downloadOriginal(file.id);
+    return;
+  }
+  try {
+    tab.document.title = file.name;
+    tab.document.body.textContent = "Opening the file…";
+  } catch {
+    /* a tab that cannot be written to is still navigated below */
+  }
+  try {
+    const res = await fetch(href);
+    if (!res.ok) throw new Error(res.status === 404 ? "The file is not in the project yet." : `The server answered ${res.status}.`);
+    const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type }));
+    tab.location.replace(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 10 * 60_000);
+  } catch (error) {
+    tab.close();
+    toastError(error, "Could not open the original");
+  }
+}
+
+export function OpenOriginalButton({ file, className }: { file: ProjectFile; className?: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      variant="secondary"
+      icon={<ExternalLink />}
+      loading={busy}
+      className={className}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await openOriginal(file);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      Open original
+    </Button>
+  );
+}
+
+export function DownloadButton({ file, className }: { file: ProjectFile; className?: string }) {
+  return (
+    <Button asChild variant="secondary" className={className}>
+      <a href={fileContentUrl(file.id)} download={file.name}>
+        <Download aria-hidden />
+        Download
+      </a>
+    </Button>
+  );
+}
+
 /* ------------------------------------------------------------------ upload */
 
 /** Opens the file picker and uploads every chosen file. ZIP files are unpacked by the backend. */
@@ -96,7 +186,6 @@ export function UploadButton({
         }
       }
       if (failed.length === files.length) throw failed[0].error;
-      markBusy(projectId);
       return { added: files.length - failed.length, failed };
     },
     {
@@ -199,10 +288,170 @@ export function boqRows(f: ProjectFile): BoqRow[] {
   return Array.isArray(rows) ? (rows as BoqRow[]) : [];
 }
 
-/** "Items · row 7" / "Page 3 · row 12". */
-export function boqSource(r: BoqRow): string {
-  const where = r.sheet || (r.page ? `Page ${r.page}` : "");
-  return [where, r.row ? `row ${r.row}` : ""].filter(Boolean).join(" · ") || "—";
+/** Where a BOQ row was read, and whether that place can be opened as a page. */
+export interface BoqSource {
+  /** Plain text: "Div 11 - Equipment · row 7" for a spreadsheet, "Page 3" for a PDF. */
+  text: string;
+  /** The page of a PDF the row was read from. */
+  page?: number;
+  /** The PDF that page belongs to: this file, or a file of the project with the same name as the one inside a ZIP. */
+  target?: ProjectFile;
+  /** The file inside a ZIP that the row was read from, when that is not this file. */
+  from?: string;
+}
+
+export function boqSource(r: BoqRow, file: ProjectFile, siblings: ProjectFile[]): BoqSource {
+  const inner = r.source ? baseName(r.source) : null;
+  const sameFile = !inner || inner.toLowerCase() === file.name.toLowerCase();
+  const from = sameFile ? undefined : (r.source ?? undefined);
+  const page = pageNumber(r.page);
+  if (page) {
+    const target = sameFile ? file : siblings.find((f) => f.name.toLowerCase() === inner?.toLowerCase());
+    return { text: `Page ${page}`, page, target: target && target.status === "ready" && isPdfFile(target) ? target : undefined, from };
+  }
+  // a spreadsheet has sheets and rows, not pages: shown as text
+  const where = [r.sheet, r.row ? `row ${r.row}` : ""].filter(Boolean).join(" · ");
+  return { text: where || "—", from };
+}
+
+/**
+ * A page reference that opens the page: a button that shows it in the viewer of this screen, or a
+ * link to the page of another file. `current` marks the page that is on screen now.
+ */
+export function PageRef({
+  page,
+  to,
+  onShow,
+  current,
+  label,
+  className,
+}: {
+  page: number;
+  /** A link to the page of another file. */
+  to?: string;
+  /** Shows the page in the viewer of this screen. */
+  onShow?: () => void;
+  /** The viewer shows this page now. */
+  current?: boolean;
+  /** What the reference is for, for screen readers: "BOQ row 11.1". */
+  label?: string;
+  className?: string;
+}) {
+  const cls = cn(
+    "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-sm font-medium transition-colors",
+    current ? "border-brand-line bg-brand-soft text-brand-ink" : "border-line-strong bg-surface text-brand-ink hover:bg-hover",
+    className,
+  );
+  const content = (
+    <>
+      {current ? <Check className="size-3.5" aria-hidden /> : <FileSearch className="size-3.5" aria-hidden />}
+      Page {page}
+    </>
+  );
+  const about = label ? ` for ${label}` : "";
+  if (to) {
+    return (
+      <Link to={to} className={cls} aria-label={`Open page ${page}${about}`}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onShow} aria-current={current ? "true" : undefined} aria-label={`${current ? "Showing" : "Show"} page ${page}${about}`} className={cls}>
+      {content}
+    </button>
+  );
+}
+
+/** The source of a BOQ row: a page reference that opens the page for a PDF, plain text for a spreadsheet. */
+export function BoqSourceCell({
+  source,
+  file,
+  shownPage,
+  onShowPage,
+  label,
+}: {
+  source: BoqSource;
+  file: ProjectFile;
+  /** The page the viewer of this screen shows. */
+  shownPage?: number;
+  onShowPage?: (page: number) => void;
+  label: string;
+}) {
+  return (
+    <div className="min-w-0">
+      {source.from ? (
+        <p className="mb-1 whitespace-nowrap text-xs text-ink-3" title={source.from}>
+          {baseName(source.from)}
+        </p>
+      ) : null}
+      {source.page && source.target ? (
+        source.target.id === file.id && onShowPage ? (
+          <PageRef page={source.page} current={shownPage === source.page} label={label} onShow={() => onShowPage(source.page!)} />
+        ) : (
+          <PageRef page={source.page} label={label} to={fileHref(source.target.id, source.page)} />
+        )
+      ) : (
+        <span className="text-sm text-ink-2">{source.text}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The sentence a fact came from, with its source. A source in a PDF opens that exact page
+ * (fileHref(id, page)); a spreadsheet source stays visible text (its sheet, cell or row).
+ */
+export function SourceQuote({ evidence, detail, className }: { evidence: unknown; detail: ProjectDetail; className?: string }) {
+  const first = firstEvidence(evidence);
+  if (!first) return null;
+  const ev = readableEvidence(first, detail.emails, detail.files);
+  const file = ev.source_type === "file" ? detail.files.find((f) => f.id === ev.source_id) : undefined;
+  const page = file && isPdfFile(file) ? pageNumber(ev.page) : null;
+  const href = file && page ? fileHref(file.id, page) : undefined;
+  return (
+    <EvidenceQuote
+      evidence={ev}
+      href={href}
+      className={className}
+      action={
+        href ? (
+          <Button asChild size="sm" variant="secondary">
+            <Link to={href}>
+              <FileSearch aria-hidden />
+              Open page {page}
+            </Link>
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+}
+
+/** A project fact (requirement or scope item) whose quote was read from one file. */
+export interface SourcedFact {
+  key: string;
+  label: string;
+  value: string | null;
+  evidence: Evidence;
+}
+
+/** Requirements and scope items of the project that quote this file, in the order the project lists them. */
+export function factsFromFile(detail: ProjectDetail, file: ProjectFile): SourcedFact[] {
+  const out: SourcedFact[] = [];
+  const take = (key: string, label: string, value: string | null, raw: unknown) => {
+    const first = firstEvidence(raw);
+    if (!first) return;
+    const evidence = readableEvidence(first, detail.emails, detail.files);
+    if (evidence.source_type === "file" && evidence.source_id === file.id) out.push({ key, label, value, evidence });
+  };
+  (detail.project.requirements ?? []).forEach((r, i) =>
+    take(`requirement-${i}`, r.label || humanize(r.field), r.value === null || r.value === undefined || r.value === "" ? null : displayValue(r.value), r.evidence),
+  );
+  (detail.project.scope_items ?? []).forEach((s, i) =>
+    take(`scope-${i}`, s.description, s.qty === null || s.qty === undefined ? null : `${s.qty}${s.unit ? ` ${s.unit}` : ""}`, s.evidence),
+  );
+  return out;
 }
 
 /** A missing quantity stays visibly unknown: never 0. */

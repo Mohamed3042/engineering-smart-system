@@ -7,9 +7,10 @@ import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format";
 import { workTypeLabel } from "@/lib/labels";
 import { quotationHref } from "@/lib/routes";
-import { Button, Dialog, EmptyState, Field, InlineError, LoadingRows, SearchInput, Segmented, Select, toast } from "@/ui";
+import { Banner, Button, Dialog, EmptyState, Field, InlineError, LoadingRows, SearchInput, Segmented, Select, toast } from "@/ui";
 import { useInvalidate, useProject, useProjects, useTemplates, type Quote } from "../api";
-import { explainError } from "../lib";
+import { ExplainedError, SwitchedOffNote } from "../components";
+import { languageLabel, TEMPLATES_SETUP, templateEnabled, templateOptions } from "../lib";
 
 /** One radio row inside a bordered list. */
 function RadioRow({
@@ -130,12 +131,14 @@ export function NewQuotationDialog({
     },
   });
 
-  const explained = explainError(create.error);
-  const templateOptions = [
+  // Switched-off templates stay in the picker as unavailable: say which, and why, instead of hiding them.
+  const effectiveLanguage = language === "auto" ? defaultLanguage : language;
+  const all = templates.data ?? [];
+  const noneAnywhere = all.length > 0 && all.every((t) => t.languages.every((l) => t.settings?.[l]?.enabled === false));
+  const noneForLanguage = all.length > 0 && all.every((t) => !templateEnabled(t, effectiveLanguage));
+  const templateChoices = [
     { value: "", label: "Let the template rules choose (recommended)" },
-    ...(templates.data ?? [])
-      .filter((t) => t.settings?.[language === "auto" ? defaultLanguage : language]?.enabled !== false)
-      .map((t) => ({ value: t.key, label: `${t.label.en}${t.languages.includes("ar") ? "" : " (English only)"}` })),
+    ...templateOptions(all, effectiveLanguage, templateKey),
   ];
 
   return (
@@ -150,13 +153,27 @@ export function NewQuotationDialog({
           <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={create.isPending}>
             Cancel
           </Button>
-          <Button onClick={() => create.mutate()} disabled={!projectId} loading={create.isPending}>
+          <Button onClick={() => create.mutate()} disabled={!projectId || noneAnywhere} loading={create.isPending}>
             Create draft
           </Button>
         </>
       }
     >
       <div className="space-y-6">
+        {noneAnywhere ? (
+          <Banner
+            tone="block"
+            title="Every template is switched off"
+            actions={
+              <Button variant="secondary" size="sm" asChild>
+                <Link to={TEMPLATES_SETUP}>Open Templates</Link>
+              </Button>
+            }
+          >
+            A quotation needs one template. Switch at least one on in Quotation setup, under Templates, then start the draft.
+          </Banner>
+        ) : null}
+
         <section className="space-y-2">
           <h3 className="text-base font-semibold text-ink">Project</h3>
           <SearchInput value={search} onChange={setSearch} placeholder="Search projects" label="Search projects" />
@@ -236,9 +253,13 @@ export function NewQuotationDialog({
         ) : null}
 
         <section className="grid gap-4 sm:grid-cols-[1fr_auto]">
-          <Field label="Template" htmlFor="nq-template" hint={templateKey ? undefined : "Your template rules decide, then the project's work type."}>
-            <Select id="nq-template" value={templateKey} onChange={(e) => setTemplateKey(e.target.value)} options={templateOptions} />
-          </Field>
+          <div className="space-y-2">
+            <Field label="Template" htmlFor="nq-template" hint={templateKey ? undefined : "Your template rules decide, then the project's work type."}>
+              <Select id="nq-template" value={templateKey} onChange={(e) => setTemplateKey(e.target.value)} options={templateChoices} />
+            </Field>
+            {templates.isError ? <InlineError error={templates.error} /> : null}
+            <SwitchedOffNote templates={all} language={effectiveLanguage} />
+          </div>
           <div className="space-y-1.5">
             <p className="text-sm font-medium text-ink">Language</p>
             <Segmented
@@ -259,16 +280,21 @@ export function NewQuotationDialog({
           </div>
         </section>
 
-        {create.error ? (
-          explained ? (
-            <div role="alert" className="rounded-lg border border-block-line bg-block-soft px-4 py-3 text-sm">
-              <p className="font-semibold text-block">{explained.title}</p>
-              <p className="mt-0.5 text-ink-2">{explained.message}</p>
-            </div>
-          ) : (
-            <InlineError error={create.error} />
-          )
+        {!noneAnywhere && noneForLanguage ? (
+          <Banner
+            tone="review"
+            title={`Every template is switched off for ${languageLabel(effectiveLanguage)}`}
+            actions={
+              <Button variant="secondary" size="sm" asChild>
+                <Link to={TEMPLATES_SETUP}>Open Templates</Link>
+              </Button>
+            }
+          >
+            Choose another language, or switch a template on for {languageLabel(effectiveLanguage)} in Quotation setup.
+          </Banner>
         ) : null}
+
+        {create.error ? <ExplainedError error={create.error} /> : null}
       </div>
     </Dialog>
   );

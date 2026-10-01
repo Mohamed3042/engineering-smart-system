@@ -1,16 +1,17 @@
-import { Clock } from "lucide-react";
+import { Clock, Hand, Pause, PowerOff, Zap, type LucideIcon } from "lucide-react";
 import type { MouseEvent } from "react";
 import { Link } from "react-router";
 import type { Automation } from "@/api/types";
+import { cn } from "@/lib/cn";
 import { formatRelative } from "@/lib/format";
 import { runHref } from "@/lib/routes";
 import { Chip, StatusChip, Switch, toast, toastError } from "@/ui";
 import { useToggleAutomation, type Run } from "./api";
-import { runStateInfo, stepEnabled } from "./lib";
+import { formatNext, runStateInfo, stepEnabled, type TriggerSummary } from "./lib";
 
 export const stop = (e: MouseEvent) => e.stopPropagation();
 
-/** On / off for one workflow. The label says the state in words; changing it needs the admin role. */
+/** On / off for one workflow. The label says the state in words ("Switched on", "Switched off"); changing it needs the admin role. */
 export function EnabledSwitch({
   automation: a,
   canEdit,
@@ -28,7 +29,7 @@ export function EnabledSwitch({
       className={className}
       label={
         <>
-          {a.enabled ? "Enabled" : "Paused"}
+          {a.enabled ? "Switched on" : "Switched off"}
           <span className="sr-only"> {a.name}</span>
         </>
       }
@@ -36,12 +37,34 @@ export function EnabledSwitch({
         toggle.mutate(
           { id: a.id, enabled },
           {
-            onSuccess: () => toast.success(enabled ? `${a.name} switched on` : `${a.name} paused`),
+            onSuccess: () => toast.success(enabled ? `${a.name} switched on` : `${a.name} switched off`),
             onError: (err) => toastError(err, "The automation was not changed"),
           },
         )
       }
     />
+  );
+}
+
+const MODE_ICON: Record<string, LucideIcon> = { automatic: Zap, manual: Hand, off: PowerOff, paused: Pause };
+
+/**
+ * How the workflow starts, in the server's words, with the reason: "Manual — Run now" and why it is
+ * not automatic. Shown on desktop and phone alike. It never implies automatic processing when the
+ * server says the workflow does not start by itself.
+ */
+export function TriggerStatusBlock({ summary, className }: { summary: TriggerSummary; className?: string }) {
+  const Icon = MODE_ICON[summary.mode] ?? Hand;
+  return (
+    <div className={cn("space-y-0.5", className)}>
+      <p className="flex items-start gap-1.5 font-medium text-ink">
+        <Icon className={cn("mt-0.5 size-4 shrink-0", summary.automatic ? "text-brand" : summary.mode === "paused" ? "text-review" : "text-ink-3")} aria-hidden />
+        <span className="min-w-0 break-words">{summary.label}</span>
+      </p>
+      {summary.detail ? <p className="text-sm text-ink-3">{summary.detail}</p> : null}
+      {summary.next ? <p className="text-sm text-ink-3">Next run {formatNext(summary.next)}</p> : null}
+      {summary.setTo ? <p className="text-sm text-ink-3">Set to: {summary.setTo}</p> : null}
+    </div>
   );
 }
 

@@ -8,6 +8,11 @@ export const automationRoutes: RouteObject[] = [
     lazy: async () => ({ Component: (await import("./AutomationsPage")).AutomationsPage }),
   },
   {
+    path: "automations/new",
+    HydrateFallback: PageLoading,
+    lazy: async () => ({ Component: (await import("./NewAutomationPage")).NewAutomationPage }),
+  },
+  {
     path: "automations/runs/:runId",
     HydrateFallback: PageLoading,
     lazy: async () => ({ Component: (await import("./RunPage")).RunPage }),

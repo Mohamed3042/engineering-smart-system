@@ -1,21 +1,23 @@
 /**
  * Change review (mockups 73, 74, 75): one detected change: what it was, what it is now, the quoted
  * sentence, the affected enquiry. A pending closing-date change applies only after a person confirms
- * it; a technical revision is not covered by an earlier engineer approval.
+ * it, so the confirmed closing date and the date the customer's mail proposed are shown apart; after
+ * confirmation the date history shows who changed what. A technical revision is not covered by an
+ * earlier engineer approval.
  */
 import { ArrowDown, ArrowRight, CalendarCheck, Check, SearchX } from "lucide-react";
 import { useId, useState } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "@/api/client";
 import type { ProjectChange } from "@/api/types";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/cn";
+import { dueLabel, formatDate, formatDateShort, formatDateTime } from "@/lib/format";
 import { emailHref, projectHref } from "@/lib/routes";
 import {
   Banner,
   Button,
   ConfirmDialog,
   EmptyState,
-  EvidenceQuote,
   Field,
   KeyValue,
   Panel,
@@ -23,9 +25,12 @@ import {
   PanelHeader,
   StatusChip,
   Textarea,
+  Timeline,
+  type TimelineItem,
 } from "@/ui";
-import { useProjectMutation, type EnquiryRow } from "../api";
-import { changeKindInfo, displayValue, withSource } from "../lib";
+import { useProjectMutation, type EnquiryRow, type ProjectDetail } from "../api";
+import { SourceQuote } from "../fileParts";
+import { changeKindInfo, displayValue, historySource, replacedDates, withSource } from "../lib";
 import { Bidi } from "../parts";
 import type { TabProps } from "../ProjectLayout";
 
@@ -130,6 +135,7 @@ function ChangeView({ detail, change, index }: TabProps & { change: ProjectChang
       ) : null}
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <div className="min-w-0 space-y-6">
         <Panel className="min-w-0">
           <PanelHeader
             title={
@@ -140,7 +146,9 @@ function ChangeView({ detail, change, index }: TabProps & { change: ProjectChang
             }
             description={change.date ? `Detected ${formatDate(change.date)}` : "Detection date not recorded"}
           />
-          {hasValues && !showOld ? (
+          {deadline ? (
+            <ClosingDates detail={detail} change={change} targets={targets} pending={pending} />
+          ) : hasValues && !showOld ? (
             <div className="border-b border-line px-5 py-4">
               <p className="text-sm text-ink-3">{kind.label}</p>
               <Bidi text={displayValue(change.new_value)} as="p" className="mt-1 text-2xl font-semibold text-ink tabular" />
@@ -169,14 +177,19 @@ function ChangeView({ detail, change, index }: TabProps & { change: ProjectChang
               </div>
             </div>
           ) : null}
-          <PanelBody>
-            {ev?.quote ? (
-              <EvidenceQuote evidence={ev} />
-            ) : (
-              <p className="text-sm text-ink-3">No sentence was quoted for this change. Open the source email to check it.</p>
-            )}
-          </PanelBody>
+          {!deadline ? (
+            <PanelBody>
+              {ev?.quote ? (
+                <SourceQuote evidence={change.evidence} detail={detail} />
+              ) : (
+                <p className="text-sm text-ink-3">No sentence was quoted for this change. Open the source email to check it.</p>
+              )}
+            </PanelBody>
+          ) : null}
         </Panel>
+
+        {deadline && change.acknowledged ? <DateHistory detail={detail} change={change} targets={targets} /> : null}
+        </div>
 
         <div className="space-y-6">
           <Panel>
@@ -197,7 +210,7 @@ function ChangeView({ detail, change, index }: TabProps & { change: ProjectChang
                     ) : deadline && !change.enquiry_id ? (
                       "Every open enquiry"
                     ) : null,
-                    hint: enquiry ? `Closing date now ${formatDate(enquiry.due_date, "not set")}` : undefined,
+                    hint: enquiry ? `Closing date on record: ${formatDate(enquiry.due_date, "not set")}` : undefined,
                   },
                   {
                     label: "Source",
@@ -294,5 +307,174 @@ function ChangeView({ detail, change, index }: TabProps & { change: ProjectChang
         </ul>
       </ConfirmDialog>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ closing dates */
+
+/** "2026-11-12" or "2026-11-12T00:00:00": the day, else null. */
+const isoDay = (v: unknown): string | null => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null);
+
+/**
+ * The closing date on record (confirmed) and the date the customer's mail proposed, kept apart. A
+ * proposal changes nothing until a person confirms it; the sentence it came from sits under it.
+ */
+function ClosingDates({
+  detail,
+  change,
+  targets,
+  pending,
+}: {
+  detail: ProjectDetail;
+  change: ProjectChange;
+  targets: EnquiryRow[];
+  pending: boolean;
+}) {
+  const id = useId();
+  const proposed = isoDay(change.new_value);
+  const atMail = isoDay(change.old_value);
+  const applied = change.acknowledged && typeof change.applied === "string" && change.applied ? change.applied : null;
+  const kept = !!change.acknowledged && !applied;
+
+  // what the records say now: one date per enquiry (or the project's, when no enquiry is open)
+  const onRecord = targets.length ? targets.map((e) => ({ e, date: e.due_date })) : [{ e: null, date: detail.project.due_date }];
+  const dates = [...new Set(onRecord.map((r) => r.date ?? ""))];
+  const current = dates.length === 1 ? (onRecord[0].date ?? null) : null;
+  const same = pending && current !== null && current === proposed;
+
+  const labelNow = pending ? "Current closing date (confirmed)" : applied ? "Closing date (confirmed)" : kept ? "Closing date (kept)" : "Closing date on record";
+  const labelProposed = pending
+    ? "Proposed in the customer's mail — not applied yet"
+    : applied
+      ? "Proposed in the customer's mail — applied"
+      : kept
+        ? "Proposed in the customer's mail — not applied"
+        : "Found in the customer's mail";
+
+  return (
+    <div className="grid grid-cols-1 border-b border-line md:grid-cols-2">
+      <section aria-labelledby={`${id}-now`} className="px-5 py-4">
+        <h3 id={`${id}-now`} className="text-sm text-ink-3">
+          {labelNow}
+        </h3>
+        {dates.length === 1 ? (
+          <>
+            <p className="mt-1 text-2xl font-semibold text-ink tabular">
+              {current ? formatDate(current) : <span className="text-ink-3">No closing date</span>}
+            </p>
+            {current && dueLabel(current) ? <p className="text-sm text-ink-3">{dueLabel(current)}</p> : null}
+          </>
+        ) : (
+          <ul className="mt-1 space-y-2">
+            {onRecord.map(({ e, date }) => (
+              <li key={e?.id ?? "project"}>
+                <p className="text-sm text-ink-3">
+                  <Bidi text={e?.customer?.name ?? "Unknown contractor"} />
+                  {e?.ref ? ` · ${e.ref}` : ""}
+                </p>
+                <p className="text-xl font-semibold text-ink tabular">{formatDate(date, "No closing date")}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {pending ? (
+          <p className="mt-2 text-sm text-ink-3">Reminders and the quotation deadline use this date until you confirm the new one.</p>
+        ) : applied ? (
+          <p className="mt-2 text-sm text-ink-3">
+            Set from this mail by {change.acknowledged_by ?? "a person"}
+            {change.acknowledged_at ? ` on ${formatDateShort(change.acknowledged_at)}` : ""}.
+          </p>
+        ) : null}
+      </section>
+
+      <section
+        aria-labelledby={`${id}-proposed`}
+        className={cn("border-t border-line px-5 py-4 md:border-l md:border-t-0", pending && "bg-review-soft/60")}
+      >
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h3 id={`${id}-proposed`} className={cn("text-sm", pending ? "font-medium text-review" : "text-ink-3")}>
+            {labelProposed}
+          </h3>
+        </div>
+        <p className={cn("mt-1 text-2xl font-semibold tabular", pending ? "text-ink" : "text-ink-2")}>
+          {proposed ? formatDate(proposed) : <span className="text-ink-3">Not stated</span>}
+        </p>
+        {pending ? <StatusChip info={{ label: "Not applied yet", tone: "review" }} size="sm" className="mt-2" /> : null}
+        {same ? (
+          <p className="mt-2 text-sm text-ink-2">The closing date on record already shows this date, so confirming changes nothing. Acknowledge the change to close it.</p>
+        ) : atMail && atMail !== current && atMail !== proposed ? (
+          <p className="mt-2 text-sm text-ink-3">When the mail was read, the closing date was {formatDate(atMail)}.</p>
+        ) : null}
+        <div className="mt-3">
+          {change.evidence ? (
+            <SourceQuote evidence={change.evidence} detail={detail} />
+          ) : (
+            <p className="text-sm text-ink-3">No sentence was quoted for this change. Open the source email to check it.</p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/** After a decision: the dates the closing date has had, who confirmed each change and the sentence behind it. */
+function DateHistory({ detail, change, targets }: { detail: ProjectDetail; change: ProjectChange; targets: EnquiryRow[] }) {
+  const rows = targets.map((e) => {
+    const earlier = replacedDates(e);
+    const items: TimelineItem[] = [
+      {
+        title: <span className="tabular">{formatDate(e.due_date, "No closing date")}</span>,
+        when: "Current",
+        tone: "brand",
+        icon: <Check aria-hidden />,
+        detail: (
+          <p>
+            Closing date on record
+            {earlier[0]?.confirmed_by || change.acknowledged_by ? ` · confirmed by ${earlier[0]?.confirmed_by ?? change.acknowledged_by}` : ""}
+          </p>
+        ),
+      },
+      ...earlier.map<TimelineItem>((h) => {
+        const ev = h.evidence ? withSource(h.evidence, detail.emails, detail.files) : null;
+        return {
+          title: <s className="tabular text-ink-3">{formatDate(h.value)}</s>,
+          when: "Replaced",
+          tone: "muted",
+          detail: (
+            <>
+              <p>{historySource(h)}</p>
+              {h.note ? <Bidi text={h.note} as="p" className="mt-0.5 text-ink-3" /> : null}
+              {ev?.quote ? <SourceQuote evidence={h.evidence} detail={detail} className="mt-1.5" /> : null}
+            </>
+          ),
+        };
+      }),
+    ];
+    return { e, items, earlier: earlier.length };
+  });
+  const any = rows.some((r) => r.earlier > 0);
+  return (
+    <Panel>
+      <PanelHeader title="Closing date history" description="Each date the closing date has had, with the person who confirmed the change." />
+      <PanelBody className="space-y-5">
+        {!rows.length ? (
+          <p className="text-sm text-ink-3">There is no open enquiry to show a history for.</p>
+        ) : !any && !change.applied ? (
+          <p className="text-sm text-ink-3">The closing date was not changed. It stays as it was.</p>
+        ) : (
+          rows.map(({ e, items }) => (
+            <div key={e.id}>
+              {rows.length > 1 ? (
+                <p className="mb-2 text-sm font-medium text-ink">
+                  <Bidi text={e.customer?.name ?? "Unknown contractor"} />
+                  {e.ref ? <span className="font-normal text-ink-3"> · {e.ref}</span> : null}
+                </p>
+              ) : null}
+              <Timeline items={items} />
+            </div>
+          ))
+        )}
+      </PanelBody>
+    </Panel>
   );
 }

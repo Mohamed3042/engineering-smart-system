@@ -3,13 +3,14 @@
  * separate facts (transfer, extraction, human review), and the shared links. ?link=<id> scrolls to
  * and highlights that link.
  */
-import { Download, Ellipsis, FileSearch, FolderOpen, Link2, Mail, RefreshCw, ShieldCheck } from "lucide-react";
+import { CircleAlert, Download, Ellipsis, FileSearch, FolderOpen, Link2, LoaderCircle, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "@/api/client";
+import { useSession } from "@/api/session";
 import type { ProjectFile, ScopeItem } from "@/api/types";
 import { cn } from "@/lib/cn";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatTime } from "@/lib/format";
 import { docKindLabel, extractionStatusInfo, fileSourceLabel, fileStatusInfo, linkStatusInfo, type StatusInfo } from "@/lib/labels";
 import { emailHref, fileHref, projectHref } from "@/lib/routes";
 import {
@@ -31,7 +32,7 @@ import {
   TR,
   type MenuItem,
 } from "@/ui";
-import { markBusy, useProjectMutation, type ProjectDetail } from "../api";
+import { toastSuccess, useProjectMutation, useProjectWork, type ProjectDetail } from "../api";
 import { downloadOriginal, FileFacts, MarkReviewedDialog, reviewedLine, UploadButton } from "../fileParts";
 import { fileReviewInfo, firstEvidence, LINK_NEEDS_DECISION, LINK_NEEDS_RECOVERY, linkRecoveryText } from "../lib";
 import { Bidi, FileIcon } from "../parts";
@@ -89,6 +90,7 @@ interface Missing {
   linkId?: string;
   title: ReactNode;
   status: StatusInfo;
+  statusIcon?: ReactNode;
   detail: ReactNode;
   /** Secondary actions first, the one primary action last (bottom on phones). */
   actions: ReactNode;
@@ -105,6 +107,92 @@ const qtyUnverified = (s: ScopeItem) => {
   return !qtyMissing(s) && (!ev?.quote || ev.verified === false);
 };
 
+/** A download that a person asked to be tried again, kept on screen until it ends. */
+interface Attempt {
+  /** When the person asked. */
+  at: number;
+  /** The error the file showed before the retry cleared it. */
+  before: string | null;
+  /** The download is still running. */
+  running: boolean;
+}
+
+/**
+ * Try again for failed downloads, one file or all. The server clears a file's error when it starts
+ * again, so the last error is kept here and shown next to the new result: a retry that fails again
+ * says so, with the error, instead of the file quietly going back to "not downloaded".
+ */
+function useAttachmentRetries(detail: ProjectDetail) {
+  const p = detail.project;
+  const { work, checkedAt } = useProjectWork(p.id);
+  const [attempts, setAttempts] = useState<Record<string, Attempt>>({});
+
+  const retryOne = useProjectMutation(
+    (f: ProjectFile) => api.post<{ started: boolean; kind?: string }>(`/files/${encodeURIComponent(f.id)}/retry`),
+    { projectId: p.id, success: (r) => (r.started ? null : "This file is already being downloaded.") },
+  );
+  const retryAll = useProjectMutation(
+    (_files: ProjectFile[]) => api.post<{ started: boolean }>(`/projects/${encodeURIComponent(p.id)}/fetch-attachments`, { retry_failed: true }),
+    { projectId: p.id, success: (r) => (r.started ? "Trying the failed attachments again." : "The attachments are already downloading.") },
+  );
+
+  const begin = (files: ProjectFile[]) =>
+    setAttempts((cur) => {
+      const next = { ...cur };
+      for (const f of files) next[f.id] = { at: Date.now(), before: f.error ?? cur[f.id]?.before ?? null, running: true };
+      return next;
+    });
+  const drop = (ids: string[]) =>
+    setAttempts((cur) => {
+      const next = { ...cur };
+      for (const id of ids) delete next[id];
+      return next;
+    });
+
+  // the download is over when the project reports no work after the request
+  useEffect(() => {
+    if (!work || work.busy) return;
+    setAttempts((cur) => {
+      let changed = false;
+      const next = { ...cur };
+      for (const [id, a] of Object.entries(cur)) {
+        if (a.running && checkedAt > a.at) {
+          next[id] = { ...a, running: false };
+          changed = true;
+        }
+      }
+      return changed ? next : cur;
+    });
+  }, [work, checkedAt]);
+
+  // a file that arrived ends its retry
+  useEffect(() => {
+    const arrived = Object.keys(attempts).filter((id) => {
+      const f = detail.files.find((x) => x.id === id);
+      return !f || f.status === "ready";
+    });
+    if (!arrived.length) return;
+    drop(arrived);
+    for (const id of arrived) {
+      const f = detail.files.find((x) => x.id === id);
+      if (f) toastSuccess(`Downloaded: ${f.name}`);
+    }
+  }, [attempts, detail.files]);
+
+  return {
+    attempts,
+    anyRunning: Object.values(attempts).some((a) => a.running),
+    one: (f: ProjectFile) => {
+      begin([f]);
+      retryOne.mutate(f, { onError: () => drop([f.id]) });
+    },
+    all: (files: ProjectFile[]) => {
+      begin(files);
+      retryAll.mutate(files, { onError: () => drop(files.map((f) => f.id)) });
+    },
+  };
+}
+
 function MissingInputs({
   detail,
   actions,
@@ -118,12 +206,11 @@ function MissingInputs({
 }) {
   const p = detail.project;
   const [resolving, setResolving] = useState<number | null>(null);
+  const retries = useAttachmentRetries(detail);
+  const mail = useSession().data?.mail;
+  const noMailbox = !mail || mail.status !== "connected";
   const fetchAttachments = useProjectMutation(
-    async () => {
-      const r = await api.post<{ started: boolean }>(`/projects/${encodeURIComponent(p.id)}/fetch-attachments`);
-      markBusy(p.id);
-      return r;
-    },
+    () => api.post<{ started: boolean }>(`/projects/${encodeURIComponent(p.id)}/fetch-attachments`),
     {
       projectId: p.id,
       success: (r) => (r.started ? "Downloading the attachments from the mailbox." : "The attachments are already downloading."),
@@ -200,7 +287,8 @@ function MissingInputs({
     });
   }
 
-  const waiting = detail.files.filter((f) => f.status === "not_downloaded" && f.source === "email_attachment");
+  const waiting = detail.files.filter((f) => f.status === "not_downloaded" && f.source === "email_attachment" && !retries.attempts[f.id]);
+  const failedAttachments: ProjectFile[] = [];
   if (waiting.length) {
     items.push({
       key: "attachments",
@@ -228,18 +316,59 @@ function MissingInputs({
   }
 
   for (const f of detail.files) {
-    if (!NOT_OBTAINED.has(f.status) || (f.status === "not_downloaded" && f.source === "email_attachment")) continue;
+    const attempt = retries.attempts[f.id];
+    const retrying = !!attempt && f.status !== "ready";
+    if (!(NOT_OBTAINED.has(f.status) || retrying)) continue;
+    if (f.status === "not_downloaded" && f.source === "email_attachment" && !retrying) continue;
     // Uploaded by hand under the same name: the gap is closed even though this copy stays failed.
     if (detail.files.some((o) => o.id !== f.id && o.status === "ready" && o.name === f.name)) continue;
+    // A download can be tried again when the server knows where it came from: the mailbox or a shared link.
+    const canRetry = (f.status === "failed" || retrying) && (f.source === "email_attachment" || !!f.link_id);
+    if (canRetry && f.source === "email_attachment") failedAttachments.push(f);
+    const running = !!attempt?.running;
+    const lastError = f.error || attempt?.before || null;
     items.push({
       key: `file-${f.id}`,
       title: <Bidi text={f.name} className="break-all" />,
-      status: fileStatusInfo(f.status),
+      status: running
+        ? { label: "Trying again", tone: "neutral" }
+        : fileStatusInfo(retrying && f.status === "not_downloaded" ? "failed" : f.status),
+      statusIcon: running ? <LoaderCircle className="animate-spin" aria-hidden /> : undefined,
       detail: (
-        <p>
-          {f.error ? `${f.error.replace(/\.?\s*$/, ".")} ` : ""}
-          {f.email_id ? "Save the attachment from the email and upload it here." : "Get the file from the sender and upload it here."}
-        </p>
+        <>
+          {running ? (
+            <p>Downloading again. This can take a minute.</p>
+          ) : attempt ? (
+            <p>
+              Tried again at {formatTime(attempt.at)}. {f.error ? "It failed again." : "The file is still not downloaded."}
+            </p>
+          ) : (
+            <p>
+              {canRetry ? "Try again, or " : ""}
+              {f.email_id ? "save the attachment from the email and upload it here." : "get the file from the sender and upload it here."}
+            </p>
+          )}
+          {lastError ? (
+            <p className="mt-1 flex items-start gap-1.5 break-words text-block">
+              <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                {running || (attempt && !f.error) ? "Last error: " : "Error: "}
+                {lastError}
+              </span>
+            </p>
+          ) : attempt && !running ? (
+            <p className="mt-1 text-ink-3">The mailbox did not return the file.</p>
+          ) : null}
+          {canRetry && f.source === "email_attachment" && noMailbox ? (
+            <p className="mt-1 text-review">
+              No mailbox is connected, so this cannot work yet.{" "}
+              <Link to="/settings/connections" className="font-medium underline">
+                Connect a mailbox
+              </Link>{" "}
+              or upload the file.
+            </p>
+          ) : null}
+        </>
       ),
       actions: (
         <>
@@ -253,9 +382,20 @@ function MissingInputs({
           ) : f.source_url ? (
             <OpenLink url={f.source_url} className={BTN} />
           ) : null}
-          <UploadButton projectId={p.id} size="sm" className={BTN} docKind={f.doc_kind && f.doc_kind !== "other" ? f.doc_kind : undefined}>
+          <UploadButton
+            projectId={p.id}
+            size="sm"
+            variant={canRetry ? "secondary" : undefined}
+            className={BTN}
+            docKind={f.doc_kind && f.doc_kind !== "other" ? f.doc_kind : undefined}
+          >
             Upload file
           </UploadButton>
+          {canRetry ? (
+            <Button size="sm" icon={<RefreshCw />} className={BTN} loading={running} onClick={() => retries.one(f)}>
+              {running ? "Trying again…" : "Try again"}
+            </Button>
+          ) : null}
         </>
       ),
     });
@@ -363,6 +503,20 @@ function MissingInputs({
       <PanelHeader
         title={`Missing inputs (${items.length})`}
         description="Needed before the scope can be checked. Each item says how to get it."
+        actions={
+          failedAttachments.length > 1 ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<RefreshCw />}
+              className="w-full sm:w-auto"
+              loading={retries.anyRunning}
+              onClick={() => retries.all(failedAttachments)}
+            >
+              Retry all failed ({failedAttachments.length})
+            </Button>
+          ) : undefined
+        }
       />
       <ul className="divide-y divide-line">
         {items.map((it) => (
@@ -376,7 +530,7 @@ function MissingInputs({
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <StatusChip info={it.status} size="sm" />
+                <StatusChip info={it.status} size="sm" icon={it.statusIcon} />
                 <p className="min-w-0 break-words font-semibold text-ink">{it.title}</p>
               </div>
               <div className="mt-1 text-sm text-ink-2">{it.detail}</div>

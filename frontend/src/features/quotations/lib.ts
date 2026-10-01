@@ -4,10 +4,11 @@
  */
 import { ApiError } from "@/api/client";
 import { useCurrentUser } from "@/api/session";
-import type { Approval, Evidence, ScopeItem, Workspace } from "@/api/types";
+import type { Approval, Evidence, ScopeItem, SessionInfo, Workspace } from "@/api/types";
 import { formatMoney, humanize } from "@/lib/format";
 import { requestKindLabel, serviceFamilyFallback, workTypeLabel, type StatusInfo, type Tone } from "@/lib/labels";
 import { projectHref, quotationHref } from "@/lib/routes";
+import type { Option } from "@/ui";
 import type { ApprovalBlocker, Line, Paper, Quote, QuotationData, SignatoryRow, TemplateInfo, Term, TermChange, TermChangeStatus } from "./api";
 
 /* ------------------------------------------------------------------ roles */
@@ -106,6 +107,21 @@ export function totals(items: Line[] | undefined): Totals {
   };
 }
 
+/** One line about the lines of a quotation: how many, what is missing, the total. */
+export function lineItemsSummary(items: Line[] | undefined, currency: string | null | undefined): string {
+  const lines = items ?? [];
+  if (!lines.length) return "No lines yet";
+  const t = totals(lines);
+  return [
+    `${lines.length} ${lines.length === 1 ? "line" : "lines"}`,
+    t.missingPrice ? `${t.missingPrice} ${t.missingPrice === 1 ? "needs" : "need"} a price` : null,
+    t.missingQty ? `${t.missingQty} without quantity` : null,
+    t.total !== null ? money(t.total, currency) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /* ------------------------------------------------------------------ labels */
 
 export function languageLabel(lang?: string | null): string {
@@ -169,6 +185,73 @@ export function matchSummary(
 }
 
 export const isFrozen = (status: string) => status === "approved" || status === "sent" || status === "superseded";
+
+/* ------------------------------------------------------------------ where to fix things */
+
+export const TEMPLATES_SETUP = "/quotations/setup/templates";
+export const PAPERS_SETUP = "/quotations/setup/papers";
+export const CONNECTIONS_SETTINGS = "/settings/connections";
+
+/* ------------------------------------------------------------------ templates switched off */
+
+/** The language a template prints for a requested one: that language when it has it, else English (as the backend does). */
+export function templateLanguage(t: Pick<TemplateInfo, "languages">, language: string | null | undefined): string {
+  const lang = (language || "en").trim().toLowerCase().slice(0, 2);
+  return t.languages.includes(lang) ? lang : "en";
+}
+
+/** False when the company switched the template off for this language (Quotation setup → Templates). */
+export function templateEnabled(t: TemplateInfo, language: string | null | undefined): boolean {
+  return t.settings?.[templateLanguage(t, language)]?.enabled !== false;
+}
+
+/** The templates the company switched off for this language. */
+export function switchedOffTemplates(templates: TemplateInfo[] | undefined, language: string | null | undefined): TemplateInfo[] {
+  return (templates ?? []).filter((t) => !templateEnabled(t, language));
+}
+
+/**
+ * Options for a template picker. A switched-off template stays in the list so people see it exists, but it
+ * cannot be chosen; the one a quotation already uses stays selectable so the picker can show it.
+ */
+export function templateOptions(templates: TemplateInfo[] | undefined, language: string | null | undefined, current?: string | null): Option[] {
+  return (templates ?? []).map((t) => {
+    const off = !templateEnabled(t, language);
+    return {
+      value: t.key,
+      label: `${t.label.en}${t.languages.includes("ar") ? "" : " (English only)"}${off ? " – off" : ""}`,
+      disabled: off && t.key !== current,
+    };
+  });
+}
+
+/**
+ * True when the template reason says the proposed template was switched off and another one was used
+ * ("X is switched off in Quotation setup, so Y is used instead (...)"). Pass the label of the template the
+ * quotation uses now: after a person chose another one, the old reason no longer applies.
+ */
+export function isTemplateFallback(reason: string | null | undefined, currentLabel?: string): boolean {
+  const text = reason ?? "";
+  if (!/switched off in Quotation setup/i.test(text)) return false;
+  return currentLabel ? text.includes(`so ${currentLabel} is used instead`) : true;
+}
+
+/* ------------------------------------------------------------------ mailbox */
+
+export interface MailboxGate {
+  ready: boolean;
+  /** Plain reason Send is blocked; null when the mailbox is connected. */
+  reason: string | null;
+}
+
+/** Sending needs a connected mailbox: no mailbox at all, or one that needs attention, blocks it before the dialog opens. */
+export function mailboxGate(mail: SessionInfo["mail"] | undefined): MailboxGate {
+  if (!mail) return { ready: false, reason: "Connect a mailbox first." };
+  if (mail.status === "connected") return { ready: true, reason: null };
+  if (mail.status === "needs_auth") return { ready: false, reason: "The mailbox needs you to sign in again first." };
+  if (mail.status === "error") return { ready: false, reason: "The mailbox has an error. Fix it first." };
+  return { ready: false, reason: "Connect a mailbox first." };
+}
 
 /* ------------------------------------------------------------------ terms */
 
@@ -239,12 +322,15 @@ export const BLOCKER_LABEL: Record<string, string> = {
 
 export type GateState = "done" | "open" | "blocked";
 
+/** Which empty field to put the cursor in when a checklist link jumps to the line items. */
+export type JumpFocus = "price" | "qty";
+
 export interface Gate {
   key: string;
   label: string;
   state: GateState;
   detail: string;
-  fix?: { to: string; label: string };
+  fix?: { to: string; label: string; focus?: JumpFocus };
 }
 
 /** Unmet conditions as checklist rows; `inEditor` links to sections of the same page. */
@@ -258,9 +344,9 @@ export function blockerGates(blockers: ApprovalBlocker[], q: Pick<Quote, "id" | 
         : b.code === "impact_review"
           ? review && { to: review, label: "Review the revision" }
           : b.code === "prices_missing"
-            ? { to: `${editor}#line-items`, label: "Enter prices" }
+            ? { to: `${editor}#line-items`, label: "Enter prices", focus: "price" as const }
             : b.code === "quantities_missing"
-              ? { to: `${editor}#line-items`, label: "Enter quantities" }
+              ? { to: `${editor}#line-items`, label: "Enter quantities", focus: "qty" as const }
               : b.code === "terms_pending"
               ? { to: `${editor}#term-changes`, label: "Decide the terms" }
               : undefined;
@@ -331,7 +417,21 @@ export function explainError(err: unknown, q?: Pick<Quote, "id" | "project_id"> 
     case "confirm_required":
       return { title: "Confirm first", message: err.message };
     case "not_connected":
-      return { title: "No mailbox connected", message: err.message, fix: { to: "/settings/connections", label: "Open connections" } };
+      return { title: "No mailbox connected", message: err.message, fix: { to: CONNECTIONS_SETTINGS, label: "Open connections" } };
+    case "template_disabled": {
+      const name = /The (.+?) template is switched off/.exec(err.message)?.[1];
+      return {
+        title: "That template is switched off",
+        message: `${name ? `${name} is` : "It is"} switched off in Quotation setup. Switch it on under Templates, or choose another template.`,
+        fix: { to: TEMPLATES_SETUP, label: "Open Templates" },
+      };
+    }
+    case "no_template_enabled":
+      return {
+        title: "Every template is switched off",
+        message: "A quotation needs one template. Switch at least one on in Quotation setup, under Templates.",
+        fix: { to: TEMPLATES_SETUP, label: "Open Templates" },
+      };
     case "forbidden":
       return { title: "Not allowed for your role", message: err.message };
     case "note_required":
