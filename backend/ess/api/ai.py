@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from .. import jobs
 from ..db import get_session, session_scope
-from ..models import AIModelState, Connection, TeamMember, Workspace, utcnow
+from ..models import AIModelState, AppState, Connection, TeamMember, Workspace, utcnow
 from ..pipeline.connect import _policy, _spec, active_connection, secret_name
 from ..secrets import get_secret
 from ..workspace import log_activity
@@ -217,10 +217,27 @@ def status(session: Session = Depends(get_session), ws: Workspace = Depends(ws_d
     conn_mcp = active_connection(session, ws, "ai", "mcp")
     model = (conn_api.config or {}).get("model") if conn_api else None
     state = session.get(AIModelState, f"{ws.id}:{conn_api.provider}:{model}") if conn_api and model else None
+    # An MCP client declares its model (declare_engine) and takes the exam; eligibility is per task.
+    decl_row = session.get(AppState, f"mcp:engine:{ws.id}")
+    decl = decl_row.value if decl_row and isinstance(decl_row.value, dict) else None
+    mcp = None
+    if conn_mcp or decl:
+        exam_state = (session.get(AIModelState, f"{ws.id}:{decl.get('provider')}:{decl.get('model_id')}")
+                      if decl else None)
+        mcp = {
+            "status": conn_mcp.status if conn_mcp else "declared",
+            "declared": {k: decl.get(k) for k in ("provider", "model_id", "client", "declared_at")} if decl else None,
+            "tasks": (decl or {}).get("tasks") or {},
+            "eligibility": exam_state.status if exam_state else None,
+            "reasons": exam_state.reasons if exam_state else [],
+            "exam": exam_state.exam if exam_state else None,
+            "evaluated_at": exam_state.evaluated_at if exam_state else None,
+        }
+    mcp_ready = bool(mcp and any(t.get("status") == "eligible" for t in mcp["tasks"].values()))
     return {
-        "method": "api" if conn_api and conn_api.is_active else ("mcp" if conn_mcp else None),
+        "method": "api" if conn_api and conn_api.is_active else ("mcp" if mcp else None),
         "api": {"provider": conn_api.provider, "model": model, "status": conn_api.status,
                 "eligibility": state.status if state else None, "reasons": state.reasons if state else []} if conn_api else None,
-        "mcp": {"status": conn_mcp.status} if conn_mcp else None,
-        "rules_only": not (conn_api and state and state.status == "eligible") and not conn_mcp,
+        "mcp": mcp,
+        "rules_only": not (conn_api and state and state.status == "eligible") and not mcp_ready,
     }
