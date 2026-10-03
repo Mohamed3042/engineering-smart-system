@@ -123,7 +123,7 @@ function CheckItem({ state, title, children }: { state: "done" | "wait" | "fail"
       <span
         className={cn(
           "mt-0.5 grid size-6 shrink-0 place-items-center rounded-full",
-          state === "done" ? "bg-brand text-white" : state === "fail" ? "bg-block-soft text-block" : "bg-sunken text-ink-3",
+          state === "done" ? "bg-brand text-on-brand" : state === "fail" ? "bg-block-soft text-block" : "bg-sunken text-ink-3",
         )}
       >
         {icon}

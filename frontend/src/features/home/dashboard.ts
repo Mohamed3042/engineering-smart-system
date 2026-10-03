@@ -8,8 +8,8 @@ import { daysUntil, formatDateShort, humanize } from "@/lib/format";
 import { PROJECT_STAGES } from "@/lib/labels";
 import type { DateRangeValue } from "@/ui";
 
-export type Bucket = "needs_attention" | "in_progress" | "completed";
-export const BUCKETS: Bucket[] = ["needs_attention", "in_progress", "completed"];
+export type Bucket = "needs_attention" | "in_progress" | "awaiting_customer" | "completed";
+export const BUCKETS: Bucket[] = ["needs_attention", "in_progress", "awaiting_customer", "completed"];
 
 export function isBucket(v: string | null): v is Bucket {
   return !!v && (BUCKETS as string[]).includes(v);

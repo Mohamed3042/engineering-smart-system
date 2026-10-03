@@ -11,10 +11,10 @@ const base =
   "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium select-none transition-[background-color,border-color,color,box-shadow] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-brand text-white hover:bg-brand-hover active:bg-brand-press shadow-[0_1px_0_rgb(0_0_0/0.06)]",
+  primary: "ess-primary bg-brand text-on-brand hover:bg-brand-hover active:bg-brand-press shadow-[0_1px_0_rgb(0_0_0/0.06)]",
   secondary: "bg-surface text-ink border border-line-strong hover:bg-hover active:bg-sunken",
   ghost: "text-ink-2 hover:bg-hover hover:text-ink active:bg-sunken",
-  danger: "bg-block text-white hover:bg-[#9a1f18] active:bg-[#851a14]",
+  danger: "bg-block text-[#291110] hover:bg-[#f4aaa3] active:bg-[#df766c]",
   "quiet-danger": "text-block hover:bg-block-soft",
   link: "text-brand-ink underline-offset-4 hover:underline px-0! h-auto!",
 };

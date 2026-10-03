@@ -102,7 +102,8 @@ export function InboxPage() {
 
   // A different list means a different selection.
   useEffect(() => setSelected((cur) => (cur.size ? new Set() : cur)), [key]);
-  useEffect(() => window.scrollTo(0, 0), [f.page]);
+  // Effects must not return the browser's scrolling result as a cleanup callback.
+  useEffect(() => { window.scrollTo(0, 0); }, [f.page]);
 
   const stateParam = STATE_FILTERS.find((x) => x.value === f.state)?.param;
   const query: EmailQuery = {

@@ -23,7 +23,7 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, meta, status, actions, back, className }: PageHeaderProps) {
   return (
-    <header className={cn("mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-end md:justify-between", className)}>
+    <header className={cn("ess-page-heading mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-end md:justify-between", className)}>
       <div className="min-w-0">
         {back && (
           <Link
@@ -35,7 +35,7 @@ export function PageHeader({ title, meta, status, actions, back, className }: Pa
           </Link>
         )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="text-[1.75rem] font-bold leading-tight tracking-[-0.01em] text-ink md:text-4xl">{title}</h1>
+          <h1 className="text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-ink md:text-[2.65rem]">{title}</h1>
           {status}
         </div>
         {meta ? <div className="mt-1.5 text-base text-ink-3">{meta}</div> : null}
@@ -50,7 +50,7 @@ export function Page({ children, width = "wide", className }: { children: ReactN
   return (
     <div
       className={cn(
-        "mx-auto w-full px-4 pb-24 pt-5 sm:px-6 md:pb-12 md:pt-10 lg:px-10",
+        "mx-auto w-full px-4 pb-24 pt-5 sm:px-6 md:pb-12 md:pt-7 lg:px-7",
         width === "wide" ? "max-w-[1360px]" : width === "medium" ? "max-w-[1040px]" : "max-w-[760px]",
         className,
       )}
@@ -63,7 +63,7 @@ export function Page({ children, width = "wide", className }: { children: ReactN
 /* ------------------------------------------------------------------ Panel */
 
 export function Panel({ children, className, as: As = "section" }: { children: ReactNode; className?: string; as?: "section" | "div" | "article" }) {
-  return <As className={cn("rounded-xl border border-line bg-surface shadow-panel", className)}>{children}</As>;
+  return <As className={cn("ess-panel rounded-xl border border-line bg-surface shadow-panel", className)}>{children}</As>;
 }
 
 export function PanelHeader({
@@ -214,7 +214,7 @@ export function Timeline({ items, className }: { items: TimelineItem[]; classNam
                 : it.tone === "block"
                   ? "border-block text-block"
                   : it.tone === "brand"
-                    ? "border-brand bg-brand text-white"
+                    ? "border-brand bg-brand text-on-brand"
                     : "border-line-strong text-ink-3",
             )}
           >
@@ -313,7 +313,7 @@ export function Stepper({ steps, current, done, onSelect }: { steps: Step[]; cur
                 <span
                   className={cn(
                     "grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold tabular",
-                    isDone ? "bg-brand text-white" : isCurrent ? "border-2 border-brand text-brand-ink" : "border border-line-strong text-ink-3",
+                    isDone ? "bg-brand text-on-brand" : isCurrent ? "border-2 border-brand text-brand-ink" : "border border-line-strong text-ink-3",
                   )}
                 >
                   {isDone ? <Check className="size-3.5" aria-hidden /> : i + 1}

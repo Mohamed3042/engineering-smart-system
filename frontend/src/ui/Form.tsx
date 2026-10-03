@@ -220,9 +220,9 @@ export function Checkbox({
     >
       <C.Indicator>
         {checked === "indeterminate" ? (
-          <span className="block h-0.5 w-2.5 rounded bg-white" />
+          <span className="block h-0.5 w-2.5 rounded bg-on-brand" />
         ) : (
-          <Check className="size-3.5 text-white" strokeWidth={3} aria-hidden />
+          <Check className="size-3.5 text-on-brand" strokeWidth={3} aria-hidden />
         )}
       </C.Indicator>
     </C.Root>
@@ -350,7 +350,7 @@ export function ChoiceCards({
             aria-hidden
             className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-line-strong group-data-[state=checked]:border-brand group-data-[state=checked]:bg-brand"
           >
-            <span className="size-2 rounded-full bg-white opacity-0 group-data-[state=checked]:opacity-100" />
+            <span className="size-2 rounded-full bg-on-brand opacity-0 group-data-[state=checked]:opacity-100" />
           </span>
         </R.Item>
       ))}

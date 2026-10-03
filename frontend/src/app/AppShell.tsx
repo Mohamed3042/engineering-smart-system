@@ -1,4 +1,4 @@
-import { ChevronRight, Ellipsis, Search, X } from "lucide-react";
+import { CalendarDays, ChevronRight, Ellipsis, House, Search, X } from "lucide-react";
 import { Dialog as D } from "radix-ui";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation } from "react-router";
@@ -28,8 +28,9 @@ function Sidebar({ onSearch }: { onSearch: () => void }) {
   const { data } = useSession();
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface lg:flex">
-      <div className="px-4 pb-4 pt-6">
+    <aside className="ess-sidebar sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-line bg-surface lg:flex">
+      <div className="px-3 pb-3 pt-5">
+        <div className="mb-3 flex items-center gap-3 px-2"><img src="/favicon.svg" alt="" className="size-10" /><p className="text-sm font-semibold leading-snug text-ink">Engineering<br />Smart System</p></div>
         <WorkspaceSwitcher />
       </div>
       <div className="px-4 pb-3">
@@ -53,7 +54,7 @@ function Sidebar({ onSearch }: { onSearch: () => void }) {
               cn(
                 "relative flex h-11 items-center gap-3 rounded-lg px-3 text-[0.9375rem] font-medium transition-colors",
                 isActive
-                  ? "bg-brand-soft text-brand-ink"
+                  ? "ess-nav-active bg-brand-soft text-brand-ink"
                   : "text-ink-2 hover:bg-hover hover:text-ink",
               )
             }
@@ -132,7 +133,7 @@ function PhoneTabBar() {
       </nav>
       <D.Root open={moreOpen} onOpenChange={setMoreOpen}>
         <D.Portal>
-          <D.Overlay className="fixed inset-0 z-50 bg-ink/25 animate-fade-in lg:hidden" />
+          <D.Overlay className="fixed inset-0 z-50 bg-black/65 animate-fade-in lg:hidden" />
           <D.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-xl bg-surface shadow-pop outline-none animate-sheet-in safe-bottom lg:hidden">
             <div className="flex items-center gap-3 border-b border-line px-5 py-4">
               <div className="min-w-0 flex-1">
@@ -170,6 +171,19 @@ function PhoneTabBar() {
   );
 }
 
+function DesktopHeader() {
+  const location = useLocation();
+  const { data } = useSession();
+  const section = PRIMARY_NAV.find(n => n.to !== "/" && location.pathname.startsWith(n.to));
+  let date: string;
+  try { date = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: data?.workspace?.timezone || "UTC" }).format(new Date()); }
+  catch { date = new Date().toLocaleDateString("en-GB"); }
+  return <header className="mx-7 hidden h-14 items-center justify-between border-b border-line/70 text-sm text-ink-3 lg:flex">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-3"><Link to="/" className="flex items-center gap-2 hover:text-brand"><House className="size-4" aria-hidden />Home</Link>{section && <><ChevronRight className="size-3" aria-hidden /><span className="text-ink-2">{section.label}</span></>}</nav>
+    <div className="flex items-center gap-5"><span className="flex items-center gap-2"><CalendarDays className="size-4" aria-hidden />{date}</span><NotificationsButton compact /></div>
+  </header>;
+}
+
 /** App frame: sidebar on desktop; header + bottom tabs on phones. Needs an active workspace. */
 export function AppShell() {
   const session = useSession();
@@ -189,14 +203,15 @@ export function AppShell() {
     <div className="flex min-h-dvh">
       <a
         href="#main"
-        className="sr-only z-50 rounded-md bg-brand px-3 py-2 text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+        className="sr-only z-50 rounded-md bg-brand px-3 py-2 text-on-brand focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
       >
         Skip to content
       </a>
       <Sidebar onSearch={() => setSearchOpen(true)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <PhoneHeader onSearch={() => setSearchOpen(true)} />
-        <main id="main" tabIndex={-1} className="min-w-0 flex-1 outline-none">
+        <main id="main" tabIndex={-1} className="ess-main min-w-0 flex-1 outline-none">
+          <DesktopHeader />
           <Suspense fallback={<PageLoading />}>
             <Outlet />
           </Suspense>

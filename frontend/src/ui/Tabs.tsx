@@ -195,7 +195,7 @@ export function Segmented({
           value={o.value}
           className={cn(
             "inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-ink-2 transition-colors",
-            "hover:text-ink data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-panel",
+            "hover:text-ink data-[state=on]:bg-brand-soft data-[state=on]:text-brand-ink data-[state=on]:shadow-panel",
           )}
         >
           {o.label}

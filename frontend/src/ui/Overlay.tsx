@@ -30,7 +30,7 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
     <D.Root open={open} onOpenChange={onOpenChange}>
       {trigger ? <D.Trigger asChild>{trigger}</D.Trigger> : null}
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-50 bg-ink/30 animate-fade-in" />
+        <D.Overlay className="fixed inset-0 z-50 bg-black/65 animate-fade-in" />
         <D.Content
           className={cn(
             "fixed z-50 flex max-h-[92dvh] w-full flex-col bg-surface shadow-pop outline-none",
@@ -146,7 +146,7 @@ export function Drawer({ open, onOpenChange, trigger, title, description, childr
     <D.Root open={open} onOpenChange={onOpenChange}>
       {trigger ? <D.Trigger asChild>{trigger}</D.Trigger> : null}
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-50 bg-ink/25 animate-fade-in" />
+        <D.Overlay className="fixed inset-0 z-50 bg-black/65 animate-fade-in" />
         <D.Content
           className={cn(
             "fixed z-50 flex flex-col bg-surface shadow-pop outline-none",
@@ -282,7 +282,7 @@ export function Tooltip({ content, children, side = "top" }: { content: ReactNod
         <T.Content
           side={side}
           sideOffset={6}
-          className="z-[60] max-w-xs rounded-md bg-ink px-2.5 py-1.5 text-xs text-white shadow-pop animate-fade-in"
+          className="z-[60] max-w-xs rounded-md border border-line-strong bg-hover px-2.5 py-1.5 text-xs text-ink shadow-pop animate-fade-in"
         >
           {content}
         </T.Content>

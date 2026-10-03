@@ -2,7 +2,7 @@
  * Control center (mockups 11, 55, 56): every project in the chosen period, split into
  * Needs attention / In progress / Completed, with one next action per project.
  */
-import { Bot, ChevronRight, FolderOpen, Mail, Plug } from "lucide-react";
+import { Bot, ChevronRight, FolderOpen, Mail, Plug, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useCategoryLabel, useSession } from "@/api/session";
@@ -14,7 +14,6 @@ import { nextActionHref } from "@/lib/routes";
 import {
   Banner,
   Button,
-  DATE_PRESETS,
   DateRangePicker,
   Dot,
   EmptyState,
@@ -28,7 +27,6 @@ import {
   Spinner,
   Tabs,
   TabsContent,
-  formatRange,
   type DateRangeValue,
 } from "@/ui";
 import {
@@ -40,22 +38,22 @@ import {
   type Bucket,
   type Dashboard,
   type DashboardRow,
-  type SortKey,
   type SortState,
 } from "./dashboard";
 import { CompactNotice, SetupBanner, WaitingForApproval } from "./Banners";
-import { ProjectCard, ProjectTable } from "./ProjectList";
+import { ProjectCard } from "./ProjectList";
 import { RecentActivity } from "./RecentActivity";
+import { CompanyStartingPoint, DecisionDesk } from "./DecisionDesk";
 
 /* ------------------------------------------------------------------ URL state */
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 function defaultRange(): DateRangeValue {
-  return DATE_PRESETS.find((p) => p.label === "Last 2 months")?.range() ?? { from: "", to: "" };
+  return { from: "", to: "" };
 }
 
-/** ?from=&to= in the URL (empty = open end); no params = the last two months. */
+/** ?from=&to= in the URL (empty = open end); no params = all outstanding work, regardless of age. */
 function readRange(p: URLSearchParams): DateRangeValue {
   if (!p.has("from") && !p.has("to")) return defaultRange();
   const clean = (v: string | null) => (v && DAY.test(v) ? v : "");
@@ -75,11 +73,17 @@ const TAB_TEXT: Record<Bucket, { label: string; heading: (n: number) => string; 
     emptyTitle: "No projects in progress",
     emptyBody: "A project moves here when nothing waits for a person and its due date is more than a week away.",
   },
+  awaiting_customer: {
+    label: "Awaiting customer",
+    heading: (n) => `${pluralize(n, "project")} awaiting a response`,
+    emptyTitle: "No quotations awaiting a response",
+    emptyBody: "Sent quotations stay open here. A new revision or blocker brings them back to Needs attention.",
+  },
   completed: {
-    label: "Completed",
-    heading: (n) => `${pluralize(n, "completed project")}`,
-    emptyTitle: "No completed projects in this period",
-    emptyBody: "Projects appear here once the quotation is sent or the project is archived.",
+    label: "Closed",
+    heading: (n) => `${pluralize(n, "closed project")}`,
+    emptyTitle: "No closed projects in this period",
+    emptyBody: "Projects appear here when explicitly archived. A sent quotation remains open while awaiting the customer.",
   },
 };
 
@@ -89,7 +93,8 @@ const TAB_TEXT: Record<Bucket, { label: string; heading: (n: number) => string; 
 function ConnectionBanner({ session, className }: { session: SessionInfo; className?: string }) {
   const mail = session.mail ?? null;
   const ai = session.ai ?? null;
-  const short = !mail && !ai ? "Connect the mailbox and the AI engine" : !mail ? "Connect the company mailbox" : !ai
+  const aiReady = ai?.status === "connected";
+  const short = mail?.status !== "connected" && !aiReady ? "Connect the mailbox and the AI engine" : !mail ? "Connect the company mailbox" : !aiReady
     ? "Set up the AI engine" : mail.status !== "connected" ? `Mailbox: ${connectionStatusInfo(mail.status).label}` : null;
   if (!short) return null;
   return (
@@ -125,7 +130,7 @@ function ConnectionBannerFull({ session, className }: { session: SessionInfo; cl
       </Link>
     </Button>
   );
-  if (!mail && !ai)
+  if (mail?.status !== "connected" && ai?.status !== "connected")
     return (
       <Banner
         className={className}
@@ -147,7 +152,7 @@ function ConnectionBannerFull({ session, className }: { session: SessionInfo; cl
         New enquiries, changed deadlines and revisions come from the mailbox. Access is read-only.
       </Banner>
     );
-  if (!ai)
+  if (ai?.status !== "connected")
     return (
       <Banner className={className} title="Set up the AI engine" actions={aiLink}>
         It reads customer files and drafts quotations. Prices are always left for a person.
@@ -210,7 +215,7 @@ function HomeFooter({ session, data }: { session: SessionInfo | undefined; data:
     <footer
       className={cn(
         "mt-8 flex flex-col items-center gap-3 border-t border-line pt-4 text-center",
-        "lg:sticky lg:bottom-0 lg:z-10 lg:-mx-10 lg:mt-auto lg:flex-row lg:justify-between lg:bg-canvas lg:px-10 lg:py-3 lg:text-left",
+        "lg:sticky lg:bottom-0 lg:z-10 lg:-mx-7 lg:mt-auto lg:flex-row lg:justify-between lg:bg-canvas lg:px-7 lg:py-3 lg:text-left",
       )}
     >
       <div className="flex min-w-0 flex-col items-center gap-1 lg:flex-row lg:gap-4">
@@ -265,6 +270,7 @@ function BucketView({
   sort,
   onSort,
   emptyActions,
+  filtersOpen,
 }: {
   bucket: Bucket;
   rows: DashboardRow[];
@@ -273,6 +279,7 @@ function BucketView({
   sort: SortState;
   onSort: (s: SortState) => void;
   emptyActions?: ReactNode;
+  filtersOpen: boolean;
 }) {
   const label = useCategoryLabel();
   const text = TAB_TEXT[bucket];
@@ -298,10 +305,6 @@ function BucketView({
   }
 
   const heading = active.length ? `${sorted.length} of ${text.heading(rows.length)}` : text.heading(rows.length);
-  const toggleSort = (key: SortKey) => {
-    if (sort.key === key) onSort({ key, dir: sort.dir === "asc" ? "desc" : "asc" });
-    else onSort({ key, dir: SORT_OPTIONS.find((o) => o.value === key)?.dir ?? "asc" });
-  };
 
   return (
     <div className="space-y-4">
@@ -311,31 +314,25 @@ function BucketView({
           value={active}
           onChange={onFamilies}
           options={familyOptions}
-          className="max-lg:-mx-4 max-lg:flex-nowrap max-lg:overflow-x-auto max-lg:px-4 max-lg:[scrollbar-width:none] [&>*]:shrink-0"
+          className={cn("max-lg:-mx-4 max-lg:flex-nowrap max-lg:overflow-x-auto max-lg:px-4 max-lg:[scrollbar-width:none] [&>*]:shrink-0", !filtersOpen && "max-lg:hidden")}
         />
       ) : null}
 
       {/* Phone and narrow screens: stacked cards */}
-      <section className="xl:hidden" aria-label={heading}>
+      <section className="lg:hidden" aria-label={heading}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <h2 className="text-lg font-semibold text-ink">{heading}</h2>
-          <SortSelect sort={sort} onChange={onSort} />
+          <SortSelect sort={sort} onChange={onSort} className={!filtersOpen ? "max-lg:hidden" : undefined} />
         </div>
         <div className="space-y-3">
-          {sorted.map((row) => (
-            <ProjectCard key={row.id} row={row} bucket={bucket} />
+          {sorted.map((row, index) => (
+            <ProjectCard key={row.id} row={row} bucket={bucket} defaultOpen={index === 0} />
           ))}
         </div>
       </section>
 
-      {/* Wide screens: one table in a panel */}
-      <Panel className="hidden xl:block">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
-          <h2 className="text-lg font-semibold text-ink">{heading}</h2>
-          <SortSelect sort={sort} onChange={onSort} />
-        </div>
-        <ProjectTable rows={sorted} bucket={bucket} sort={sort} onSort={toggleSort} />
-      </Panel>
+      <div className="mb-3 hidden justify-end lg:flex"><SortSelect sort={sort} onChange={onSort} /></div>
+      <DecisionDesk rows={sorted} heading={heading} />
     </div>
   );
 }
@@ -350,6 +347,7 @@ export function HomePage() {
   const tab: Bucket = isBucket(tabParam) ? tabParam : "needs_attention";
   const families = useMemo(() => (params.get("family") ?? "").split(",").filter(Boolean), [params]);
   const [sort, setSort] = useState<SortState>({ key: "due", dir: "asc" });
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const q = useDashboard(range);
   const data = q.data;
 
@@ -367,7 +365,6 @@ export function HomePage() {
     );
 
   const isAllTime = !range.from && !range.to;
-  const mailbox = session.data?.mail?.account || session.data?.workspace?.primary_email || data?.workspace.primary_email;
 
   const emptyActions = (
     <>
@@ -411,29 +408,23 @@ export function HomePage() {
           sort={sort}
           onSort={setSort}
           emptyActions={emptyActions}
+          filtersOpen={filtersOpen}
         />
       </div>
     );
   };
 
   return (
-    <Page className="lg:flex lg:min-h-dvh lg:flex-col lg:pb-0">
+    <Page className="lg:flex lg:min-h-[calc(100dvh-3.5rem)] lg:flex-col lg:pb-0">
       <div className="lg:flex-1">
         <PageHeader
-          title="Control center"
-          meta={
-            <span className="break-words">
-              Source: {mailbox || "no mailbox connected"}
-              <span aria-hidden className="mx-2 text-line-strong">
-                |
-              </span>
-              <span className="tabular">{formatRange(range)}</span>
-            </span>
-          }
+          title={<><span className="hidden sm:inline">Your next decisions</span><span className="sm:hidden">Today</span></>}
+          meta="Outstanding work stays here until it is resolved."
           actions={
             <>
               {q.isFetching && !q.isLoading ? <Spinner label="Updating" /> : null}
-              <DateRangePicker value={range} onChange={(v) => update({ from: v.from, to: v.to })} />
+              <Button variant="secondary" className="lg:hidden" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}><SlidersHorizontal aria-hidden />Filters</Button>
+              <div className={filtersOpen ? "" : "hidden lg:block"}><DateRangePicker value={range} onChange={(v) => update({ from: v.from, to: v.to })} /></div>
             </>
           }
         />
@@ -445,6 +436,8 @@ export function HomePage() {
         ) : null}
 
         {data ? <WaitingForApproval data={data} className="mb-5 lg:mb-6" /> : null}
+
+        {data && Object.values(data.counts).every(n => n === 0) ? <CompanyStartingPoint /> : null}
 
         <Tabs
           value={tab}

@@ -119,7 +119,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-50 bg-ink/30 animate-fade-in" />
+        <D.Overlay className="fixed inset-0 z-50 bg-black/65 animate-fade-in" />
         <D.Content
           onKeyDown={onKey}
           className="fixed inset-x-0 top-0 z-50 mx-auto flex max-h-[100dvh] w-full flex-col bg-surface shadow-pop outline-none animate-pop-in sm:top-[12vh] sm:max-h-[70vh] sm:max-w-2xl sm:rounded-xl"

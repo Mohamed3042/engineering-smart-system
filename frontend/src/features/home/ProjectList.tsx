@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { daysUntil, dueLabel, formatDate, formatDateShort, pluralize } from "@/lib/format";
 import { reviewStatusInfo, stageInfo, workTypeLabel } from "@/lib/labels";
 import { nextActionHref, projectHref } from "@/lib/routes";
-import { Button, Chip, CollapsibleSection, Dot, RowChevron, StatusChip, Table, TBody, TD, TH, THead, TR, Tooltip } from "@/ui";
+import { Button, Chip, CollapsibleSection, Dot, EvidenceQuote, RowChevron, StatusChip, Table, TBody, TD, TH, THead, TR, Tooltip } from "@/ui";
 import { useCategoryIcon } from "@/features/inbox/categoryIcon";
 import {
   changeValues,
@@ -260,7 +260,7 @@ function AttentionChip({ row }: { row: DashboardRow }) {
   return <StatusChip info={stageInfo(row.stage)} size="sm" className="shrink-0" />;
 }
 
-export function ProjectCard({ row, bucket }: { row: DashboardRow; bucket: Bucket }) {
+export function ProjectCard({ row, bucket, defaultOpen = false }: { row: DashboardRow; bucket: Bucket; defaultOpen?: boolean }) {
   const label = useCategoryLabel();
   const iconOf = useCategoryIcon();
   const Icon = iconOf(row.service_family);
@@ -268,15 +268,16 @@ export function ProjectCard({ row, bucket }: { row: DashboardRow; bucket: Bucket
   const values = change ? changeValues(change) : null;
   return (
     <CollapsibleSection
+      defaultOpen={defaultOpen}
       title={
-        <span className="block min-w-0 text-sm">
+        <span className="block min-w-0 text-base">
           <bdi dir="auto" className="block break-words">{row.name}</bdi>
           <bdi dir="auto" className="mt-0.5 block break-words text-xs font-normal text-ink-3">
             {row.customer || "No company linked"}
           </bdi>
+          <span className="mt-2 block"><AttentionChip row={row} /></span>
         </span>
       }
-      summary={<AttentionChip row={row} />}
       actions={
         <Button asChild variant="ghost" size="sm" className="min-h-11 min-w-11 px-2">
           <Link to={projectHref(row.id)} aria-label={`Open project ${row.name}`}>
@@ -294,6 +295,7 @@ export function ProjectCard({ row, bucket }: { row: DashboardRow; bucket: Bucket
           </p>
         </div>
       ) : null}
+      {change?.evidence && <EvidenceQuote evidence={change.evidence} className="mb-3" />}
       <ul className="space-y-1.5 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-ink-3">
         <li className="flex items-start gap-2">
           <Icon className="mt-0.5" aria-hidden />

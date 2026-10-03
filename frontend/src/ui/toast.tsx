@@ -14,7 +14,7 @@ export function Toaster() {
         classNames: {
           toast: "!rounded-lg !border !border-line !bg-surface !text-ink !shadow-pop !font-sans",
           description: "!text-ink-3",
-          actionButton: "!bg-brand !text-white",
+          actionButton: "!bg-brand !text-on-brand",
           error: "!border-block-line",
         },
       }}

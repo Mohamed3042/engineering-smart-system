@@ -162,13 +162,15 @@ def compute_next_action(project: Project, stage: str, blockers: list[dict], quot
 
 
 def attention_bucket(project: Project, stage: str, blockers: list[dict], today: Optional[date] = None) -> str:
-    """needs_attention | in_progress | completed — the three Control Center tabs."""
-    if stage in ("sent", "archived"):
+    """Keep unresolved work visible; sending alone does not close an opportunity."""
+    if stage == "archived":
         return "completed"
     today = today or datetime.now(timezone.utc).date()
     due = _as_date(project.due_date)
     if open_changes(project) or blockers or stage in ("engineer_review", "approved"):
         return "needs_attention"
+    if stage == "sent":
+        return "awaiting_customer"
     if due and due <= today + timedelta(days=7):
         return "needs_attention"
     return "in_progress"

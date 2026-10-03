@@ -57,7 +57,7 @@ function StepList({ items }: { items: { def: StepDef; state: StepState; detail?:
             aria-hidden
             className={cn(
               "relative z-[1] mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-surface [&_svg]:size-3.5",
-              state === "done" && "bg-brand text-white",
+              state === "done" && "bg-brand text-on-brand",
               state === "running" && "border-2 border-brand text-brand",
               state === "pending" && "border border-line-strong",
               state === "skipped" && "border border-dashed border-line-strong text-ink-3",

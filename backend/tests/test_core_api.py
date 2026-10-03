@@ -115,6 +115,37 @@ def test_dashboard_changes_and_review_gate(client):
     assert r.status_code == 200 and r.json()["decision"] == "approved"
 
 
+def test_dashboard_keeps_old_work_and_sent_revisions_actionable(client):
+    from datetime import date, datetime, timedelta, timezone
+    from ess.db import session_scope
+    from ess.models import Project
+    from ess.workspace import get_active_workspace
+
+    client.post("/api/workspaces", json={"name": "Attention regression", "primary_email": "sales@example.com"})
+    old = datetime.now(timezone.utc) - timedelta(days=190)
+    with session_scope() as s:
+        ws = get_active_workspace(s)
+        s.add(Project(id="old-open", ref="old-open", workspace_id=ws.id, name="Old unresolved tender", created_at=old,
+                      due_date=date.today() - timedelta(days=30), stage="received"))
+        s.add(Project(id="sent-change", ref="sent-change", workspace_id=ws.id, name="Sent with revision", stage="sent",
+                      changes=[{"title": "Mast height revised", "acknowledged": False}]))
+        s.add(Project(id="sent-wait", ref="sent-wait", workspace_id=ws.id, name="Awaiting response", stage="sent"))
+        s.add(Project(id="closed", ref="closed", workspace_id=ws.id, name="Explicitly archived", stage="archived"))
+    dashboard = client.get("/api/dashboard").json()
+    attention = {r["id"] for r in dashboard["buckets"]["needs_attention"]}
+    assert {"old-open", "sent-change"} <= attention
+    assert {r["id"] for r in dashboard["buckets"]["awaiting_customer"]} == {"sent-wait"}
+    assert {r["id"] for r in dashboard["buckets"]["completed"]} == {"closed"}
+
+
+def test_sent_blockers_still_need_attention():
+    from ess.models import Project
+    from ess.pipeline.state import attention_bucket
+
+    project = Project(workspace_id="test", name="Sent scope clarification")
+    assert attention_bucket(project, "sent", [{"text": "Customer clarification pending"}]) == "needs_attention"
+
+
 def test_quotation_price_and_send_gates(client):
     pytest.importorskip("ess.quotation.templates")
     _demo(client)

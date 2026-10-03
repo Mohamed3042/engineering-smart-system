@@ -214,7 +214,7 @@ def dashboard(date_from: Optional[str] = None, date_to: Optional[str] = None,
         projects = [p for p in projects if in_range(p)]
     rows = [_project_row(p, customers, today) for p in projects]
     rows.sort(key=lambda r: (r["due_date"] is None, r["due_date"] or today, r["name"]))
-    buckets = {b: [r for r in rows if r["bucket"] == b] for b in ("needs_attention", "in_progress", "completed")}
+    buckets = {b: [r for r in rows if r["bucket"] == b] for b in ("needs_attention", "in_progress", "awaiting_customer", "completed")}
     since = utcnow() - timedelta(days=2)
     activity = session.exec(
         select(Activity).where(Activity.workspace_id == ws.id).order_by(col(Activity.created_at).desc()).limit(25)

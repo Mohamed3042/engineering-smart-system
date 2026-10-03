@@ -39,10 +39,10 @@ export function WorkspaceSwitcher({ className, size = "lg" }: { className?: stri
           aria-label={`Workspace: ${ws.name}. Switch workspace`}
         >
           <span className="min-w-0 flex-1">
-            <span className={cn("block truncate font-bold tracking-[-0.01em] text-brand-ink", size === "lg" ? "text-2xl" : "text-xl")}>
+            <span className={cn("block truncate font-bold tracking-[-0.01em] text-brand-ink", size === "lg" ? "text-lg" : "text-lg")}>
               {brand}
             </span>
-            <span className="block truncate text-sm text-ink-3">{ws.primary_email || ws.name}</span>
+            <span className="block truncate text-sm text-ink-3">{size === "lg" ? "Company workspace" : (ws.primary_email || ws.name)}</span>
           </span>
           <ChevronDown className="size-4 shrink-0 text-ink-3 transition-transform group-data-[state=open]:rotate-180" aria-hidden />
         </button>
