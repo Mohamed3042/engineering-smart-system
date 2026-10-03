@@ -116,4 +116,4 @@ def test_configuration_errors_need_no_network():
     with pytest.raises(AIError, match="base_url"):
         list_remote_models("azure_openai", "k")
     with pytest.raises(AIError, match="unknown provider"):
-        list_remote_models("mistral", "k")
+        list_remote_models("unknown-provider", "k")

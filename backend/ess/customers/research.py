@@ -767,6 +767,7 @@ def research_customer(customer: Any, provider: Any = None, engine: Any = None, s
     # ---- claims ---------------------------------------------------------------------------------
     claims: list[_Claim] = []
     engine_used = False
+    paused_reason = None
     if engine is not None and (sources or own_sources):
         payload = [{"url": s.url, "title": s.title, "snippet": "", "text": s.text[:6000]} for s in sources + own_sources]
         try:
@@ -779,6 +780,10 @@ def research_customer(customer: Any, provider: Any = None, engine: Any = None, s
         except AITaskUnavailable as exc:
             errors.append(f"AI research unavailable: {exc}")
         except Exception as exc:  # deterministic extraction still runs
+            from ..ai.errors import AuthError, QuotaError
+
+            if isinstance(exc, (AuthError, QuotaError)):
+                paused_reason = "AI connection needs attention. Update its key or wait for quota reset, then resume."
             errors.append(f"AI research failed: {exc}")
     deterministic: list[_Claim] = []
     for src in sources:
@@ -919,6 +924,7 @@ def research_customer(customer: Any, provider: Any = None, engine: Any = None, s
         "news_searched": news_searched,
         "sources_checked": len(sources) + len(own_sources),
         "engine_used": engine_used,
+        "paused_reason": paused_reason,
         "errors": errors,
         "ran_at": stamp,
     }

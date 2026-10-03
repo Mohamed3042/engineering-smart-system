@@ -1,6 +1,6 @@
 # macOS desktop build
 
-Engineering Smart System 0.3.0, local redesign build 2. Apple Silicon; macOS 15 or later.
+Engineering Smart System 0.3.1, local redesign build 3. Apple Silicon; macOS 15 or later.
 AppKit owns the window, menus, file dialogs and lifecycle. WKWebView renders the local UI.
 The bundled Python engine and Chromium PDF renderer run without Homebrew, Node, a source
 checkout, or the user's web browser. Workspace data lives outside the app in Application
@@ -25,7 +25,7 @@ No company data or credentials belong in the app, source archive or disk image.
 
 ## Acceptance
 
-Run the packaged python/bin/python3.12 -s engine.py --verify-runtime with PYTHONHOME
+Run the packaged python/bin/python3.12 -B -s engine.py --verify-runtime with PYTHONHOME
 pointing to the packaged Python and ESS_DATA_DIR pointing to a disposable directory.
 This creates a database and real quotation PDF and checks Python dependencies are
 inside the bundle. Then launch the installed app, quit, and reopen. Confirm the own

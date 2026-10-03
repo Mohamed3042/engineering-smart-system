@@ -20,9 +20,10 @@ router = APIRouter(prefix="/api", tags=["connections"])
 
 SECRET_FIELDS = {"api_key", "password", "token", "client_config"}
 VALID = {
-    "ai": {"api": {"openai", "anthropic", "google", "azure_openai", "openai_compatible"}, "mcp": {"mcp"}},
+    "ai": {"api": {"openai", "anthropic", "google", "azure_openai", "openai_compatible", "groq", "mistral", "sambanova"}, "mcp": {"mcp"}},
     "mail": {"oauth": {"gmail"}, "imap": {"imap"}, "mcp": {"mcp", "gmail"}},
-    "search": {"api": {"brave", "tavily", "serpapi", "duckduckgo"}},
+    "search": {"api": {"brave", "tavily", "serpapi", "duckduckgo", "exa", "firecrawl"}},
+    "reader": {"api": {"firecrawl"}},
 }
 
 
@@ -45,13 +46,13 @@ def create_connection(data: dict = Body(...), session: Session = Depends(get_ses
     kind, method, provider = data.get("kind"), data.get("method"), data.get("provider")
     if provider not in VALID.get(kind, {}).get(method, set()):
         raise HTTPException(400, {"code": "bad_connection", "message": f"Unsupported {kind}/{method}/{provider}"})
-    # one active connection per kind
-    for other in session.exec(select(Connection).where(Connection.workspace_id == ws.id, Connection.kind == kind)).all():
-        other.is_active = False
-        session.add(other)
+    # Saving a spare key must not switch the current service.
+    active = bool(data.get("is_active", True))
+    if active:
+        _deactivate_kind(session, ws, kind)
     conn = Connection(workspace_id=ws.id, kind=kind, method=method, provider=provider,
                       name=data.get("name") or f"{provider} ({method})", config=data.get("config") or {},
-                      status="not_connected" if method != "oauth" else "needs_auth", is_active=True)
+                      status="not_connected" if method != "oauth" else "needs_auth", is_active=active)
     session.add(conn)
     session.flush()
     _store_secrets(conn, data.get("secrets") or {})
@@ -59,6 +60,12 @@ def create_connection(data: dict = Body(...), session: Session = Depends(get_ses
     log_activity(session, ws.id, "connection_added", f"{conn.name} added", actor=user.name)
     session.commit()
     return public(conn)
+
+
+def _deactivate_kind(session: Session, ws: Workspace, kind: str) -> None:
+    for other in session.exec(select(Connection).where(Connection.workspace_id == ws.id, Connection.kind == kind)).all():
+        other.is_active = False
+        session.add(other)
 
 
 def _store_secrets(conn: Connection, secrets: dict[str, Any]) -> None:
@@ -91,6 +98,11 @@ def update_connection(conn_id: str, data: dict = Body(...), session: Session = D
         conn.name = data["name"]
     if "is_active" in data:
         conn.is_active = bool(data["is_active"])
+    if "is_active" in data and conn.is_active:
+        _deactivate_kind(session, ws, conn.kind)
+        conn.is_active = True
+    if data.get("secrets") or data.get("config"):
+        conn.status, conn.last_error = "not_connected", None
     _store_secrets(conn, data.get("secrets") or {})
     conn.updated_at = utcnow()
     session.add(conn)
@@ -197,9 +209,9 @@ def test_connection(conn_id: str, session: Session = Depends(get_session), ws: W
             result = source.test()
             conn.account = result.get("account") or conn.account
         elif conn.kind == "ai" and conn.method == "api":
-            from ..ai.providers import list_remote_models
+            from ..ai.providers import list_remote_model_details
 
-            models = list_remote_models(conn.provider, get_secret(secret_name(conn, "api_key")),
+            models = list_remote_model_details(conn.provider, get_secret(secret_name(conn, "api_key")),
                                         (conn.config or {}).get("base_url"), (conn.config or {}).get("extra"))
             result = {"ok": True, "models": len(models)}
             from .ai import upsert_remote_models
@@ -209,13 +221,21 @@ def test_connection(conn_id: str, session: Session = Depends(get_session), ws: W
             last = session.get(AppState, f"mcp:last_client:{ws.id}")
             result = {"ok": bool(last and last.value), "client": last.value if last else None,
                       "message": "Connect your AI client to the MCP endpoint shown below." if not last else "Client seen"}
-        elif conn.kind == "search":
+        elif conn.kind in ("search", "reader"):
             from ..customers.search import get_search_provider
 
-            provider = get_search_provider({"provider": conn.provider, "api_key": get_secret(secret_name(conn, "api_key")),
-                                            **(conn.config or {})})
-            hits = provider.search(ws.company_name or ws.name or "test", max_results=3)
-            result = {"ok": True, "results": len(hits)}
+            provider = get_search_provider({**(conn.config or {}), "provider": conn.provider,
+                                            "api_key": get_secret(secret_name(conn, "api_key"))})
+            try:
+                if conn.kind == "reader":
+                    page = provider.fetch_page("https://example.com")
+                    result = {"ok": page.ok, "message": "Public example page read successfully.", "error": page.error}
+                else:
+                    hits = provider.search("engineering public information", max_results=1)
+                    result = {"ok": True, "results": len(hits)}
+            finally:
+                if callable(getattr(provider, "close", None)):
+                    provider.close()
         else:
             result = {"ok": False, "error": "Unknown connection type"}
     except Exception as exc:

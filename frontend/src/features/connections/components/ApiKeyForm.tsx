@@ -53,12 +53,13 @@ export function ApiKeyForm({
   const active = apiConns.find((c) => c.is_active) ?? null;
   const ids = { provider: useId(), key: useId(), base: useId(), version: useId() };
 
-  const [provider, setProvider] = useState(active?.provider ?? "openai");
+  const [provider, setProvider] = useState(active?.provider ?? "groq");
   const existing = useMemo(
     () => apiConns.find((c) => c.provider === provider && c.is_active) ?? apiConns.find((c) => c.provider === provider) ?? null,
     [apiConns, provider],
   );
   const [apiKey, setApiKey] = useState("");
+  const [trainingOptOut, setTrainingOptOut] = useState(!!existing?.config?.training_opt_out_confirmed);
   const [baseUrl, setBaseUrl] = useState<string>(existing?.config?.base_url ?? "");
   const [apiVersion, setApiVersion] = useState<string>(existing?.config?.extra?.api_version ?? "");
   const [errors, setErrors] = useState<{ key?: string; base?: string }>({});
@@ -73,6 +74,7 @@ export function ApiKeyForm({
     if ((existing?.id ?? null) === loadedFor.current) return;
     loadedFor.current = existing?.id ?? null;
     setBaseUrl(existing?.config?.base_url ?? "");
+    setTrainingOptOut(!!existing?.config?.training_opt_out_confirmed);
     setApiVersion(existing?.config?.extra?.api_version ?? "");
   }, [existing]);
 
@@ -84,7 +86,8 @@ export function ApiKeyForm({
   const configChanged =
     (baseUrl.trim() || "") !== (existing?.config?.base_url ?? "") ||
     (apiVersion.trim() || "") !== (existing?.config?.extra?.api_version ?? "");
-  const hasChanges = !existing || apiKey.trim() !== "" || configChanged || !existing.is_active;
+  const hasChanges = !existing || apiKey.trim() !== "" || configChanged || !existing.is_active ||
+    (provider === "mistral" && trainingOptOut !== !!existing.config?.training_opt_out_confirmed);
 
   // The connection whose state we show: the one just tested, else the saved one.
   const shown = result?.connection.provider === provider ? result.connection : existing;
@@ -106,18 +109,20 @@ export function ApiKeyForm({
       let conn = existing;
       if (mode === "save") {
         const config: Record<string, unknown> = {};
+        if (provider === "mistral") config.training_opt_out_confirmed = trainingOptOut;
         if (offersBase) config.base_url = baseUrl.trim() || null;
         if (offersVersion) config.extra = { ...(existing?.config?.extra ?? {}), api_version: apiVersion.trim() || undefined };
         const secrets = apiKey.trim() ? { api_key: apiKey.trim() } : undefined;
         if (conn) {
           conn = await connectionApi.update(conn.id, { config, secrets });
-          if (!conn.is_active) await activateConnection(conn, connections);
+
         } else {
           conn = await connectionApi.create({
             kind: "ai",
             method: "api",
             provider,
             name: aiProviderLabel(provider),
+            is_active: false,
             config,
             secrets,
           });
@@ -127,6 +132,7 @@ export function ApiKeyForm({
       if (!conn) return;
       const res = await connectionApi.test(conn.id);
       setResult(res);
+      if (res.ok && mode === "save" && !conn.is_active) await activateConnection(res.connection, connections);
       await invalidateConnections(qc, { models: true });
       if (res.ok) onConnected?.(res.connection, res);
     } catch (err) {
@@ -178,6 +184,9 @@ export function ApiKeyForm({
             disabled={!canManage || busy !== null}
             onChange={(e) => {
               setProvider(e.target.value);
+              setBaseUrl("");
+              setApiVersion("");
+              setTrainingOptOut(false);
               setApiKey("");
               setErrors({});
               setResult(null);
@@ -191,7 +200,8 @@ export function ApiKeyForm({
           error={errors.key}
           hint={
             <span className="block space-y-0.5">
-              <span className="block">{KEY_HINT[provider] ?? "The key from your provider account."}</span>
+              <span className="block">{KEY_HINT[provider] ?? "Your own API key from this provider."}</span>
+              {def?.signup_url ? <a className="text-brand underline" href={def.signup_url} target="_blank" rel="noreferrer">Open {aiProviderLabel(provider)} API keys ↗</a> : null}
               <SecretNote />
             </span>
           }
@@ -245,9 +255,21 @@ export function ApiKeyForm({
         ) : null}
       </div>
 
+      {def?.hint ? (
+        <div className="space-y-2 rounded-lg border border-line bg-sunken p-4 text-sm text-ink-2">
+          <p>{def.hint}</p>
+          <p className="text-ink-3">Use the provider's free plan and check its billing limits. ESS does not buy credits or switch to another provider automatically. Keys stay encrypted on this Mac.</p>
+        </div>
+      ) : null}
+      {provider === "mistral" ? (
+        <label className="flex items-start gap-3 text-sm text-ink-2">
+          <input type="checkbox" className="mt-1 accent-brand" checked={trainingOptOut} disabled={!canManage || busy !== null} onChange={(e) => setTrainingOptOut(e.target.checked)} />
+          I have disabled API data training in my Mistral account. Allow this connection to process company documents.
+        </label>
+      ) : null}
       {switching ? (
         <p className="text-sm text-ink-2">
-          Saving switches the engine from {aiProviderLabel(active.provider)} to {aiProviderLabel(provider)}. You then choose a
+          A successful connection test switches the engine from {aiProviderLabel(active.provider)} to {aiProviderLabel(provider)}. You then choose a
           model of the new provider.
         </p>
       ) : null}

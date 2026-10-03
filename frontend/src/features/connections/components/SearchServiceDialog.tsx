@@ -9,10 +9,10 @@ import { SEARCH_PROVIDERS } from "../vocab";
 import { SecretInput, SecretNote } from "./bits";
 import { IssueBanner } from "./IssueBanner";
 
-function SearchServiceForm({ conn, onDone }: { conn?: ConnectionRow | null; onDone: () => void }) {
+function SearchServiceForm({ conn, kind, onDone }: { conn?: ConnectionRow | null; kind: "search" | "reader"; onDone: () => void }) {
   const qc = useQueryClient();
   const canManage = useCanManage();
-  const [provider, setProvider] = useState(conn?.provider ?? "brave");
+  const [provider, setProvider] = useState(conn?.provider ?? (kind === "reader" ? "firecrawl" : "tavily"));
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
@@ -20,7 +20,8 @@ function SearchServiceForm({ conn, onDone }: { conn?: ConnectionRow | null; onDo
   const [saved, setSaved] = useState<ConnectionRow | null>(null);
   const [result, setResult] = useState<TestResult | null>(null);
   const target = conn ?? saved;
-  const def = SEARCH_PROVIDERS.find((p) => p.key === provider);
+  const definitions = kind === "reader" ? SEARCH_PROVIDERS.filter((p) => p.key === "firecrawl") : SEARCH_PROVIDERS;
+  const def = definitions.find((p) => p.key === provider);
   const stored = target?.secrets?.api_key;
 
   async function run(e: FormEvent) {
@@ -36,7 +37,7 @@ function SearchServiceForm({ conn, onDone }: { conn?: ConnectionRow | null; onDo
       const secrets = key.trim() ? { api_key: key.trim() } : undefined;
       const row = target
         ? await connectionApi.update(target.id, { secrets })
-        : await connectionApi.create({ kind: "search", method: "api", provider, name: def?.label.replace(" (no key)", "") ?? provider, secrets });
+        : await connectionApi.create({ kind, is_active: false, method: "api", provider, name: def?.label.replace(" (no key)", "") ?? provider, secrets });
       setSaved(row);
       const res = await connectionApi.test(row.id);
       setSaved(res.connection);
@@ -44,7 +45,9 @@ function SearchServiceForm({ conn, onDone }: { conn?: ConnectionRow | null; onDo
       setKey("");
       await invalidateConnections(qc, { session: false });
       if (res.ok) {
-        toast.success("Search service works", { description: testSummary(res) });
+        await connectionApi.update(row.id, { is_active: true });
+        await invalidateConnections(qc, { session: false });
+        toast.success(kind === "reader" ? "Page reading works" : "Search service works", { description: testSummary(res) });
         onDone();
       }
     } catch (err) {
@@ -60,18 +63,21 @@ function SearchServiceForm({ conn, onDone }: { conn?: ConnectionRow | null; onDo
 
   return (
     <form onSubmit={run} noValidate className="space-y-5">
-      <Field label="Search service" htmlFor="search-provider" hint={def?.hint}>
+      <Field label={kind === "reader" ? "Page reader" : "Search service"} htmlFor="search-provider" hint={def?.hint}>
         <Select
           id="search-provider"
           value={provider}
           disabled={!!target || busy || !canManage}
-          options={SEARCH_PROVIDERS.map((p) => ({ value: p.key, label: p.label }))}
+          options={definitions.map((p) => ({ value: p.key, label: p.label }))}
           onChange={(e) => {
             setProvider(e.target.value);
+            setKey("");
             setError(null);
           }}
         />
       </Field>
+      {def?.signup ? <a href={def.signup} target="_blank" rel="noreferrer" className="inline-block text-sm text-brand underline">Open {def.label} API keys ↗</a> : null}
+      <p className="text-sm text-ink-3">Save and test makes one public test request and uses a small amount of your provider allowance. Your free plan and billing limits are controlled in the provider account.</p>
       {def?.needsKey ? (
         <Field label="API key" htmlFor="search-key" required={!stored?.set} error={error ?? undefined} hint={<SecretNote />}>
           <SecretInput
@@ -115,19 +121,21 @@ export function SearchServiceDialog({
   open,
   onOpenChange,
   conn,
+  kind = "search",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   conn?: ConnectionRow | null;
+  kind?: "search" | "reader";
 }) {
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={conn ? "Search service settings" : "Add search service"}
-      description="Used for customer research only. Web results are context for a customer's profile; they never decide what your company does."
+      title={kind === "reader" ? "Page reading settings" : conn ? "Search service settings" : "Add search service"}
+      description={kind === "reader" ? "Read public websites through Firecrawl while using your chosen search provider. Only public page URLs are sent to this service." : "Used for customer research only. Web results are context for a customer's profile; they never decide what your company does."}
     >
-      <SearchServiceForm key={conn?.id ?? "new"} conn={conn} onDone={() => onOpenChange(false)} />
+      <SearchServiceForm key={conn?.id ?? kind} kind={kind} conn={conn} onDone={() => onOpenChange(false)} />
     </Dialog>
   );
 }

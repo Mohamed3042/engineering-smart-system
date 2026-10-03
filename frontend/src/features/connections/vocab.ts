@@ -7,6 +7,9 @@ import type { StatusInfo } from "@/lib/labels";
 import type { ModelCapabilities } from "./types";
 
 export const AI_PROVIDER_LABEL: Record<string, string> = {
+  groq: "Groq",
+  mistral: "Mistral",
+  sambanova: "SambaNova",
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google",
@@ -17,9 +20,11 @@ export const AI_PROVIDER_LABEL: Record<string, string> = {
 
 export const aiProviderLabel = (k?: string | null) => (k ? (AI_PROVIDER_LABEL[k] ?? humanize(k)) : "—");
 
-export const SEARCH_PROVIDERS: { key: string; label: string; needsKey: boolean; hint: string }[] = [
+export const SEARCH_PROVIDERS: { key: string; label: string; needsKey: boolean; hint: string; signup?: string }[] = [
+  { key: "tavily", label: "Tavily", needsKey: true, hint: "Free monthly credits. ESS uses Basic searches to conserve them.", signup: "https://app.tavily.com/" },
+  { key: "exa", label: "Exa", needsKey: true, hint: "Free monthly credits. ESS uses Fast search with source highlights.", signup: "https://dashboard.exa.ai/api-keys" },
+  { key: "firecrawl", label: "Firecrawl", needsKey: true, hint: "Search and page reading use your Firecrawl credits. ESS reads individual pages without starting a site crawl.", signup: "https://www.firecrawl.dev/app/api-keys" },
   { key: "brave", label: "Brave Search", needsKey: true, hint: "Key from the Brave Search API dashboard." },
-  { key: "tavily", label: "Tavily", needsKey: true, hint: "Key from your Tavily account." },
   { key: "serpapi", label: "SerpApi", needsKey: true, hint: "Key from your SerpApi account." },
   { key: "duckduckgo", label: "DuckDuckGo (no key)", needsKey: false, hint: "Best effort, no key needed. Results can be thinner." },
 ];

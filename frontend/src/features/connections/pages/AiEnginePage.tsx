@@ -67,7 +67,7 @@ function ApiView({ status, connections }: { status: AiStatus; connections: Conne
       <Panel>
         <PanelHeader
           title="API key"
-          description="Your own key from OpenAI, Anthropic, Google, Azure OpenAI or an OpenAI-compatible service. The app calls the model directly."
+          description="Connect Groq, Mistral or SambaNova with a free-plan key, or use another provider. The app calls your chosen model directly."
         />
         <PanelBody>
           <ApiKeyForm connections={connections} />

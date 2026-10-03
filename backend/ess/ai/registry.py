@@ -21,7 +21,9 @@ from typing import Any
 
 import yaml
 
-PROVIDERS = ("openai", "anthropic", "google", "azure_openai", "openai_compatible")
+from .hosted import HOSTED
+
+PROVIDERS = ("openai", "anthropic", "google", "azure_openai", "openai_compatible", *HOSTED)
 TIERS = ("frontier", "standard", "light", "refused")
 REGISTRY_PATH = Path(__file__).with_name("registry.yaml")
 

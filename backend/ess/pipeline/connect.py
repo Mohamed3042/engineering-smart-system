@@ -89,10 +89,10 @@ def _policy(ws: Workspace):
     return pol.DEFAULT_POLICY
 
 
-def _spec(provider: str, model: str):
+def _spec(provider: str, model: str, remote_info: dict | None = None):
     from ..ai.registry import get_spec
 
-    return get_spec(provider, model)
+    return get_spec(provider, model, remote_info=remote_info)
 
 
 def model_eligibility(session: Session, ws: Workspace, provider: str, model: str, task: Optional[str] = None) -> tuple[str, list[str]]:
@@ -100,7 +100,7 @@ def model_eligibility(session: Session, ws: Workspace, provider: str, model: str
 
     state = session.get(AIModelState, f"{ws.id}:{provider}:{model}")
     exam = state.exam if state and state.exam else None
-    result = evaluate_model(_spec(provider, model), _policy(ws), exam=exam, task=task)
+    result = evaluate_model(_spec(provider, model, state.capabilities if state else None), _policy(ws), exam=exam, task=task)
     return result.status, list(result.reasons)
 
 
@@ -110,6 +110,10 @@ def engine_for(session: Session, ws: Workspace, task: str, *, required: bool = F
     if conn is None or not (conn.config or {}).get("model"):
         if required:
             raise NotConnected("No AI engine selected. Connect a provider and pick an eligible model in Settings → AI.")
+        return None
+    if conn.provider == "mistral" and not conn.config.get("training_opt_out_confirmed"):
+        if required:
+            raise NotConnected("Disable API data training in Mistral, then confirm it in Settings → AI before processing company documents.")
         return None
     model = conn.config["model"]
     try:
@@ -125,5 +129,6 @@ def engine_for(session: Session, ws: Workspace, task: str, *, required: bool = F
     state = session.get(AIModelState, f"{ws.id}:{conn.provider}:{model}")
     engine = AIEngine(provider=conn.provider, model=model, api_key=get_secret(secret_name(conn, "api_key")),
                       base_url=(conn.config or {}).get("base_url"), extra=(conn.config or {}).get("extra") or {},
-                      policy=_policy(ws), exam=(state.exam or None) if state else None)
+                      policy=_policy(ws), exam=(state.exam or None) if state else None,
+                      remote_info=state.capabilities if state else None)
     return EngineChoice(engine=engine, connection=conn, model=model, status=status, reasons=reasons)

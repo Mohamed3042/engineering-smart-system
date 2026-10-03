@@ -149,6 +149,9 @@ export interface AiProvider {
   label: string;
   fields: string[];
   optional: string[];
+  signup_url?: string;
+  hint?: string;
+  base_url?: string;
 }
 
 /** A ready-to-copy client setup: a shell command or a JSON config. */

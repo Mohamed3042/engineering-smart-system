@@ -34,6 +34,10 @@ class SearchError(RuntimeError):
     """A search provider call failed (network, quota, blocked, bad key...)."""
 
 
+class SearchUnavailable(SearchError):
+    """A saved job can resume when credentials or quota become available."""
+
+
 class NotSupported(SearchError):
     """The provider cannot do this (e.g. an AI engine without native web search)."""
 
@@ -164,11 +168,11 @@ class _Http:
         try:
             r = self.client.request(method, url, **kwargs)
         except httpx.HTTPError as exc:
-            raise SearchError(f"{type(self).__name__}: {exc}") from exc
+            raise SearchError(f"{type(self).__name__}: network request failed ({type(exc).__name__})") from exc
         if r.status_code in (401, 403):
-            raise SearchError(f"{getattr(self, 'name', 'search')}: access denied (HTTP {r.status_code}) - check the API key")
-        if r.status_code == 429:
-            raise SearchError(f"{getattr(self, 'name', 'search')}: rate limited (HTTP 429)")
+            raise SearchUnavailable(f"{getattr(self, 'name', 'search')}: access denied (HTTP {r.status_code}) - check the API key")
+        if r.status_code in (402, 429):
+            raise SearchUnavailable(f"{getattr(self, 'name', 'search')}: quota or rate limit reached (HTTP {r.status_code}). Wait for reset or switch connection.")
         if r.status_code >= 400:
             raise SearchError(f"{getattr(self, 'name', 'search')}: HTTP {r.status_code}")
         return r
@@ -415,6 +419,10 @@ def get_search_provider(config: Mapping[str, Any] | None = None, **overrides: An
     common = {"timeout": float(cfg.get("timeout") or DEFAULT_TIMEOUT), "client": cfg.get("client")}
     if name in ("brave", "brave_search"):
         return BraveSearch(key, country=cfg.get("country"), **common)
+    if name in ("exa", "firecrawl"):
+        from .hosted_search import ExaSearch, FirecrawlSearch
+
+        return (ExaSearch if name == "exa" else FirecrawlSearch)(key, **common)
     if name == "tavily":
         return TavilySearch(key, **common)
     if name in ("serpapi", "serp_api", "serp", "google"):

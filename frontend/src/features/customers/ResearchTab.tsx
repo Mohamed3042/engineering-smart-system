@@ -24,7 +24,7 @@ import {
   Spinner,
   StatusChip,
 } from "@/ui";
-import { gapsOf, sectionsOf, useResearchHistory, type ResearchClaim, type ResearchGap, type ResearchSource } from "./api";
+import { gapsOf, sectionsOf, useResearchHistory, useResumeResearch, type ResearchClaim, type ResearchGap, type ResearchSource } from "./api";
 import { useCustomerContext } from "./CustomerLayout";
 import {
   gapKindInfo,
@@ -43,6 +43,7 @@ export function ResearchTab() {
   const { detail, openResearch } = useCustomerContext();
   const c = detail.customer;
   const history = useResearchHistory(c.id);
+  const resume = useResumeResearch(c.id);
   const [params, setParams] = useSearchParams();
   const reports = history.data ?? [];
   const selected = reports.find((r) => r.id === params.get("report")) ?? reports[0];
@@ -95,6 +96,14 @@ export function ResearchTab() {
   return (
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
       <div className="min-w-0 space-y-6">
+        {resume.isError ? <ErrorState error={resume.error} /> : null}
+        {selected.status === "paused" ? (
+          <Banner tone="review" title="Research saved · ready to resume" actions={
+            <Button variant="secondary" icon={<RefreshCw />} loading={resume.isPending} onClick={() => resume.mutate(selected.id)}>Resume saved research</Button>
+          }>
+            {selected.error} Successful searches and pages stay on this Mac. Update your connection in Settings or wait for its quota to reset, then resume here.
+          </Banner>
+        ) : null}
         {selected.status === "running" ? (
           <Panel>
             <PanelBody className="flex items-start gap-3 py-5">
@@ -112,12 +121,12 @@ export function ResearchTab() {
             tone="block"
             title="This research did not finish"
             actions={
-              <Button variant="secondary" icon={<RefreshCw />} onClick={openResearch}>
-                Try again
+              <Button variant="secondary" icon={<RefreshCw />} loading={resume.isPending} onClick={() => resume.mutate(selected.id)}>
+                Resume saved research
               </Button>
             }
           >
-            {selected.error || "The search or a page download failed."} Nothing in the profile was changed.
+            {selected.error || "The search or a page download failed."} Saved sources are retained for the next attempt.
           </Banner>
         ) : (
           <ReportView report={selected} onRerun={openResearch} isLatest={selected.id === reports[0]?.id} />

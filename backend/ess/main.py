@@ -22,6 +22,9 @@ log = logging.getLogger("ess")
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    from .api.customers import recover_interrupted_research
+
+    recover_interrupted_research()
     stop = asyncio.Event()
     tasks = []
     if os.environ.get("ESS_SCHEDULER", "1") == "1":

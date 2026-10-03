@@ -228,6 +228,7 @@ export const sectionStatusInfo = (k?: string | null) => lookup(SECTION_STATUS, k
 
 const RESEARCH_STATUS: Record<string, StatusInfo> = {
   running: { label: "Researching", tone: "neutral" },
+  paused: { label: "Saved · paused", tone: "review" },
   done: { label: "Finished", tone: "neutral" },
   failed: { label: "Failed", tone: "block" },
 };

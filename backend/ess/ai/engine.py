@@ -496,7 +496,8 @@ class AIEngine:
     def __init__(self, provider: str, model: str, api_key: str | None = None, base_url: str | None = None,
                  extra: dict | None = None, *, policy: Policy | None | object = _USE_STORE,
                  exam: dict | None | object = _USE_STORE, transport: Transport | None = None,
-                 max_retries: int = 4, timeout: float = 300.0, sleep: Callable[[float], None] = time.sleep) -> None:
+                 max_retries: int = 4, timeout: float = 300.0, sleep: Callable[[float], None] = time.sleep,
+                 remote_info: dict | None = None) -> None:
         if provider not in PROVIDERS:
             raise ValueError(f"unknown provider {provider!r}; expected one of {', '.join(PROVIDERS)}")
         if not model or not str(model).strip():
@@ -504,8 +505,14 @@ class AIEngine:
         self.provider = provider
         self.model = str(model).strip()
         self._api_key = api_key
-        self.base_url = base_url
+        from .hosted import HOSTED, endpoint
+
+        self.base_url = endpoint(provider, base_url)
         self.extra = dict(extra or {})
+        if provider in HOSTED:
+            self.extra["max_tokens_param"] = HOSTED[provider]["max_tokens_param"]
+            # A free quota should pause work promptly, not spend repeated attempts.
+            self.extra.setdefault("max_retries", 0)
         self.max_retries = int(self.extra.get("max_retries", max_retries))
         self.timeout = float(self.extra.get("timeout", timeout))
         self._policy_arg = policy
@@ -521,7 +528,7 @@ class AIEngine:
             base = registry.spec_for(provider, declared)
             self.spec = dataclasses.replace(base, model_id=self.model, canonical_id=base.canonical_id or base.model_id)
         else:
-            self.spec = registry.spec_for(provider, self.model)
+            self.spec = registry.spec_for(provider, self.model, remote_info=remote_info)
         self._native_schema = True
         self._dropped_params: set[str] = set()  # parameters the endpoint rejected (temperature, effort, thinking)
         self._adapter: _Adapter | None = None
@@ -710,7 +717,7 @@ class AIEngine:
         if self._adapter is None:
             if self.provider == "openai" and self.extra.get("api") != "chat":
                 self._adapter = _OpenAIResponsesAdapter(self)
-            elif self.provider in ("openai", "azure_openai", "openai_compatible"):
+            elif self.provider in ("openai", "azure_openai", "openai_compatible", "groq", "mistral", "sambanova"):
                 self._adapter = _ChatCompletionsAdapter(self)
             elif self.provider == "anthropic":
                 self._adapter = _AnthropicAdapter(self)
@@ -789,6 +796,8 @@ class AIEngine:
         if s == 404:
             return ModelNotFound(f"{self.provider} does not offer '{self._api_model()}' to this account: {msg}",
                                  **ctx), False, False
+        if s == 402:
+            return QuotaError(f"{self.provider} quota or credits exhausted (HTTP 402)", **ctx), False, False
         if s == 429:
             if code in ("insufficient_quota", "billing_hard_limit_reached") or "exceeded your current quota" in low \
                     or "billing" in low:

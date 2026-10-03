@@ -171,8 +171,8 @@ function MailboxSection({ connections, canManage }: { connections: ConnectionRow
 
 /* ------------------------------------------------------------------ web search */
 
-function SearchSection({ connections, canManage }: { connections: ConnectionRow[]; canManage: boolean }) {
-  const search = connections.filter((c) => c.kind === "search");
+function SearchSection({ connections, canManage, kind = "search" }: { connections: ConnectionRow[]; canManage: boolean; kind?: "search" | "reader" }) {
+  const search = connections.filter((c) => c.kind === kind);
   const [dialog, setDialog] = useState<{ conn: ConnectionRow | null } | null>(null);
   const [removing, setRemoving] = useState<ConnectionRow | null>(null);
   const remove = useRemoveConnection();
@@ -181,11 +181,11 @@ function SearchSection({ connections, canManage }: { connections: ConnectionRow[
   return (
     <Panel>
       <PanelHeader
-        title="Web search"
-        description="Optional. Used only for customer research. Web results are context for a profile; they never decide what your company does."
+        title={kind === "reader" ? "Page reading" : "Web search"}
+        description={kind === "reader" ? "Optional. Use Firecrawl to read public websites alongside Tavily, Exa or another search service." : "Optional. Used only for customer research. Web results are context for a profile; they never decide what your company does."}
         actions={
           <Button variant="secondary" size="sm" icon={<Plus />} disabled={!canManage} onClick={() => setDialog({ conn: null })}>
-            Add search service
+            {kind === "reader" ? "Connect Firecrawl" : "Add search service"}
           </Button>
         }
       />
@@ -196,9 +196,9 @@ function SearchSection({ connections, canManage }: { connections: ConnectionRow[
               <Search />
             </IconTile>
             <div className="min-w-0">
-              <p className="font-semibold text-ink">DuckDuckGo, no key</p>
+              <p className="font-semibold text-ink">{kind === "reader" ? "Direct page reading" : "DuckDuckGo, no key"}</p>
               <p className="text-sm text-ink-3">
-                Customer research uses it when no service is connected. Results are best effort and can be thinner than with Brave, Tavily or SerpApi.
+                {kind === "reader" ? "Public pages are read directly by the app, or through your search service when it includes page reading." : "Customer research uses DuckDuckGo when no service is connected. Add Tavily or Exa for a free monthly allowance with your own key."}
               </p>
             </div>
           </div>
@@ -213,7 +213,7 @@ function SearchSection({ connections, canManage }: { connections: ConnectionRow[
               title={searchProviderLabel(c.provider)}
               description="Used for customer research. Web results are context, never proof."
               canManage={canManage}
-              showActive={search.length > 1}
+              showActive
               onEdit={() => setDialog({ conn: c })}
               onRemove={() => setRemoving(c)}
               onMakeActive={() =>
@@ -227,7 +227,7 @@ function SearchSection({ connections, canManage }: { connections: ConnectionRow[
           ))}
         </ul>
       )}
-      <SearchServiceDialog open={dialog !== null} onOpenChange={(o) => !o && setDialog(null)} conn={dialog?.conn} />
+      <SearchServiceDialog kind={kind} open={dialog !== null} onOpenChange={(o) => !o && setDialog(null)} conn={dialog?.conn} />
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(o) => !o && setRemoving(null)}
@@ -363,6 +363,7 @@ export function ConnectionsPage() {
             </Panel>
             <SharedLinksSection />
             <SearchSection connections={rows} canManage={canManage} />
+            <SearchSection kind="reader" connections={rows} canManage={canManage} />
           </>
         )}
       </QueryState>

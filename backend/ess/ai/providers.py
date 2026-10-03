@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import httpx
 
 from .errors import AIError, AuthError, ProviderError, QuotaError
+from .hosted import HOSTED, endpoint
 
 OPENAI_BASE_URL = "https://api.openai.com/v1"
 ANTHROPIC_BASE_URL = "https://api.anthropic.com"
@@ -40,9 +41,9 @@ def _get(client: httpx.Client, provider: str, url: str, **kwargs: Any) -> dict:
     if resp.status_code == 404:
         raise ProviderError(f"{provider}: {url} was not found (HTTP 404) - check the base URL / endpoint.",
                             provider=provider, status_code=404)
-    if resp.status_code == 429:
-        raise QuotaError(f"{provider}: rate limit or quota exceeded while listing models (HTTP 429).",
-                         provider=provider, status_code=429)
+    if resp.status_code in (402, 429):
+        raise QuotaError(f"{provider}: rate limit or quota exceeded while listing models (HTTP {resp.status_code}).",
+                         provider=provider, status_code=resp.status_code)
     if resp.status_code >= 400:
         raise ProviderError(f"{provider}: listing models failed with HTTP {resp.status_code}: {resp.text[:300]}",
                             provider=provider, status_code=resp.status_code)
@@ -69,6 +70,17 @@ def _openai_like(provider: str, base: str, headers: dict[str, str], client: http
         if not isinstance(m, dict) or not m.get("id"):
             continue
         row: dict[str, Any] = {"id": m["id"], "owned_by": m.get("owned_by")}
+        context = m.get("context_window") or m.get("max_context_length")
+        if isinstance(context, int):
+            row["context_tokens"] = context
+        caps = m.get("capabilities") if isinstance(m.get("capabilities"), dict) else {}
+        for source, target in (("vision", "vision"), ("function_calling", "tool_use"),
+                               ("structured_outputs", "structured_output")):
+            if isinstance(caps.get(source), bool):
+                row[target] = caps[source]
+        # Groq's documented strict-schema models (not a quality qualification).
+        if provider == "groq" and m["id"] in ("openai/gpt-oss-120b", "openai/gpt-oss-20b"):
+            row.update(structured_output=True, vision=False)
         # OpenRouter-style metadata (other gateways simply omit it)
         if isinstance(m.get("context_length"), int):
             row["context_tokens"] = m["context_length"]
@@ -92,6 +104,9 @@ def list_remote_model_details(provider: str, api_key: str | None, base_url: str 
     own = client is None
     client = client or httpx.Client(timeout=TIMEOUT, follow_redirects=True)
     try:
+        if provider in HOSTED:
+            return _openai_like(provider, endpoint(provider, base_url),
+                                {"Authorization": f"Bearer {_need_key(provider, api_key)}"}, client)
         if provider == "openai":
             headers = {"Authorization": f"Bearer {_need_key(provider, api_key)}"}
             if extra.get("organization"):

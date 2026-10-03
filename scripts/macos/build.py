@@ -65,7 +65,7 @@ shutil.copy2(BUILD / 'engine.py', resources / 'engine.py')
 for name in ['Main.swift', 'engine.py', 'build.py', 'README.md', 'requirements-macos.txt']:
     shutil.copy2(BUILD / name, resources / 'build-source' / name)
 if (SOURCE / 'LICENSE').exists(): shutil.copy2(SOURCE / 'LICENSE', resources / 'LICENSE')
-release = {'name': 'Engineering Smart System', 'version': version, 'desktop_build': '2',
+release = {'name': 'Engineering Smart System', 'version': version, 'desktop_build': '3',
            'commit': commit, 'repository': 'https://github.com/Mohamed3042/engineering-smart-system',
            'distribution': 'local macOS redesign build', 'architecture': 'arm64',
            'built_on': date.today().isoformat(), 'minimum_macos': '15.0',
@@ -78,11 +78,11 @@ info = {'CFBundleDevelopmentRegion': 'en', 'CFBundleExecutable': 'Engineering Sm
         'CFBundleIdentifier': 'com.mohamed3042.engineeringsmartsystem',
         'CFBundleInfoDictionaryVersion': '6.0', 'CFBundleName': 'Engineering Smart System',
         'CFBundleDisplayName': 'Engineering Smart System', 'CFBundlePackageType': 'APPL',
-        'CFBundleShortVersionString': version, 'CFBundleVersion': '2', 'CFBundleIconFile': 'AppIcon',
+        'CFBundleShortVersionString': version, 'CFBundleVersion': '3', 'CFBundleIconFile': 'AppIcon',
         'LSMinimumSystemVersion': '15.0', 'LSApplicationCategoryType': 'public.app-category.business',
         'NSHighResolutionCapable': True, 'NSPrincipalClass': 'NSApplication',
         'NSAppTransportSecurity': {'NSAllowsLocalNetworking': True},
-        'NSHumanReadableCopyright': 'Engineering Smart System. Local macOS build 2.'}
+        'NSHumanReadableCopyright': 'Engineering Smart System. Local macOS build 3.'}
 (APP / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
 broken_links = [str(p) for p in APP.rglob('*') if p.is_symlink() and
                 (not p.exists() or not p.resolve().is_relative_to(APP.resolve()))]

@@ -258,59 +258,85 @@ def _search_provider(session: Session, ws: Workspace):
     conn = active_connection(session, ws, "search")
     if conn is None:
         return get_search_provider({"provider": "duckduckgo"})
-    return get_search_provider({"provider": conn.provider, "api_key": get_secret(f"{conn.id}:api_key"),
-                                **(conn.config or {})})
+    return get_search_provider({**(conn.config or {}), "provider": conn.provider,
+                                "api_key": get_secret(f"{conn.id}:api_key")})
+
+
+def _page_reader(session: Session, ws: Workspace):
+    from ..customers.search import get_search_provider
+    from ..pipeline.connect import active_connection
+    from ..secrets import get_secret
+
+    conn = active_connection(session, ws, "reader")
+    if conn:
+        return get_search_provider({"provider": conn.provider, "api_key": get_secret(f"{conn.id}:api_key")})
+    return None
 
 
 def run_research(report_id: str) -> None:
+    from ..config import get_settings
+    from ..customers.checkpoint import ResearchCheckpoint
     from ..customers.research import research_customer
     from ..pipeline.connect import engine_for
 
-    with session_scope() as s:
-        report = s.get(ResearchReport, report_id)
-        ws = s.get(Workspace, report.workspace_id)
-        c = s.get(Customer, report.customer_id)
-        provider = _search_provider(s, ws)
-        choice = engine_for(s, ws, "research_customer")
-        emails = s.exec(select(Email).where(Email.customer_id == c.id).order_by(col(Email.date).desc()).limit(20)).all()
-        own = [{"text": (e.body_text or e.snippet)[:3000], "source": f"email {e.id}", "date": e.date.isoformat() if e.date else None}
-               for e in emails]
-        customer = {"name": c.name, "domain": c.domain, "country": c.country, "city": c.city, "kind": c.kind}
-        standard = report.standard
+    checkpoint = None
     try:
-        result = research_customer(customer, provider, engine=choice.engine if choice else None, standard=standard,
-                                   own_evidence=own)
         with session_scope() as s:
             report = s.get(ResearchReport, report_id)
-            report.status = "done"
+            ws = s.get(Workspace, report.workspace_id)
+            c = s.get(Customer, report.customer_id)
+            provider = _search_provider(s, ws)
+            reader = _page_reader(s, ws)
+            choice = engine_for(s, ws, "research_customer")
+            emails = s.exec(select(Email).where(Email.customer_id == c.id).order_by(col(Email.date).desc()).limit(20)).all()
+            own = [{"text": (e.body_text or e.snippet)[:3000], "source": f"email {e.id}", "date": e.date.isoformat() if e.date else None}
+                   for e in emails]
+            customer = {"name": c.name, "domain": c.domain, "country": c.country, "city": c.city, "kind": c.kind}
+            standard, started = report.standard, report.created_at
+        checkpoint = ResearchCheckpoint(get_settings().data_dir / "research" / f"{report_id}.json",
+                                        {"customer": customer, "standard": standard, "own": own}, provider, reader)
+        from datetime import timezone
+
+        result = research_customer(customer, checkpoint, engine=choice.engine if choice else None, standard=standard,
+                                   own_evidence=own, now=started.replace(tzinfo=timezone.utc))
+        paused = checkpoint.paused_reason or result.get("paused_reason")
+        with session_scope() as s:
+            report = s.get(ResearchReport, report_id)
+            report.status = "paused" if paused else "done"
+            report.error = paused
             report.sections = result.get("sections") or {}
             report.gaps = result.get("gaps") or []
-            report.met_standard = bool(result.get("met_standard"))
+            report.met_standard = bool(result.get("met_standard")) and not paused
             report.evidence_count = int(result.get("evidence_count") or 0)
             report.summary = result.get("summary") or ""
-            report.provider = getattr(provider, "name", type(provider).__name__)
-            report.finished_at = utcnow()
+            report.provider = checkpoint.name
+            report.finished_at = None if paused else utcnow()
             s.add(report)
             c = s.get(Customer, report.customer_id)
             c.profile_status = "ready" if report.met_standard else "partial"
             s.add(c)
-            log_activity(s, report.workspace_id, "research", f"Research ready: {c.name}",
-                         detail=f"{report.evidence_count} sources; standard {'met' if report.met_standard else 'partly met'}",
-                         customer_id=c.id, severity="success")
+            log_activity(s, report.workspace_id, "research", f"Research {'paused' if paused else 'ready'}: {c.name}",
+                         detail=paused or f"{report.evidence_count} sources saved",
+                         customer_id=c.id, severity="warning" if paused else "success")
     except Exception as exc:
         with session_scope() as s:
             report = s.get(ResearchReport, report_id)
             report.status, report.error, report.finished_at = "failed", str(exc)[:1000], utcnow()
             s.add(report)
             c = s.get(Customer, report.customer_id)
-            c.profile_status = "none"
+            c.profile_status = "partial" if report.evidence_count else "none"
             s.add(c)
+    finally:
+        if checkpoint:
+            checkpoint.close()
 
 
 @router.post("/customers/{customer_id}/research")
 def start_research(customer_id: str, data: dict = Body(default={}), session: Session = Depends(get_session),
                    ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> ResearchReport:
     c = get_or_404(session, Customer, customer_id, ws)
+    if jobs.is_running(f"research:{c.id}"):
+        raise HTTPException(409, "Research for this customer is already running")
     standard = data.get("standard") or "standard"
     if standard not in ("basic", "standard", "deep"):
         raise HTTPException(400, {"code": "bad_standard", "message": standard})
@@ -321,8 +347,45 @@ def start_research(customer_id: str, data: dict = Body(default={}), session: Ses
     session.add(report)
     session.add(c)
     session.commit()
-    jobs.submit(f"research:{c.id}", run_research, report.id)
+    if not jobs.submit(f"research:{c.id}", run_research, report.id):
+        report.status, report.error = "paused", "Another research job is running for this customer. Resume when it finishes."
+        session.add(report)
+        session.commit()
     return report
+
+
+@router.post("/customers/{customer_id}/research/{report_id}/resume")
+def resume_research(customer_id: str, report_id: str, session: Session = Depends(get_session),
+                    ws: Workspace = Depends(ws_dep), user: TeamMember = Depends(user_dep)) -> ResearchReport:
+    c = get_or_404(session, Customer, customer_id, ws)
+    report = get_or_404(session, ResearchReport, report_id, ws)
+    if report.customer_id != c.id:
+        raise HTTPException(404, "Research report not found")
+    if report.status not in ("paused", "failed") or jobs.is_running(f"research:{c.id}"):
+        raise HTTPException(409, "Only paused or failed research can be resumed")
+    report.status, report.error, report.finished_at = "running", None, None
+    c.profile_status = "researching"
+    session.add(report)
+    session.add(c)
+    session.commit()
+    if not jobs.submit(f"research:{c.id}", run_research, report.id):
+        report.status, report.error = "paused", "Another research job is running for this customer. Resume when it finishes."
+        session.add(report)
+        session.commit()
+    return report
+
+
+def recover_interrupted_research() -> None:
+    """Startup cannot replay provider calls without a user's explicit resume."""
+    with session_scope() as s:
+        for report in s.exec(select(ResearchReport).where(ResearchReport.status == "running")).all():
+            report.status = "paused"
+            report.error = "The app stopped before research finished. Saved sources are ready to resume."
+            s.add(report)
+            c = s.get(Customer, report.customer_id)
+            if c:
+                c.profile_status = "partial" if report.evidence_count else "none"
+                s.add(c)
 
 
 @router.get("/customers/{customer_id}/research")

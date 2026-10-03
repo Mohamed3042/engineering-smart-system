@@ -308,6 +308,18 @@ export function useStartResearch(id: string) {
   });
 }
 
+export function useResumeResearch(customerId: string) {
+  const qc = useQueryClient();
+  const invalidate = useInvalidateCustomer();
+  return useMutation({
+    mutationFn: (reportId: string) => api.post<ResearchReport>(`/customers/${customerId}/research/${reportId}/resume`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["research", customerId] });
+      invalidate(customerId);
+    },
+  });
+}
+
 export function useCheckUpdates(id: string) {
   return useMutation({
     mutationFn: () => api.post<{ started: boolean }>(`/customers/${id}/updates/check`),

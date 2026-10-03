@@ -16,7 +16,12 @@ from .deps import get_or_404, require_role, user_dep, ws_dep
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
+from ..ai.hosted import HOSTED
+
 PROVIDERS = [
+    *[{"key": key, "label": spec["label"], "fields": ["api_key"], "optional": [],
+       "signup_url": spec["signup_url"], "hint": spec["hint"], "base_url": spec["base_url"]}
+      for key, spec in HOSTED.items()],
     {"key": "openai", "label": "OpenAI", "fields": ["api_key"], "optional": ["base_url"]},
     {"key": "anthropic", "label": "Anthropic (Claude)", "fields": ["api_key"], "optional": []},
     {"key": "google", "label": "Google (Gemini)", "fields": ["api_key"], "optional": []},
@@ -43,7 +48,8 @@ def _spec_dict(spec: Any) -> dict:
 def _evaluate_all(session: Session, ws: Workspace, provider: str, model_id: str, exam: Optional[dict]) -> dict:
     from ..ai.policy import evaluate_model
 
-    spec = _spec(provider, model_id)
+    state = session.get(AIModelState, f"{ws.id}:{provider}:{model_id}")
+    spec = _spec(provider, model_id, state.capabilities if state else None)
     policy = _policy(ws)
     per_task = {}
     for task in ("classify_email", *CRITICAL_TASKS):
@@ -54,9 +60,13 @@ def _evaluate_all(session: Session, ws: Workspace, provider: str, model_id: str,
 
 
 def upsert_model_state(session: Session, ws: Workspace, provider: str, model_id: str, source: str = "registry",
-                       exam: Optional[dict] = None) -> AIModelState:
+                       exam: Optional[dict] = None, remote_info: Optional[dict] = None) -> AIModelState:
     sid = f"{ws.id}:{provider}:{model_id}"
     state = session.get(AIModelState, sid) or AIModelState(id=sid, workspace_id=ws.id, provider=provider, model_id=model_id)
+    if remote_info is not None:
+        state.capabilities = remote_info
+        session.add(state)
+        session.flush()
     if exam is not None:
         state.exam = exam
         state.evaluated_at = utcnow()
@@ -68,14 +78,15 @@ def upsert_model_state(session: Session, ws: Workspace, provider: str, model_id:
     state.capabilities = caps if isinstance(caps, dict) else _spec_dict(caps)
     state.status = ev["overall"].status
     state.reasons = [*ev["overall"].reasons, *[f"{t}: {v['status']}" for t, v in ev["per_task"].items()]]
-    state.source = source if state.source != "registry" else state.source
+    state.source = source if source != "registry" else state.source
     state.updated_at = utcnow()
     session.add(state)
     return state
 
 
-def upsert_remote_models(session: Session, ws: Workspace, conn: Connection, models: list[str]) -> list[AIModelState]:
-    return [upsert_model_state(session, ws, conn.provider, m, source="remote") for m in models]
+def upsert_remote_models(session: Session, ws: Workspace, conn: Connection, models: list) -> list[AIModelState]:
+    return [upsert_model_state(session, ws, conn.provider, m["id"] if isinstance(m, dict) else m,
+                               source="remote", remote_info=m if isinstance(m, dict) else None) for m in models]
 
 
 @router.get("/providers")
@@ -106,13 +117,13 @@ def models(provider: Optional[str] = None, session: Session = Depends(get_sessio
 
 @router.post("/models/refresh")
 def refresh(data: dict = Body(default={}), session: Session = Depends(get_session), ws: Workspace = Depends(ws_dep)) -> dict:
-    from ..ai.providers import list_remote_models
+    from ..ai.providers import list_remote_model_details
 
     conn = get_or_404(session, Connection, data["connection_id"], ws) if data.get("connection_id") else active_connection(session, ws, "ai", "api")
     if conn is None:
         raise HTTPException(409, {"code": "no_connection", "message": "Connect an AI provider first"})
     try:
-        remote = list_remote_models(conn.provider, get_secret(secret_name(conn, "api_key")),
+        remote = list_remote_model_details(conn.provider, get_secret(secret_name(conn, "api_key")),
                                     (conn.config or {}).get("base_url"), (conn.config or {}).get("extra"))
     except Exception as exc:
         raise HTTPException(502, {"code": "provider_error", "message": str(exc)[:500]})
@@ -128,14 +139,15 @@ def run_exam(ws_id: str, conn_id: str, model_id: str) -> dict:
     with session_scope() as s:
         conn = s.get(Connection, conn_id)
         ws = s.get(Workspace, ws_id)
-        spec = _spec(conn.provider, model_id)
+        model_state = s.get(AIModelState, f"{ws.id}:{conn.provider}:{model_id}")
+        spec = _spec(conn.provider, model_id, model_state.capabilities if model_state else None)
         tier = getattr(spec, "tier", "standard")
         if tier == "refused":
             raise ValueError(f"{model_id} is refused by policy and cannot be examined")
         policy = _policy(ws)
         engine = AIEngine(provider=conn.provider, model=model_id, api_key=get_secret(secret_name(conn, "api_key")),
                           base_url=(conn.config or {}).get("base_url"), extra=(conn.config or {}).get("extra") or {},
-                          policy=policy, exam=None)
+                          policy=policy, exam=None, remote_info=model_state.capabilities if model_state else None)
     try:
         exam = run_qualification(engine, policy=policy)
     except Exception as exc:
@@ -242,11 +254,13 @@ def status(session: Session = Depends(get_session), ws: Workspace = Depends(ws_d
             "exam": exam_state.exam if exam_state else None,
             "evaluated_at": exam_state.evaluated_at if exam_state else None,
         }
+    privacy_ready = not (conn_api and conn_api.provider == "mistral" and not conn_api.config.get("training_opt_out_confirmed"))
     mcp_ready = bool(mcp and any(t.get("status") == "eligible" for t in mcp["tasks"].values()))
     return {
         "method": "api" if conn_api and conn_api.is_active else ("mcp" if mcp else None),
         "api": {"provider": conn_api.provider, "model": model, "status": conn_api.status,
-                "eligibility": state.status if state else None, "reasons": state.reasons if state else []} if conn_api else None,
+                "eligibility": (state.status if state else None) if privacy_ready else "needs_evaluation",
+                "reasons": (state.reasons if state else []) if privacy_ready else ["Confirm API data training is disabled in Mistral settings."]} if conn_api else None,
         "mcp": mcp,
-        "rules_only": not (conn_api and state and state.status == "eligible") and not mcp_ready,
+        "rules_only": not (conn_api and privacy_ready and state and state.status == "eligible") and not mcp_ready,
     }

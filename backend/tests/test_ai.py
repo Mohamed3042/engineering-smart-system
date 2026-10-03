@@ -551,7 +551,7 @@ def test_registry_rejects_bad_entries():
         parse_registry({"models": [{"provider": "openai", "id": "x", "tier": "standard"},
                                    {"provider": "openai", "id": "y", "aliases": ["x"], "tier": "standard"}]})
     with pytest.raises(ValueError):
-        get_spec("mistral", "mistral-large")
+        get_spec("unknown-provider", "unknown-model")
 
 
 def test_classify_unknown_uses_remote_metadata():

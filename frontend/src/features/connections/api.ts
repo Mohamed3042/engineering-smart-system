@@ -73,7 +73,8 @@ export function invalidateConnections(qc: QueryClient, opts: { session?: boolean
 /* ------------------------------------------------------------------ connection mutations */
 
 export interface ConnectionInput {
-  kind: "ai" | "mail" | "search";
+  kind: "ai" | "mail" | "search" | "reader";
+  is_active?: boolean;
   method: string;
   provider: string;
   name?: string;
@@ -92,14 +93,9 @@ export const connectionApi = {
   oauthStart: (id: string) => api.post<{ auth_url: string; redirect_uri: string }>(`/connections/${id}/oauth/start`),
 };
 
-/** Make one connection the active one of its kind (the backend keeps one active per kind on create only). */
-export async function activateConnection(conn: ConnectionRow, all: ConnectionRow[]) {
-  for (const other of all) {
-    if (other.id !== conn.id && other.kind === conn.kind && other.is_active) {
-      await connectionApi.update(other.id, { is_active: false });
-    }
-  }
-  if (!conn.is_active) await connectionApi.update(conn.id, { is_active: true });
+/** The backend switches the active connection atomically within its kind. */
+export async function activateConnection(conn: ConnectionRow, _all: ConnectionRow[]) {
+  await connectionApi.update(conn.id, { is_active: true });
 }
 
 export function useTestConnection() {
